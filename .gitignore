@@ -21,3 +21,16 @@ Thumbs.db
 # Python
 __pycache__/
 *.pyc
+
+# 実データは社用ドライブ側にのみ置く（2026-09-03 実データ分離）
+*.xlsx
+*.xls
+*.xlsm
+*.csv
+*.tsv
+*.dump
+*.sql.gz
+logs/
+.env.*
+!.env.example
+!data/sample/**

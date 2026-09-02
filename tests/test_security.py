@@ -20,8 +20,9 @@ QUIZ_SET = "c75def6b-7623-4d86-8540-0c5b081ecf7c"
 
 passed, failed = [], []
 
-def req(path, token=None, body=None):
+def req(path, token=None, body=None, extra=None):
     headers = {"apikey": ANON, "Content-Type": "application/json"}
+    if extra: headers.update(extra)
     if token: headers["Authorization"] = "Bearer " + token
     data = json.dumps(body).encode() if body is not None else None
     r = urllib.request.Request(BASE + path, data=data, headers=headers)
@@ -85,6 +86,21 @@ check("学生のattempts一覧に自分以外が混ざらない", len(uids) <= 1
 st, _ = req("/rest/v1/attempts", stok, {"quiz_set_id": QUIZ_SET, "score": 10, "total": 10,
                                          "student_id": "00000000-0000-0000-0000-000000000000"})
 check("学生は attempts に直接insertできない（満点偽造不可）", st in (401, 403))
+
+# 7. アンケート（survey_responses）
+UP = {"Prefer": "resolution=merge-duplicates"}
+st, _ = req("/rest/v1/survey_responses?on_conflict=student_id,survey_key", stok,
+            {"survey_key": "test_rls", "answers": {"job": "テスト"}}, UP)
+check("学生はアンケートを提出できる（本人扱いで保存）", st in (200, 201))
+st, _ = req("/rest/v1/survey_responses", stok,
+            {"student_id": "00000000-0000-0000-0000-000000000000",
+             "survey_key": "test_rls_fake", "answers": {}})
+check("学生は他人名義でアンケートを出せない", st in (401, 403))
+st2tok = login("s002", "sakura24")
+st, rows = req("/rest/v1/survey_responses?select=student_id&survey_key=eq.test_rls", st2tok)
+check("学生は他人のアンケート回答を読めない", rows == [])
+st, rows = req("/rest/v1/survey_responses?select=student_id&survey_key=eq.test_rls", ttok)
+check("教師は全員のアンケート回答を読める", isinstance(rows, list) and len(rows) >= 1)
 
 print(f"\n結果: {len(passed)} PASS / {len(failed)} FAIL")
 sys.exit(0 if not failed else 1)

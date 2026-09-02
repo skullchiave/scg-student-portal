@@ -6,6 +6,40 @@
 <title>SCG 学生ポータル</title>
 <meta name="theme-color" content="#ffffff">
 <link rel="stylesheet" href="assets/app.css">
+<style>
+/* マイページ */
+.me{display:flex;align-items:center;gap:16px;}
+.avatar{width:58px;height:58px;border-radius:50%;background:#eaf1fe;color:var(--accent);
+  display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;}
+.mename{font-size:clamp(20px,5.6vw,26px);font-weight:900;line-height:1.3;}
+.memeta{font-size:14px;color:var(--sub);font-weight:700;margin-top:3px;}
+.chip{display:inline-block;background:#eaf1fe;color:var(--accentT);border-radius:20px;
+  padding:2px 12px;font-size:13px;font-weight:800;margin-right:6px;}
+.menu{display:flex;flex-direction:column;gap:14px;}
+.menubtn{display:flex;align-items:center;gap:16px;background:#fff;border:1px solid var(--line);
+  border-left:10px solid var(--accent);border-radius:18px;padding:20px;text-align:left;
+  font-family:inherit;font-size:16px;cursor:pointer;box-shadow:0 3px 10px rgba(30,50,90,.07);
+  -webkit-tap-highlight-color:transparent;transition:transform .12s;width:100%;color:var(--ink);}
+.menubtn:active{transform:scale(.985);}
+.menubtn .mi{font-size:30px;flex-shrink:0;}
+.menubtn .mt{flex:1;min-width:0;}
+.menubtn .ml{display:block;font-size:clamp(18px,5vw,22px);font-weight:900;}
+.menubtn .md{display:block;font-size:13px;color:var(--sub);margin-top:3px;line-height:1.5;}
+.menubtn .mgo{color:var(--sub);font-weight:900;font-size:22px;flex-shrink:0;}
+.menubtn.m-survey{border-left-color:#15803d;}
+.badge-done{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:#15803d;
+  border-radius:20px;padding:2px 10px;margin-left:8px;vertical-align:middle;}
+.backrow{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+.backbtn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--line);
+  border-radius:12px;padding:10px 16px;font-size:15px;font-weight:800;color:var(--ink);
+  font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0;}
+.backbtn:active{transform:scale(.97);}
+.backtitle{font-size:clamp(17px,4.8vw,21px);font-weight:900;}
+.field select{width:100%;font-size:18px;font-family:inherit;padding:14px;border:1.5px solid var(--line);
+  border-radius:12px;background:#fff;color:var(--ink);}
+.field select:focus{outline:2px solid var(--accent);border-color:var(--accent);}
+.survey-note{font-size:14px;color:var(--sub);line-height:1.8;margin-bottom:16px;}
+</style>
 </head>
 <body>
 <header>
@@ -29,14 +63,45 @@
     <div class="msg" id="login-msg"></div>
   </section>
 
-  <!-- ホーム: テスト一覧 -->
-  <section id="scr-home" hidden>
+  <!-- マイページ -->
+  <section id="scr-mypage" hidden>
     <div class="card">
-      <h2 id="hello"></h2>
-      <div id="quiz-list"></div>
-      <div class="msg" id="home-msg"></div>
+      <div class="me">
+        <div class="avatar">🎓</div>
+        <div>
+          <div class="mename" id="my-name"></div>
+          <div class="memeta"><span class="chip" id="my-class"></span><span id="my-no"></span></div>
+        </div>
+      </div>
     </div>
-    <button class="btn ghost" id="btn-logout">ログアウト</button>
+    <div class="menu">
+      <button class="menubtn" id="btn-gotest">
+        <span class="mi">📝</span>
+        <span class="mt"><span class="ml">テストを うける</span>
+        <span class="md">2つから えらぶ もんだい。すぐに てんすうが でます</span></span>
+        <span class="mgo">›</span>
+      </button>
+      <button class="menubtn m-survey" id="btn-gosurvey">
+        <span class="mi">📋</span>
+        <span class="mt"><span class="ml">アンケートに こたえる<span class="badge-done" id="survey-done-badge" hidden>ていしゅつ済み</span></span>
+        <span class="md">しんろアンケート（しごと・ぶんや・まち）</span></span>
+        <span class="mgo">›</span>
+      </button>
+    </div>
+    <div class="msg" id="my-msg"></div>
+    <button class="btn ghost" id="btn-logout" style="margin-top:16px;">ログアウト</button>
+  </section>
+
+  <!-- テスト一覧 -->
+  <section id="scr-quizlist" hidden>
+    <div class="backrow">
+      <button class="backbtn" data-back>‹ もどる</button>
+      <span class="backtitle">📝 テストを うける</span>
+    </div>
+    <div class="card">
+      <div id="quiz-list"></div>
+      <div class="msg" id="list-msg"></div>
+    </div>
   </section>
 
   <!-- 出題 -->
@@ -54,7 +119,7 @@
     </div>
   </section>
 
-  <!-- 結果 -->
+  <!-- テスト結果 -->
   <section id="scr-result" hidden>
     <div class="card">
       <div class="score">
@@ -66,7 +131,44 @@
       <h2>こたえの かくにん</h2>
       <div id="r-list"></div>
     </div>
-    <button class="btn" id="btn-home">ホームへ もどる</button>
+    <button class="btn" id="btn-r-home">マイページへ もどる</button>
+  </section>
+
+  <!-- 進路アンケート -->
+  <section id="scr-survey" hidden>
+    <div class="backrow">
+      <button class="backbtn" data-back>‹ もどる</button>
+      <span class="backtitle">📋 しんろアンケート</span>
+    </div>
+    <div class="card">
+      <div class="survey-note">しょうらいの ことを おしえてください。<br>まだ きまっていなくても、いま おもっていることで OK です。</div>
+      <div class="field">
+        <label for="sv-job">① やってみたい しごと</label>
+        <input id="sv-job" type="text" placeholder="れい: つうやく、IT エンジニア、ホテルの しごと">
+      </div>
+      <div class="field">
+        <label for="sv-field">② すすみたい ぶんや</label>
+        <select id="sv-field">
+          <option value="">えらんで ください</option>
+          <option>IT・コンピューター</option>
+          <option>ビジネス・けいえい</option>
+          <option>つうやく・ほんやく</option>
+          <option>かんこう・ホテル</option>
+          <option>かいご・いりょう</option>
+          <option>デザイン・アニメ・アート</option>
+          <option>りょうり・せいか</option>
+          <option>じどうしゃ・きかい</option>
+          <option>そのほか</option>
+          <option>まだ わからない</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="sv-town">③ すみたい まち（はたらきたい まち）</label>
+        <input id="sv-town" type="text" placeholder="れい: 東京、大阪、京都">
+      </div>
+      <button class="btn" id="btn-survey-submit">そうしん（送信）</button>
+      <div class="msg" id="survey-msg"></div>
+    </div>
   </section>
 
 </main>
@@ -75,12 +177,14 @@
 <script src="assets/api.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-const screens = ["scr-login","scr-home","scr-quiz","scr-result"];
+const screens = ["scr-login","scr-mypage","scr-quizlist","scr-quiz","scr-result","scr-survey"];
 function show(id){ screens.forEach(s => $(s).hidden = (s !== id)); window.scrollTo(0,0); }
 function err(id, text){ const m=$(id); m.className="msg err"; m.textContent=text; }
+function info(id, text){ const m=$(id); m.className="msg info"; m.textContent=text; }
 function clearMsg(id){ const m=$(id); m.className="msg"; m.textContent=""; }
 
 let quizSet=null, questions=[], cur=0, answers={}, startedAt=0;
+const SURVEY_KEY = "shinro_2026";
 
 /* ---- ログイン ---- */
 $("btn-login").onclick = async () => {
@@ -88,18 +192,32 @@ $("btn-login").onclick = async () => {
   const no=$("in-no").value.trim(), pw=$("in-pw").value;
   if(!no||!pw){ err("login-msg","番号とパスワードを入れてください"); return; }
   $("btn-login").disabled=true; $("btn-login").textContent="ログインしています…";
-  try{ await api.login(no,pw); await goHome(); }
+  try{ await api.login(no,pw); await goMyPage(); }
   catch(e){ err("login-msg", e.message); }
   finally{ $("btn-login").disabled=false; $("btn-login").textContent="ログイン"; }
 };
 $("in-pw").addEventListener("keydown", e=>{ if(e.key==="Enter") $("btn-login").click(); });
-
 $("btn-logout").onclick = () => { api.logout(); show("scr-login"); };
+document.querySelectorAll("[data-back]").forEach(b=>b.onclick=goMyPage);
 
-/* ---- ホーム ---- */
-async function goHome(){
-  $("hello").textContent = api.profile.display_name + " さん、こんにちは";
-  show("scr-home"); clearMsg("home-msg");
+/* ---- マイページ ---- */
+async function goMyPage(){
+  const p = api.profile;
+  $("my-name").textContent = p.display_name + " さん";
+  $("my-class").textContent = p.class_name || "クラス未設定";
+  $("my-no").textContent = p.student_no;
+  show("scr-mypage"); clearMsg("my-msg");
+  // アンケート提出済みバッジ（失敗しても画面は出す）
+  try{
+    const r = await api.get("/rest/v1/survey_responses?select=answers&survey_key=eq."+SURVEY_KEY+"&limit=1");
+    $("survey-done-badge").hidden = !r.length;
+    window._surveyPrev = r.length ? r[0].answers : null;
+  }catch(e){ /* バッジなしで続行 */ }
+}
+
+/* ---- テスト一覧 ---- */
+$("btn-gotest").onclick = async ()=>{
+  show("scr-quizlist"); clearMsg("list-msg");
   $("quiz-list").innerHTML = "<div style='color:var(--sub);padding:8px 0'>よみこみ中…</div>";
   try{
     const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson&is_open=eq.true&order=created_at.desc");
@@ -112,17 +230,17 @@ async function goHome(){
       b.onclick = ()=>startQuiz(s);
       $("quiz-list").appendChild(b);
     });
-  }catch(e){ err("home-msg", e.message); }
-}
+  }catch(e){ err("list-msg", e.message); }
+};
 
 /* ---- 出題 ---- */
 async function startQuiz(s){
   quizSet=s; answers={}; cur=0; startedAt=Date.now();
   try{
     questions = await api.get("/rest/v1/questions?select=id,seq,prompt,choice_a,choice_b&quiz_set_id=eq."+s.id+"&order=seq");
-    if(!questions.length){ err("home-msg","もんだいが ありません"); return; }
+    if(!questions.length){ err("list-msg","もんだいが ありません"); return; }
     show("scr-quiz"); render();
-  }catch(e){ err("home-msg", e.message); }
+  }catch(e){ err("list-msg", e.message); }
 }
 function render(){
   clearMsg("quiz-msg");
@@ -143,7 +261,6 @@ $("ch-a").onclick=()=>{ answers[questions[cur].id]="a"; render(); };
 $("ch-b").onclick=()=>{ answers[questions[cur].id]="b"; render(); };
 $("btn-next").onclick = async ()=>{
   if(cur < questions.length-1){ cur++; render(); return; }
-  // 送信
   $("btn-next").disabled=true; $("btn-next").textContent="そうしん中…";
   try{
     const r = await api.rpc("submit_attempt",{
@@ -156,8 +273,6 @@ $("btn-next").onclick = async ()=>{
     $("btn-next").disabled=false; $("btn-next").textContent="そうしん（送信）";
   }
 };
-
-/* ---- 結果 ---- */
 function showResult(r){
   $("r-score").textContent = r.score;
   $("r-of").textContent = "／ "+r.total+" もん せいかい";
@@ -173,11 +288,56 @@ function showResult(r){
   });
   show("scr-result");
 }
-$("btn-home").onclick=goHome;
+$("btn-r-home").onclick=goMyPage;
+
+/* ---- 進路アンケート ---- */
+$("btn-gosurvey").onclick = ()=>{
+  clearMsg("survey-msg");
+  const prev = window._surveyPrev;
+  if(prev){
+    $("sv-job").value = prev.job || "";
+    $("sv-field").value = prev.field || "";
+    $("sv-town").value = prev.town || "";
+    info("survey-msg","ていしゅつ済みです。なおして もういちど そうしん できます。");
+    $("btn-survey-submit").textContent = "なおして そうしん";
+  }else{
+    $("btn-survey-submit").textContent = "そうしん（送信）";
+  }
+  show("scr-survey");
+};
+$("btn-survey-submit").onclick = async ()=>{
+  const ans = {
+    job: $("sv-job").value.trim(),
+    field: $("sv-field").value,
+    town: $("sv-town").value.trim(),
+  };
+  if(!ans.job && !ans.field && !ans.town){ err("survey-msg","1つ以上 かいてください"); return; }
+  const btn=$("btn-survey-submit");
+  btn.disabled=true; btn.textContent="そうしん中…";
+  try{
+    // student_id は送らない（DB側の既定値 auth.uid() = ログイン本人に固定される）
+    await api.upsert("survey_responses","student_id,survey_key",{
+      survey_key: SURVEY_KEY, answers: ans, submitted_at: new Date().toISOString(),
+    });
+    window._surveyPrev = ans;
+    await goMyPage();
+    info("my-msg","アンケートを うけとりました。ありがとうございます！");
+  }catch(e){
+    err("survey-msg","そうしんできませんでした。もういちど おしてください。（"+e.message+"）");
+  }finally{ btn.disabled=false; btn.textContent="そうしん（送信）"; }
+};
 
 /* ---- 起動 ---- */
 (async ()=>{
-  if(api.token && api.profile){ try{ await goHome(); return; }catch(e){ api.logout(); } }
+  if(api.token && api.profile){
+    try{
+      await goMyPage();
+      // ハッシュ直リンク: #survey / #test（QRからの深リンク用）
+      if(location.hash==="#survey") $("btn-gosurvey").click();
+      else if(location.hash==="#test") $("btn-gotest").click();
+      return;
+    }catch(e){ api.logout(); }
+  }
   show("scr-login");
 })();
 </script>

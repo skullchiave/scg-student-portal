@@ -89,8 +89,10 @@ h1{margin:0;font-size:1.18rem;font-weight:700;letter-spacing:.02em}
     <div class="desc">ログイン認証・小テストDB・行単位アクセス制御(RLS)・サーバー側採点RPC</div></div>
   <div class="step done"><div class="title"><span class="bdg">完了</span>セキュリティ回帰テスト 12項目 PASS</div>
     <div class="out">正解データは学生に届かない／他人の解答は見えない／満点偽造は拒否される — 全部機械検証</div></div>
-  <div class="step done"><div class="title"><span class="bdg">完了</span>学生画面（ログイン→10問→即時採点）</div>
-    <div class="desc">依存ライブラリゼロ・自動再送つき・やさしい日本語。つなぐL6〜L10の2択10問を収録</div></div>
+  <div class="step done"><div class="title"><span class="bdg">完了</span>学生画面（ログイン→マイページ→10問→即時採点）</div>
+    <div class="desc">依存ライブラリゼロ・自動再送つき・やさしい日本語。つなぐL6〜L10の2択10問を収録。マイページ（成基太郎1〜20・A①クラス）から「テストを うける」「アンケートに こたえる」へ分岐</div></div>
+  <div class="step done"><div class="title"><span class="bdg">完了</span>進路アンケート（しごと・ぶんや・まち）</div>
+    <div class="desc">進路指導部 資料2の「1年目12月初旬 進路アンケート」を実装。提出済みバッジ・再提出（上書き）対応。本人しか出せない/読めないをDB層で強制（回帰テスト17項目に拡張）</div></div>
   <div class="step done"><div class="title"><span class="bdg">完了</span>教師モニター（ライブ集計＋QR表示）</div>
     <div class="desc">提出数・平均点・設問別正答率が2秒ごとに自動更新。会議室のプロジェクタに映す画面</div></div>
   <div class="step done"><div class="title"><span class="bdg">完了</span>公開（GitHub Pages）</div>

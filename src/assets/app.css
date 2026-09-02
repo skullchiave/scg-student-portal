@@ -5,6 +5,7 @@
   --ok:#15803d; --ng:#dc2626;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
+[hidden]{display:none!important;} /* displayを持つクラスがhidden属性を上書きする罠の対策 */
 html{-webkit-text-size-adjust:100%;}
 body{font-family:"BIZ UDPGothic","Yu Gothic UI","Yu Gothic","Hiragino Sans","Meiryo",sans-serif;
   background:var(--bg);color:var(--ink);min-height:100dvh;}

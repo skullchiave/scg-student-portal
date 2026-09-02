@@ -108,6 +108,20 @@ const api = {
     return res.json();
   },
 
+  /* upsert: 同じキーの行があれば上書き（アンケートの再提出用） */
+  async upsert(table, conflictCols, body) {
+    const res = await this._authed("/rest/v1/" + table + "?on_conflict=" + conflictCols, {
+      method: "POST",
+      headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const b = await res.json().catch(() => ({}));
+      throw new Error(b.message || "送信に失敗しました（" + res.status + "）");
+    }
+    return res.json();
+  },
+
   async rpc(name, args) {
     const res = await this._authed("/rest/v1/rpc/" + name, {
       method: "POST", body: JSON.stringify(args || {}),
