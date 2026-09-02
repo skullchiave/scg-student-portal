@@ -23,6 +23,13 @@
   `submit_attempt`（サーバー側）。「クライアントで採点」への変更は禁止
 - 🔴 スキーマ・RLSポリシーを変えたら `python tests/test_security.py` を必ず実行。
   FAILがある状態でデプロイしない
+- 🔴 月次点検 = Supabase自動セキュリティ診断（get_advisors）。**合格基準: ERROR 0件・WARN 3件以下**。
+  既知の許容WARN（これ以外が出たら要対応）:
+  1. `submit_attempt` が authenticated から実行可 → 仕様（学生の提出API。内部で auth.uid() 検証）
+  2. `quiz_stats` が authenticated から実行可 → 仕様（教師専用は関数内で app_hidden.is_teacher() 検証）
+  3. Leaked Password Protection 無効 → 無料枠では有効化不可。Pro移行時にダッシュボードでONにする
+- 正解データは `question_answers` テーブルに分離済み（学生に見えないことを構造で保証）。
+  `questions` に正解列を戻さない。ヘルパー `app_hidden.is_teacher()` はAPI非公開スキーマに置く
 - service_role キーをコード・リポに入れない（anonキーは公開可なので直書きOK）
 - UI文言は学生向け=やさしい日本語（N4相当・分かち書き寄り）、教師向け=普通の日本語
 

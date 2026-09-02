@@ -85,7 +85,7 @@ def student(sid, token, barrier):
     barrier.wait()  # 全員同時に開始（アプリを開く瞬間）
     t0 = time.time()
     try:
-        qs, retries = req_retry(f"/rest/v1/questions_public?select=id,seq&quiz_set_id=eq.{QUIZ_SET}&order=seq", token)
+        qs, retries = req_retry(f"/rest/v1/questions?select=id,seq&quiz_set_id=eq.{QUIZ_SET}&order=seq", token)
         with lock: results["fetch"].append((time.time()-t0, retries, None))
     except Exception as e:
         with lock: results["fetch"].append((time.time()-t0, 99, str(e)[:80]))

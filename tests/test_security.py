@@ -55,12 +55,14 @@ check("誤ったパスワードは拒否される", login("s001", "wrong-pass") 
 st, _ = req("/rest/v1/quiz_sets?select=id")
 check("未ログインではデータを読めない", st in (200, 401) and (st == 401 or _ == []))
 
-# 2. 正解データの遮断
-st, body = req("/rest/v1/questions?select=correct", stok)
-check("学生は questions テーブル(正解列)を読めない", body == [])
-st, body = req("/rest/v1/questions_public?select=*&limit=1", stok)
-check("学生は questions_public を読める", st == 200 and len(body) == 1)
-check("questions_public に正解列が無い", body and "correct" not in body[0])
+# 2. 正解データの遮断（正解は question_answers テーブルに分離されている）
+st, body = req("/rest/v1/question_answers?select=*", stok)
+check("学生は question_answers(正解テーブル)を読めない", body == [])
+st, body = req("/rest/v1/questions?select=*&limit=1", stok)
+check("学生は questions(問題文)を読める", st == 200 and len(body) == 1)
+check("questions に正解列が存在しない（構造で保証）", body and "correct" not in body[0])
+st, body = req("/rest/v1/question_answers?select=*", ttok)
+check("教師は question_answers を読める", st == 200 and len(body) > 0)
 
 # 3. 集計APIの権限
 st, body = req("/rest/v1/rpc/quiz_stats", stok, {"p_quiz_set_id": QUIZ_SET})
@@ -69,7 +71,7 @@ st, body = req("/rest/v1/rpc/quiz_stats", ttok, {"p_quiz_set_id": QUIZ_SET})
 check("教師は quiz_stats を呼べる", isinstance(body, dict) and "attempts" in body)
 
 # 4. 採点の正しさ（正解はa/b半々=全問aなら5/10）
-st, qs = req(f"/rest/v1/questions_public?select=id&quiz_set_id=eq.{QUIZ_SET}", stok)
+st, qs = req(f"/rest/v1/questions?select=id&quiz_set_id=eq.{QUIZ_SET}", stok)
 st, r = req("/rest/v1/rpc/submit_attempt", stok,
             {"p_quiz_set_id": QUIZ_SET, "p_answers": {q["id"]: "a" for q in qs}})
 check("採点が正しい（全問a提出=5/10）", isinstance(r, dict) and r.get("score") == 5 and r.get("total") == 10)

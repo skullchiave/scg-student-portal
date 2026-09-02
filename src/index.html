@@ -119,7 +119,7 @@ async function goHome(){
 async function startQuiz(s){
   quizSet=s; answers={}; cur=0; startedAt=Date.now();
   try{
-    questions = await api.get("/rest/v1/questions_public?select=id,seq,prompt,choice_a,choice_b&quiz_set_id=eq."+s.id+"&order=seq");
+    questions = await api.get("/rest/v1/questions?select=id,seq,prompt,choice_a,choice_b&quiz_set_id=eq."+s.id+"&order=seq");
     if(!questions.length){ err("home-msg","もんだいが ありません"); return; }
     show("scr-quiz"); render();
   }catch(e){ err("home-msg", e.message); }

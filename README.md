@@ -43,9 +43,14 @@
 ## 検証スクリプト
 
 ```
-python tests/test_security.py     # セキュリティ回帰テスト（スキーマ変更したら必ず）
-python scripts/loadtest.py 150    # 150名同時アクセスの負荷テスト
+python tests/test_security.py       # セキュリティ回帰テスト（スキーマ変更したら必ず）
+python scripts/loadtest.py tokens   # 負荷テスト準備: 150名分のログイン（低速・30分）
+python scripts/loadtest.py burst    # 負荷テスト本番: ログイン済み150名の一斉受験
 ```
+
+負荷テストが2段なのは実運用と同じ形だから: サインインAPIには同一IPからの回数制限が
+あるため、学生のログインは「事前に各自1回」（アプリが保持し続ける）。小テスト当日に
+一斉に走るのはデータAPIだけで、そちらに制限はない。
 
 - 入力: なし（対象URL・アカウントはスクリプト内に定義）
 - 出力: 各項目の PASS/FAIL、負荷テストは成功率と応答時間（平均/p95/最悪）
