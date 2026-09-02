@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCG 学生ポータル — 進捗ボード</title>
+<style>
+:root{
+  --ink:#1f2933; --sub:#66707a; --line:#e4e8ee; --bg:#eceff4; --surface:#ffffff;
+  --brand:#2563eb; --brand-d:#1e40af; --brand-l:#eef2fd;
+  --done:#2f9e44; --now:#1565c0; --hold:#b8860b;
+  --radius:14px; --shadow:0 1px 2px rgba(20,30,55,.06), 0 6px 20px rgba(20,30,55,.06);
+}
+*{box-sizing:border-box}
+body{margin:0;color:var(--ink);background:var(--bg);
+  font-family:"Segoe UI Variable","Segoe UI","Yu Gothic UI","Meiryo",sans-serif;
+  line-height:1.65;-webkit-font-smoothing:antialiased}
+h1{margin:0;font-size:1.18rem;font-weight:700;letter-spacing:.02em}
+.topbar{padding:14px 22px;color:#fff;
+  background:linear-gradient(100deg,var(--brand-d),var(--brand) 70%);
+  box-shadow:0 2px 10px rgba(20,30,55,.25)}
+.topbar .sub{color:rgba(255,255,255,.82);font-size:.8rem;margin-top:3px}
+.wrap{max-width:900px;margin:0 auto;padding:18px 16px 60px}
+.goal{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--brand);
+  border-radius:var(--radius);box-shadow:var(--shadow);padding:15px 18px;margin-bottom:16px}
+.goal h2{margin:0 0 6px;font-size:.95rem;color:var(--brand-d)}
+.goal p{margin:0;font-size:.9rem}
+.goal .why{margin-top:8px;color:var(--sub);font-size:.83rem}
+.overall{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:15px 18px;margin-bottom:20px}
+.overall .lab{display:flex;justify-content:space-between;align-items:baseline;
+  font-size:.85rem;color:var(--sub);margin-bottom:8px}
+.overall .lab b{font-size:1.7rem;color:var(--brand-d);font-variant-numeric:tabular-nums}
+.bar{height:14px;border-radius:99px;background:#dfe3ea;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;
+  background:linear-gradient(90deg,var(--brand),#60a5fa)}
+.stage{margin-bottom:18px}
+.stage-head{font-size:.98rem;font-weight:700;color:var(--brand-d);
+  padding:0 2px 5px;border-bottom:2px solid var(--line);margin-bottom:10px;
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.stage-head .cnt{font-size:.78rem;font-weight:600;color:var(--sub)}
+.step{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);
+  border-radius:11px;box-shadow:var(--shadow);padding:11px 14px;margin-bottom:8px}
+.step .title{font-weight:700;font-size:.9rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.step .desc{color:var(--sub);font-size:.82rem;margin-top:3px}
+.step .out{margin-top:6px;font-size:.79rem;color:var(--ink);
+  background:var(--brand-l);border-radius:8px;padding:6px 10px}
+.step.done{border-left-color:var(--done)}
+.step.now{border-left-color:var(--now);box-shadow:0 0 0 2px rgba(21,101,192,.22),var(--shadow)}
+.step.hold{border-left-color:var(--hold)}
+.bdg{font-size:.7rem;font-weight:700;border-radius:99px;padding:1px 9px;white-space:nowrap}
+.done .bdg{color:var(--done);background:rgba(47,158,68,.13)}
+.now  .bdg{color:var(--now); background:rgba(21,101,192,.13)}
+.hold .bdg{color:var(--hold);background:rgba(184,134,11,.16)}
+.summary{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--brand);
+  border-radius:11px;padding:12px 15px;font-size:.88rem;box-shadow:var(--shadow);margin-top:24px}
+.summary h3{margin:0 0 6px;font-size:.9rem;color:var(--brand-d)}
+.updated{color:var(--sub);font-size:.78rem;margin-top:16px;padding:0 2px}
+@media (prefers-color-scheme:dark){
+  :root{--ink:#f0f3f6;--sub:#aeb8c2;--line:#3a414b;--bg:#15181d;--surface:#1f242b;
+    --brand-l:#262c34;--shadow:0 1px 2px rgba(0,0,0,.5),0 6px 20px rgba(0,0,0,.35)}
+  .bar{background:#2f3640}
+  .goal h2,.stage-head,.summary h3,.overall .lab b{color:#c8d0da}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>🎓 SCG 学生ポータル — 進捗ボード</h1>
+  <div class="sub">学生が自分のスマホでログインする学校の入口（第一弾: 小テスト）</div>
+</div>
+<div class="wrap">
+
+<div class="goal">
+  <h2>🎯 ゴール</h2>
+  <p>ヨリソル（年額200〜300万のSaaS）を「年5万＋人件費」の内製で置き換えられることを、動くもので示す。<br>
+  第一関門: <b>2026-09-04（金）夕方MTGでのライブデモ</b>。その後、進路系で年内実戦→小テスト本格移行。</p>
+  <div class="why">なぜ: SaaSはUIが複雑で日本語学校カリキュラムに特化できない。内製なら特化し放題＋圧倒的低コスト。</div>
+</div>
+
+<div class="overall">
+  <div class="lab"><span>全体進捗（段階1: MTGデモまで）</span><b>75%</b></div>
+  <div class="bar"><i style="width:75%"></i></div>
+</div>
+
+<div class="stage">
+  <div class="stage-head">段階1 — 金曜MTGデモ <span class="cnt">6/8 完了</span></div>
+  <div class="step done"><div class="title"><span class="bdg">完了</span>裏方構築（Supabase 東京・無料枠）</div>
+    <div class="desc">ログイン認証・小テストDB・行単位アクセス制御(RLS)・サーバー側採点RPC</div></div>
+  <div class="step done"><div class="title"><span class="bdg">完了</span>セキュリティ回帰テスト 12項目 PASS</div>
+    <div class="out">正解データは学生に届かない／他人の解答は見えない／満点偽造は拒否される — 全部機械検証</div></div>
+  <div class="step done"><div class="title"><span class="bdg">完了</span>学生画面（ログイン→10問→即時採点）</div>
+    <div class="desc">依存ライブラリゼロ・自動再送つき・やさしい日本語。つなぐL6〜L10の2択10問を収録</div></div>
+  <div class="step done"><div class="title"><span class="bdg">完了</span>教師モニター（ライブ集計＋QR表示）</div>
+    <div class="desc">提出数・平均点・設問別正答率が2秒ごとに自動更新。会議室のプロジェクタに映す画面</div></div>
+  <div class="step done"><div class="title"><span class="bdg">完了</span>公開（GitHub Pages）</div>
+    <div class="out">学生: https://skullchiave.github.io/scg-student-portal/　教師: 同 /teacher.html</div></div>
+  <div class="step done"><div class="title"><span class="bdg">完了</span>実ブラウザ一気通貫テスト PASS</div></div>
+  <div class="step now"><div class="title"><span class="bdg">今ここ</span>150名同時の負荷テスト（実測）</div>
+    <div class="desc">データ面は150同時OK実測済（最悪0.6秒・失敗ゼロ）。ログインAPIのみ回数制限あり→「事前ログイン持続」方式で回避済み。最終の一斉受験計測を実行中</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">残り</span>MTG用A4資料＋きあの実機確認（木曜夜）</div>
+    <div class="desc">費用比較・ロードマップ・想定問答（「出席はどうする」への答え）</div></div>
+</div>
+
+<div class="stage">
+  <div class="stage-head">段階2 — 進路系で年内実戦 <span class="cnt">予定</span></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>学校アカウントでSupabase本番環境を作り直し（Pro・$25/月）</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>実学生アカウント発行フロー（初期PW・変更強制）＋同意書との連動</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>学生アンケート機能（進路指導部の立ち上げ用）</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>志望校提出・ポートフォリオ閲覧</div></div>
+</div>
+
+<div class="stage">
+  <div class="stage-head">段階3 — 小テスト本格移行（来年度・ヨリソル置換） <span class="cnt">予定</span></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>運用担当者用の問題登録・解放スケジュール画面</div>
+    <div class="desc">運用は任せる人がノーコードで回せる形に。きあは点検と承認だけ</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>障害時の運用ルール（紙の予備・告知文テンプレ）</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>月次点検の型（自動セキュリティ診断→日本語報告→きあ承認）</div></div>
+</div>
+
+<div class="summary">
+  <h3>💬 今のひとこと</h3>
+  一晩で「ログイン→小テスト→即時採点→教師ライブ集計」が本物のURLで動くところまで来た。
+  セキュリティは12項目の機械検証つき。残りは負荷テストの最終数字とMTG資料。金曜は「見せるだけ」の状態が目標。
+</div>
+
+<div class="updated">最終更新: 2026-09-03 深夜（Claude Code）</div>
+</div>
+</body>
+</html>
