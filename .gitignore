@@ -1,0 +1,23 @@
+# 一時ファイル・実験
+tmp/
+scratch/
+*.log
+*.tmp
+*.bak
+
+# 秘密情報（anonキーは公開可のためコードに直書き。service_role等は絶対にここへ入れない）
+.env
+*.key
+*.pem
+
+# OS
+Thumbs.db
+.DS_Store
+
+# エディタ
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc

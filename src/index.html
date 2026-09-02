@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCG 学生ポータル</title>
+<meta name="theme-color" content="#ffffff">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<header>
+  <h1>SCG <span class="em">学生ポータル</span></h1>
+  <div class="sub">がくせいポータル — Student Portal</div>
+</header>
+<main>
+
+  <!-- ログイン -->
+  <section id="scr-login" class="card" hidden>
+    <h2>ログイン</h2>
+    <div class="field">
+      <label for="in-no">がくせきばんごう（学籍番号）</label>
+      <input id="in-no" type="text" autocomplete="username" autocapitalize="none" placeholder="s001">
+    </div>
+    <div class="field">
+      <label for="in-pw">パスワード</label>
+      <input id="in-pw" type="password" autocomplete="current-password" placeholder="********">
+    </div>
+    <button class="btn" id="btn-login">ログイン</button>
+    <div class="msg" id="login-msg"></div>
+  </section>
+
+  <!-- ホーム: テスト一覧 -->
+  <section id="scr-home" hidden>
+    <div class="card">
+      <h2 id="hello"></h2>
+      <div id="quiz-list"></div>
+      <div class="msg" id="home-msg"></div>
+    </div>
+    <button class="btn ghost" id="btn-logout">ログアウト</button>
+  </section>
+
+  <!-- 出題 -->
+  <section id="scr-quiz" hidden>
+    <div class="card">
+      <div class="qbar">
+        <span class="qnum" id="qnum"></span>
+        <div class="track"><div class="fill" id="qfill" style="width:0%"></div></div>
+      </div>
+      <div class="prompt" id="qprompt"></div>
+      <button class="choice" id="ch-a"><span class="mark">A</span><span id="ch-a-txt"></span></button>
+      <button class="choice" id="ch-b"><span class="mark">B</span><span id="ch-b-txt"></span></button>
+      <button class="btn" id="btn-next" disabled>つぎへ</button>
+      <div class="msg" id="quiz-msg"></div>
+    </div>
+  </section>
+
+  <!-- 結果 -->
+  <section id="scr-result" hidden>
+    <div class="card">
+      <div class="score">
+        <div class="big" id="r-score"></div>
+        <div class="of" id="r-of"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>こたえの かくにん</h2>
+      <div id="r-list"></div>
+    </div>
+    <button class="btn" id="btn-home">ホームへ もどる</button>
+  </section>
+
+</main>
+<footer>SCG 学生ポータル（デモ）</footer>
+
+<script src="assets/api.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const screens = ["scr-login","scr-home","scr-quiz","scr-result"];
+function show(id){ screens.forEach(s => $(s).hidden = (s !== id)); window.scrollTo(0,0); }
+function err(id, text){ const m=$(id); m.className="msg err"; m.textContent=text; }
+function clearMsg(id){ const m=$(id); m.className="msg"; m.textContent=""; }
+
+let quizSet=null, questions=[], cur=0, answers={}, startedAt=0;
+
+/* ---- ログイン ---- */
+$("btn-login").onclick = async () => {
+  clearMsg("login-msg");
+  const no=$("in-no").value.trim(), pw=$("in-pw").value;
+  if(!no||!pw){ err("login-msg","番号とパスワードを入れてください"); return; }
+  $("btn-login").disabled=true; $("btn-login").textContent="ログインしています…";
+  try{ await api.login(no,pw); await goHome(); }
+  catch(e){ err("login-msg", e.message); }
+  finally{ $("btn-login").disabled=false; $("btn-login").textContent="ログイン"; }
+};
+$("in-pw").addEventListener("keydown", e=>{ if(e.key==="Enter") $("btn-login").click(); });
+
+$("btn-logout").onclick = () => { api.logout(); show("scr-login"); };
+
+/* ---- ホーム ---- */
+async function goHome(){
+  $("hello").textContent = api.profile.display_name + " さん、こんにちは";
+  show("scr-home"); clearMsg("home-msg");
+  $("quiz-list").innerHTML = "<div style='color:var(--sub);padding:8px 0'>よみこみ中…</div>";
+  try{
+    const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson&is_open=eq.true&order=created_at.desc");
+    if(!sets.length){ $("quiz-list").innerHTML="<div style='color:var(--sub)'>いま うけられるテストは ありません</div>"; return; }
+    $("quiz-list").innerHTML = "";
+    sets.forEach(s=>{
+      const b=document.createElement("button");
+      b.className="btn"; b.style.marginBottom="10px";
+      b.innerHTML = "📝 " + s.title + "<span style='display:block;font-size:13px;font-weight:700;opacity:.85;margin-top:3px'>"+(s.lesson||"")+"</span>";
+      b.onclick = ()=>startQuiz(s);
+      $("quiz-list").appendChild(b);
+    });
+  }catch(e){ err("home-msg", e.message); }
+}
+
+/* ---- 出題 ---- */
+async function startQuiz(s){
+  quizSet=s; answers={}; cur=0; startedAt=Date.now();
+  try{
+    questions = await api.get("/rest/v1/questions_public?select=id,seq,prompt,choice_a,choice_b&quiz_set_id=eq."+s.id+"&order=seq");
+    if(!questions.length){ err("home-msg","もんだいが ありません"); return; }
+    show("scr-quiz"); render();
+  }catch(e){ err("home-msg", e.message); }
+}
+function render(){
+  clearMsg("quiz-msg");
+  const q=questions[cur];
+  $("qnum").textContent = (cur+1)+" / "+questions.length;
+  $("qfill").style.width = (cur/questions.length*100)+"%";
+  $("qprompt").textContent = "（　）に なにを いれますか。 " + q.prompt;
+  $("ch-a-txt").textContent = q.choice_a;
+  $("ch-b-txt").textContent = q.choice_b;
+  ["ch-a","ch-b"].forEach(id=>$(id).classList.remove("sel"));
+  const chosen = answers[q.id];
+  if(chosen==="a")$("ch-a").classList.add("sel");
+  if(chosen==="b")$("ch-b").classList.add("sel");
+  $("btn-next").disabled = !chosen;
+  $("btn-next").textContent = (cur===questions.length-1) ? "そうしん（送信）" : "つぎへ";
+}
+$("ch-a").onclick=()=>{ answers[questions[cur].id]="a"; render(); };
+$("ch-b").onclick=()=>{ answers[questions[cur].id]="b"; render(); };
+$("btn-next").onclick = async ()=>{
+  if(cur < questions.length-1){ cur++; render(); return; }
+  // 送信
+  $("btn-next").disabled=true; $("btn-next").textContent="そうしん中…";
+  try{
+    const r = await api.rpc("submit_attempt",{
+      p_quiz_set_id: quizSet.id, p_answers: answers,
+      p_duration_ms: Date.now()-startedAt,
+    });
+    showResult(r);
+  }catch(e){
+    err("quiz-msg","そうしんできませんでした。もういちど おしてください。（"+e.message+"）");
+    $("btn-next").disabled=false; $("btn-next").textContent="そうしん（送信）";
+  }
+};
+
+/* ---- 結果 ---- */
+function showResult(r){
+  $("r-score").textContent = r.score;
+  $("r-of").textContent = "／ "+r.total+" もん せいかい";
+  const list=$("r-list"); list.innerHTML="";
+  r.results.forEach(item=>{
+    const q = questions.find(x=>x.seq===item.seq);
+    const row=document.createElement("div"); row.className="rrow";
+    const correctTxt = item.correct==="a" ? q.choice_a : q.choice_b;
+    row.innerHTML =
+      "<span class='rmark "+(item.is_correct?"ok'>○":"ng'>✕")+"</span>"+
+      "<div class='rbody'>"+item.seq+". "+q.prompt+"<br>こたえ: <span class='ans'>"+correctTxt+"</span></div>";
+    list.appendChild(row);
+  });
+  show("scr-result");
+}
+$("btn-home").onclick=goHome;
+
+/* ---- 起動 ---- */
+(async ()=>{
+  if(api.token && api.profile){ try{ await goHome(); return; }catch(e){ api.logout(); } }
+  show("scr-login");
+})();
+</script>
+</body>
+</html>
