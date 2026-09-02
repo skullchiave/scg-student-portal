@@ -79,8 +79,8 @@ h1{margin:0;font-size:1.18rem;font-weight:700;letter-spacing:.02em}
 </div>
 
 <div class="overall">
-  <div class="lab"><span>全体進捗（段階1: MTGデモまで）</span><b>75%</b></div>
-  <div class="bar"><i style="width:75%"></i></div>
+  <div class="lab"><span>全体進捗（段階1: MTGデモまで）</span><b>90%</b></div>
+  <div class="bar"><i style="width:90%"></i></div>
 </div>
 
 <div class="stage">
@@ -96,10 +96,12 @@ h1{margin:0;font-size:1.18rem;font-weight:700;letter-spacing:.02em}
   <div class="step done"><div class="title"><span class="bdg">完了</span>公開（GitHub Pages）</div>
     <div class="out">学生: https://skullchiave.github.io/scg-student-portal/　教師: 同 /teacher.html</div></div>
   <div class="step done"><div class="title"><span class="bdg">完了</span>実ブラウザ一気通貫テスト PASS</div></div>
-  <div class="step now"><div class="title"><span class="bdg">今ここ</span>150名同時の負荷テスト（実測）</div>
-    <div class="desc">データ面は150同時OK実測済（最悪0.6秒・失敗ゼロ）。ログインAPIのみ回数制限あり→「事前ログイン持続」方式で回避済み。最終の一斉受験計測を実行中</div></div>
-  <div class="step hold"><div class="title"><span class="bdg">残り</span>MTG用A4資料＋きあの実機確認（木曜夜）</div>
-    <div class="desc">費用比較・ロードマップ・想定問答（「出席はどうする」への答え）</div></div>
+  <div class="step done"><div class="title"><span class="bdg">完了</span>150名同時の負荷テスト 合格</div>
+    <div class="out">150名が同一瞬間に送信 → 成功率100%・平均応答1.2秒・再送ゼロ。出題取得も150/150成功。ログインAPIのみ回数制限あり→「事前ログイン持続」方式で回避済み</div></div>
+  <div class="step done"><div class="title"><span class="bdg">完了</span>MTG用A4資料＋デモ用アカウントカード（印刷用）</div>
+    <div class="out">ドライブ 0.2 claude-work\【学生ポータル】 Student Portal\ に2点。実測値も焼き込み済み</div></div>
+  <div class="step now"><div class="title"><span class="bdg">今ここ</span>きあの実機確認（木曜夜）→ 金曜MTG本番</div>
+    <div class="desc">自分のスマホで s001/sakura24 ログイン→受験、別画面で t001 の教師モニター確認。資料を印刷</div></div>
 </div>
 
 <div class="stage">
@@ -120,8 +122,9 @@ h1{margin:0;font-size:1.18rem;font-weight:700;letter-spacing:.02em}
 
 <div class="summary">
   <h3>💬 今のひとこと</h3>
-  一晩で「ログイン→小テスト→即時採点→教師ライブ集計」が本物のURLで動くところまで来た。
-  セキュリティは12項目の機械検証つき。残りは負荷テストの最終数字とMTG資料。金曜は「見せるだけ」の状態が目標。
+  一晩で「ログイン→小テスト→即時採点→教師ライブ集計」が本物のURLで動き、<b>150名同時テスト成功率100%・
+  セキュリティ回帰13項目PASS・自動診断ERROR 0件</b>まで揃った。残るはきあの実機確認と資料印刷だけ。
+  金曜は「説得せず、見せる」。
 </div>
 
 <div class="updated">最終更新: 2026-09-03 深夜（Claude Code）</div>
