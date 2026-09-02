@@ -4,68 +4,39 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SCG 学生ポータル</title>
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#10365e">
 <link rel="stylesheet" href="assets/app.css">
-<style>
-/* マイページ */
-.me{display:flex;align-items:center;gap:16px;}
-.avatar{width:58px;height:58px;border-radius:50%;background:#eaf1fe;color:var(--accent);
-  display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;}
-.mename{font-size:clamp(20px,5.6vw,26px);font-weight:900;line-height:1.3;}
-.memeta{font-size:14px;color:var(--sub);font-weight:700;margin-top:3px;}
-.chip{display:inline-block;background:#eaf1fe;color:var(--accentT);border-radius:20px;
-  padding:2px 12px;font-size:13px;font-weight:800;margin-right:6px;}
-.menu{display:flex;flex-direction:column;gap:14px;}
-.menubtn{display:flex;align-items:center;gap:16px;background:#fff;border:1px solid var(--line);
-  border-left:10px solid var(--accent);border-radius:18px;padding:20px;text-align:left;
-  font-family:inherit;font-size:16px;cursor:pointer;box-shadow:0 3px 10px rgba(30,50,90,.07);
-  -webkit-tap-highlight-color:transparent;transition:transform .12s;width:100%;color:var(--ink);}
-.menubtn:active{transform:scale(.985);}
-.menubtn .mi{font-size:30px;flex-shrink:0;}
-.menubtn .mt{flex:1;min-width:0;}
-.menubtn .ml{display:block;font-size:clamp(18px,5vw,22px);font-weight:900;}
-.menubtn .md{display:block;font-size:13px;color:var(--sub);margin-top:3px;line-height:1.5;}
-.menubtn .mgo{color:var(--sub);font-weight:900;font-size:22px;flex-shrink:0;}
-.menubtn.m-survey{border-left-color:#15803d;}
-.badge-done{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:#15803d;
-  border-radius:20px;padding:2px 10px;margin-left:8px;vertical-align:middle;}
-.backrow{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
-.backbtn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--line);
-  border-radius:12px;padding:10px 16px;font-size:15px;font-weight:800;color:var(--ink);
-  font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0;}
-.backbtn:active{transform:scale(.97);}
-.backtitle{font-size:clamp(17px,4.8vw,21px);font-weight:900;}
-.field select{width:100%;font-size:18px;font-family:inherit;padding:14px;border:1.5px solid var(--line);
-  border-radius:12px;background:#fff;color:var(--ink);}
-.field select:focus{outline:2px solid var(--accent);border-color:var(--accent);}
-.survey-note{font-size:14px;color:var(--sub);line-height:1.8;margin-bottom:16px;}
-</style>
 </head>
 <body>
 <header>
-  <h1>SCG <span class="em">学生ポータル</span></h1>
-  <div class="sub">がくせいポータル — Student Portal</div>
+  <div class="hin">
+    <div class="eyebrow">SCG Student Portal</div>
+    <div class="plate"><img src="assets/logo-school.png" alt="学校ロゴ"></div>
+    <h1>学生ポータル <span class="thin">for 学生</span></h1>
+  </div>
 </header>
 <main>
 
   <!-- ログイン -->
-  <section id="scr-login" class="card" hidden>
-    <h2>ログイン</h2>
-    <div class="field">
-      <label for="in-no">がくせきばんごう（学籍番号）</label>
-      <input id="in-no" type="text" autocomplete="username" autocapitalize="none" placeholder="s001">
+  <section id="scr-login" hidden>
+    <div class="panel">
+      <h2>ログイン</h2>
+      <div class="field">
+        <label for="in-no">がくせきばんごう（学籍番号）</label>
+        <input id="in-no" type="text" autocomplete="username" autocapitalize="none" placeholder="s001">
+      </div>
+      <div class="field">
+        <label for="in-pw">パスワード</label>
+        <input id="in-pw" type="password" autocomplete="current-password" placeholder="********">
+      </div>
+      <button class="btn" id="btn-login">ログイン</button>
+      <div class="msg" id="login-msg"></div>
     </div>
-    <div class="field">
-      <label for="in-pw">パスワード</label>
-      <input id="in-pw" type="password" autocomplete="current-password" placeholder="********">
-    </div>
-    <button class="btn" id="btn-login">ログイン</button>
-    <div class="msg" id="login-msg"></div>
   </section>
 
   <!-- マイページ -->
   <section id="scr-mypage" hidden>
-    <div class="card">
+    <div class="panel">
       <div class="me">
         <div class="avatar">🎓</div>
         <div>
@@ -74,39 +45,46 @@
         </div>
       </div>
     </div>
-    <div class="menu">
-      <button class="menubtn" id="btn-gotest">
-        <span class="mi">📝</span>
-        <span class="mt"><span class="ml">テストを うける</span>
-        <span class="md">2つから えらぶ もんだい。すぐに てんすうが でます</span></span>
-        <span class="mgo">›</span>
+    <div class="sechead">Menu</div>
+    <div class="list">
+      <button class="row" id="btn-gotest" style="--c:#1769aa">
+        <span class="bar"></span>
+        <span class="txt">
+          <span class="sb">Quiz</span>
+          <span class="nm">テストを うける</span>
+          <span class="ds">2つから えらぶ もんだい。すぐに てんすうが でます</span>
+        </span>
+        <span class="go"></span>
       </button>
-      <button class="menubtn m-survey" id="btn-gosurvey">
-        <span class="mi">📋</span>
-        <span class="mt"><span class="ml">アンケートに こたえる<span class="badge-done" id="survey-done-badge" hidden>ていしゅつ済み</span></span>
-        <span class="md">しんろアンケート（しごと・ぶんや・まち）</span></span>
-        <span class="mgo">›</span>
+      <button class="row" id="btn-gosurvey" style="--c:#2f9e44">
+        <span class="bar"></span>
+        <span class="txt">
+          <span class="sb">Survey</span>
+          <span class="nm">アンケートに こたえる<span class="badge-done" id="survey-done-badge" hidden>ていしゅつ済み</span></span>
+          <span class="ds">しんろアンケート（しごと・ぶんや・まち）</span>
+        </span>
+        <span class="go"></span>
       </button>
     </div>
-    <div class="msg" id="my-msg"></div>
-    <button class="btn ghost" id="btn-logout" style="margin-top:16px;">ログアウト</button>
+    <div class="inpanel">
+      <div class="msg" id="my-msg"></div>
+      <button class="btn ghost" id="btn-logout" style="margin-top:8px;">ログアウト</button>
+    </div>
   </section>
 
   <!-- テスト一覧 -->
   <section id="scr-quizlist" hidden>
     <div class="backrow">
-      <button class="backbtn" data-back>‹ もどる</button>
-      <span class="backtitle">📝 テストを うける</span>
+      <button class="backbtn" data-back><i></i> もどる</button>
+      <span class="backtitle">テストを うける</span>
     </div>
-    <div class="card">
-      <div id="quiz-list"></div>
-      <div class="msg" id="list-msg"></div>
-    </div>
+    <div class="list" id="quiz-list"></div>
+    <div class="inpanel"><div class="msg" id="list-msg"></div></div>
   </section>
 
   <!-- 出題 -->
   <section id="scr-quiz" hidden>
-    <div class="card">
+    <div class="panel">
       <div class="qbar">
         <span class="qnum" id="qnum"></span>
         <div class="track"><div class="fill" id="qfill" style="width:0%"></div></div>
@@ -114,34 +92,38 @@
       <div class="prompt" id="qprompt"></div>
       <button class="choice" id="ch-a"><span class="mark">A</span><span id="ch-a-txt"></span></button>
       <button class="choice" id="ch-b"><span class="mark">B</span><span id="ch-b-txt"></span></button>
-      <button class="btn" id="btn-next" disabled>つぎへ</button>
+      <button class="btn" id="btn-next" disabled style="margin-top:6px;">つぎへ</button>
       <div class="msg" id="quiz-msg"></div>
     </div>
   </section>
 
   <!-- テスト結果 -->
   <section id="scr-result" hidden>
-    <div class="card">
+    <div class="panel">
       <div class="score">
         <div class="big" id="r-score"></div>
         <div class="of" id="r-of"></div>
       </div>
     </div>
-    <div class="card">
+    <div class="panel">
       <h2>こたえの かくにん</h2>
       <div id="r-list"></div>
     </div>
-    <button class="btn" id="btn-r-home">マイページへ もどる</button>
+    <div class="inpanel">
+      <button class="btn" id="btn-r-home">マイページへ もどる</button>
+    </div>
   </section>
 
   <!-- 進路アンケート -->
   <section id="scr-survey" hidden>
     <div class="backrow">
-      <button class="backbtn" data-back>‹ もどる</button>
-      <span class="backtitle">📋 しんろアンケート</span>
+      <button class="backbtn" data-back><i></i> もどる</button>
+      <span class="backtitle">しんろアンケート</span>
     </div>
-    <div class="card">
-      <div class="survey-note">しょうらいの ことを おしえてください。<br>まだ きまっていなくても、いま おもっていることで OK です。</div>
+    <div class="panel">
+      <div style="font-size:.9rem;color:var(--sub);line-height:1.85;margin-bottom:18px;">
+        しょうらいの ことを おしえてください。<br>まだ きまっていなくても、いま おもっていることで OK です。
+      </div>
       <div class="field">
         <label for="sv-job">① やってみたい しごと</label>
         <input id="sv-job" type="text" placeholder="れい: つうやく、IT エンジニア、ホテルの しごと">
@@ -207,7 +189,6 @@ async function goMyPage(){
   $("my-class").textContent = p.class_name || "クラス未設定";
   $("my-no").textContent = p.student_no;
   show("scr-mypage"); clearMsg("my-msg");
-  // アンケート提出済みバッジ（失敗しても画面は出す）
   try{
     const r = await api.get("/rest/v1/survey_responses?select=answers&survey_key=eq."+SURVEY_KEY+"&limit=1");
     $("survey-done-badge").hidden = !r.length;
@@ -218,15 +199,17 @@ async function goMyPage(){
 /* ---- テスト一覧 ---- */
 $("btn-gotest").onclick = async ()=>{
   show("scr-quizlist"); clearMsg("list-msg");
-  $("quiz-list").innerHTML = "<div style='color:var(--sub);padding:8px 0'>よみこみ中…</div>";
+  $("quiz-list").innerHTML = "<div style='color:var(--sub);padding:18px 22px;'>よみこみ中…</div>";
   try{
     const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson&is_open=eq.true&order=created_at.desc");
-    if(!sets.length){ $("quiz-list").innerHTML="<div style='color:var(--sub)'>いま うけられるテストは ありません</div>"; return; }
+    if(!sets.length){ $("quiz-list").innerHTML="<div style='color:var(--sub);padding:18px 22px;'>いま うけられるテストは ありません</div>"; return; }
     $("quiz-list").innerHTML = "";
     sets.forEach(s=>{
       const b=document.createElement("button");
-      b.className="btn"; b.style.marginBottom="10px";
-      b.innerHTML = "📝 " + s.title + "<span style='display:block;font-size:13px;font-weight:700;opacity:.85;margin-top:3px'>"+(s.lesson||"")+"</span>";
+      b.className="row"; b.style.setProperty("--c","#1769aa");
+      b.innerHTML = "<span class='bar'></span><span class='txt'>"+
+        "<span class='sb'>"+(s.lesson||"Quiz")+"</span>"+
+        "<span class='nm'>"+s.title+"</span></span><span class='go'></span>";
       b.onclick = ()=>startQuiz(s);
       $("quiz-list").appendChild(b);
     });

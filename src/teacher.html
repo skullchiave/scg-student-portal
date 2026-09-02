@@ -4,50 +4,80 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SCG 学生ポータル — 教師モニター</title>
+<meta name="theme-color" content="#10365e">
 <link rel="stylesheet" href="assets/app.css">
 <style>
   main{max-width:820px;}
-  header{border-bottom-color:#15803d;}
-  header h1 .em{color:#15803d;}
+  .stats,.panel,.list{margin-left:0;margin-right:0;}
+  @media (min-width:560px){.stats,.panel,.list{margin-left:22px;margin-right:22px;}}
+  .dashhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:0 22px;margin-bottom:14px;}
+  .dashhead .t{flex:1;min-width:220px;font-size:1.05rem;font-weight:800;}
+  .dashhead .btn{width:auto;padding:11px 20px;font-size:.92rem;}
 </style>
 </head>
 <body>
 <header>
-  <h1>教師モニター <span class="em">LIVE</span></h1>
-  <div class="sub">SCG 学生ポータル — リアルタイム集計</div>
+  <div class="hin">
+    <div class="eyebrow">SCG Student Portal — Live</div>
+    <div class="plate"><img src="assets/logo-school.png" alt="学校ロゴ"></div>
+    <h1>教師モニター <span class="thin">for 先生</span></h1>
+  </div>
 </header>
 <main>
 
-  <section id="scr-login" class="card" hidden>
-    <h2>教師ログイン</h2>
-    <div class="field">
-      <label for="in-no">教師ID</label>
-      <input id="in-no" type="text" autocapitalize="none" placeholder="t001">
+  <section id="scr-login" hidden>
+    <div class="panel">
+      <h2>教師ログイン</h2>
+      <div class="field">
+        <label for="in-no">教師ID</label>
+        <input id="in-no" type="text" autocapitalize="none" placeholder="t001">
+      </div>
+      <div class="field">
+        <label for="in-pw">パスワード</label>
+        <input id="in-pw" type="password">
+      </div>
+      <button class="btn" id="btn-login">ログイン</button>
+      <div class="msg" id="login-msg"></div>
     </div>
-    <div class="field">
-      <label for="in-pw">パスワード</label>
-      <input id="in-pw" type="password">
-    </div>
-    <button class="btn" id="btn-login">ログイン</button>
-    <div class="msg" id="login-msg"></div>
   </section>
 
   <section id="scr-dash" hidden>
-    <div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-      <h2 id="quiz-title" style="margin:0;flex:1;min-width:200px;"></h2>
-      <button class="btn" id="btn-qr" style="width:auto;padding:12px 22px;">📱 学生用QRを表示</button>
+    <div class="dashhead">
+      <span class="t" id="quiz-title"></span>
+      <button class="btn" id="btn-qr">📱 学生用QRを表示</button>
     </div>
-    <div class="stats">
-      <div class="stat"><div class="v" id="st-count">0</div><div class="l">提出数</div></div>
-      <div class="stat"><div class="v" id="st-avg">–</div><div class="l">平均点 / 10</div></div>
+
+    <div class="tabs">
+      <button id="tab-quiz" class="on">📝 小テスト</button>
+      <button id="tab-survey">📋 アンケート</button>
     </div>
-    <div class="card">
-      <h2>設問別 正答率</h2>
-      <div id="qrates"><div style="color:var(--sub)">提出待ち…</div></div>
+
+    <!-- 小テスト -->
+    <div id="view-quiz">
+      <div class="stats">
+        <div class="stat"><div class="v" id="st-count">0</div><div class="l">提出数</div></div>
+        <div class="stat"><div class="v" id="st-avg">–</div><div class="l">平均点 / 10</div></div>
+      </div>
+      <div class="panel">
+        <h2>設問別 正答率</h2>
+        <div id="qrates"><div style="color:var(--sub)">提出待ち…</div></div>
+      </div>
+      <div class="panel">
+        <h2>提出フィード</h2>
+        <div class="feed" id="feed"><div style="color:var(--sub)">提出待ち…</div></div>
+      </div>
     </div>
-    <div class="card">
-      <h2>提出フィード</h2>
-      <div class="feed" id="feed"><div style="color:var(--sub)">提出待ち…</div></div>
+
+    <!-- アンケート -->
+    <div id="view-survey" hidden>
+      <div class="stats">
+        <div class="stat"><div class="v" id="sv-count">0</div><div class="l">回答数</div></div>
+        <div class="stat"><div class="v" id="sv-rest">–</div><div class="l">未提出（次に支援する人）</div></div>
+      </div>
+      <div class="panel">
+        <h2>しんろアンケート 回答一覧</h2>
+        <div class="feed" id="sv-list" style="max-height:460px;"><div style="color:var(--sub)">回答待ち…</div></div>
+      </div>
     </div>
   </section>
 
@@ -68,7 +98,7 @@
 <script>
 const $ = id => document.getElementById(id);
 function err(id,t){ const m=$(id); m.className="msg err"; m.textContent=t; }
-let quizSet=null, timer=null, lastCount=0;
+let quizSet=null, timer=null, lastCount=0, activeTab="quiz", studentTotal=null;
 
 $("btn-login").onclick = async () => {
   const no=$("in-no").value.trim(), pw=$("in-pw").value;
@@ -82,6 +112,18 @@ $("btn-login").onclick = async () => {
 };
 $("in-pw").addEventListener("keydown",e=>{ if(e.key==="Enter") $("btn-login").click(); });
 
+/* タブ切替 */
+$("tab-quiz").onclick = ()=>setTab("quiz");
+$("tab-survey").onclick = ()=>setTab("survey");
+function setTab(t){
+  activeTab=t;
+  $("tab-quiz").classList.toggle("on", t==="quiz");
+  $("tab-survey").classList.toggle("on", t==="survey");
+  $("view-quiz").hidden = t!=="quiz";
+  $("view-survey").hidden = t!=="survey";
+  tick();
+}
+
 async function start(){
   const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson&order=created_at.desc&limit=1");
   if(!sets.length){ err("login-msg","クイズセットがありません"); return; }
@@ -94,32 +136,63 @@ async function start(){
 
 async function tick(){
   try{
-    const s = await api.rpc("quiz_stats",{p_quiz_set_id:quizSet.id});
-    if(s.error) return;
-    const n = s.attempts.length;
-    $("st-count").textContent = n;
-    $("st-avg").textContent = n ? (s.attempts.reduce((a,x)=>a+x.score,0)/n).toFixed(1) : "–";
-    // 設問別正答率
-    if(s.by_question.length){
-      $("qrates").innerHTML = s.by_question.map(q=>{
-        const pct = Math.round(q.ok/q.n*100);
-        const cls = pct<50?"low":(pct<75?"mid":"");
-        return "<div class='qrate'><span class='qn'>Q"+q.seq+"</span>"+
-          "<div class='track'><div class='fill "+cls+"' style='width:"+pct+"%'></div></div>"+
-          "<span class='pct'>"+pct+"%</span></div>";
-      }).join("");
-    }
-    // フィード
-    if(n){
-      $("feed").innerHTML = s.attempts.slice(0,60).map((a,i)=>{
-        const t = new Date(a.at).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-        const fresh = (i===0 && n>lastCount) ? " pulse" : "";
-        return "<div class='frow"+fresh+"'><span class='fname'>"+a.name+"（"+a.student_no+"）</span>"+
-          "<span class='fscore'>"+a.score+"/"+a.total+"</span><span class='ftime'>"+t+"</span></div>";
-      }).join("");
-    }
-    lastCount=n;
+    if(activeTab==="quiz") await tickQuiz(); else await tickSurvey();
   }catch(e){ /* 一時的な失敗は次のtickで回復 */ }
+}
+
+async function tickQuiz(){
+  const s = await api.rpc("quiz_stats",{p_quiz_set_id:quizSet.id});
+  if(s.error) return;
+  const n = s.attempts.length;
+  $("st-count").textContent = n;
+  $("st-avg").textContent = n ? (s.attempts.reduce((a,x)=>a+x.score,0)/n).toFixed(1) : "–";
+  if(s.by_question.length){
+    $("qrates").innerHTML = s.by_question.map(q=>{
+      const pct = Math.round(q.ok/q.n*100);
+      const cls = pct<50?"low":(pct<75?"mid":"");
+      return "<div class='qrate'><span class='qn'>Q"+q.seq+"</span>"+
+        "<div class='track'><div class='fill "+cls+"' style='width:"+pct+"%'></div></div>"+
+        "<span class='pct'>"+pct+"%</span></div>";
+    }).join("");
+  }
+  if(n){
+    $("feed").innerHTML = s.attempts.slice(0,60).map((a,i)=>{
+      const t = new Date(a.at).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      const fresh = (i===0 && n>lastCount) ? " pulse" : "";
+      return "<div class='frow"+fresh+"'><span class='fname'>"+a.name+"（"+a.student_no+"）</span>"+
+        "<span class='fscore'>"+a.score+"/"+a.total+"</span><span class='ftime'>"+t+"</span></div>";
+    }).join("");
+  }
+  lastCount=n;
+}
+
+async function tickSurvey(){
+  // 学生総数（初回だけ取得）: 未提出数 = 次に支援する人 の算出用
+  // デモではA①クラス（成基太郎1〜20）を対象クラスとして数える。本番はクラス選択UIに置き換える
+  if(studentTotal===null){
+    const all = await api.get("/rest/v1/profiles?select=id&role=eq.student&class_name=eq."+encodeURIComponent("A①クラス"));
+    studentTotal = all.length;
+  }
+  const rows = await api.get("/rest/v1/survey_responses?select=answers,submitted_at,profiles(student_no,display_name)&survey_key=eq.shinro_2026&order=submitted_at.desc");
+  $("sv-count").textContent = rows.length;
+  $("sv-rest").textContent = Math.max(0, studentTotal - rows.length);
+  if(rows.length){
+    $("sv-list").innerHTML = rows.map(r=>{
+      const t = new Date(r.submitted_at).toLocaleString("ja-JP",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
+      const a = r.answers||{};
+      const esc = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;");
+      return "<div class='svrow'><div class='svhead'>"+
+        "<span class='fname'>"+esc(r.profiles.display_name)+"（"+r.profiles.student_no+"）</span>"+
+        "<span class='ftime'>"+t+"</span></div>"+
+        "<div class='svans'>"+
+        "<span>しごと: <b>"+esc(a.job)+"</b></span>"+
+        "<span>ぶんや: <b>"+esc(a.field)+"</b></span>"+
+        "<span>まち: <b>"+esc(a.town)+"</b></span>"+
+        "</div></div>";
+    }).join("");
+  }else{
+    $("sv-list").innerHTML = "<div style='color:var(--sub)'>回答待ち…</div>";
+  }
 }
 
 /* QR */
