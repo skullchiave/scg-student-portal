@@ -189,3 +189,7 @@ footer{text-align:center;color:var(--sub);font-size:.72rem;padding:10px 16px 30p
   font-family:Consolas,monospace;}
 .qrclose{margin-top:22px;background:var(--bg);color:var(--ink);border:1px solid var(--line);
   border-radius:12px;padding:12px 30px;font-size:.95rem;font-weight:800;font-family:inherit;cursor:pointer;}
+
+/* アンケート一覧: 提出済みの行は名前を控えめに（バッジで状態を示す） */
+.row.done .nm{color:var(--sub);}
+.row.done .badge-done{vertical-align:middle;}

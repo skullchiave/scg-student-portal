@@ -74,7 +74,7 @@
         <span class="txt">
           <span class="sb">Survey</span>
           <span class="nm">アンケートに こたえる<span class="badge-done" id="survey-done-badge" hidden>ていしゅつ済み</span></span>
-          <span class="ds">しんろアンケート（しごと・ぶんや・まち）</span>
+          <span class="ds">しんろ・すまい・アルバイト・がくひ の 4つ</span>
         </span>
         <span class="go"></span>
       </button>
@@ -147,40 +147,25 @@
     </div>
   </section>
 
-  <!-- 進路アンケート -->
-  <section id="scr-survey" hidden>
+  <!-- アンケート一覧（まだ → ていしゅつ済み の順。定義は assets/surveys.js） -->
+  <section id="scr-surveylist" hidden>
     <div class="backrow">
       <button class="backbtn" data-back><i></i> もどる</button>
-      <span class="backtitle">しんろアンケート</span>
+      <span class="backtitle">アンケート</span>
+    </div>
+    <div class="inpanel"><div class="msg" id="surveylist-msg"></div></div>
+    <div class="list" id="survey-list"></div>
+  </section>
+
+  <!-- アンケート回答（定義から質問を組み立てる） -->
+  <section id="scr-survey" hidden>
+    <div class="backrow">
+      <button class="backbtn" id="btn-survey-back"><i></i> もどる</button>
+      <span class="backtitle" id="survey-title"></span>
     </div>
     <div class="panel">
-      <div style="font-size:.9rem;color:var(--sub);line-height:1.85;margin-bottom:18px;">
-        しょうらいの ことを おしえてください。<br>まだ きまっていなくても、いま おもっていることで OK です。
-      </div>
-      <div class="field">
-        <label for="sv-job">① やってみたい しごと</label>
-        <input id="sv-job" type="text" placeholder="れい: つうやく、IT エンジニア、ホテルの しごと">
-      </div>
-      <div class="field">
-        <label for="sv-field">② すすみたい ぶんや</label>
-        <select id="sv-field">
-          <option value="">えらんで ください</option>
-          <option>IT・コンピューター</option>
-          <option>ビジネス・けいえい</option>
-          <option>つうやく・ほんやく</option>
-          <option>かんこう・ホテル</option>
-          <option>かいご・いりょう</option>
-          <option>デザイン・アニメ・アート</option>
-          <option>りょうり・せいか</option>
-          <option>じどうしゃ・きかい</option>
-          <option>そのほか</option>
-          <option>まだ わからない</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="sv-town">③ すみたい まち（はたらきたい まち）</label>
-        <input id="sv-town" type="text" placeholder="れい: 東京、大阪、京都">
-      </div>
+      <div id="survey-intro" style="font-size:.9rem;color:var(--sub);line-height:1.85;margin-bottom:18px;"></div>
+      <div id="survey-fields"></div>
       <button class="btn" id="btn-survey-submit">そうしん（送信）</button>
       <div class="msg" id="survey-msg"></div>
     </div>
@@ -1142,9 +1127,10 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="assets/api.js"></script>
+<script src="assets/surveys.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-const screens = ["scr-login","scr-mypage","scr-quizlist","scr-quiz","scr-result","scr-survey"];
+const screens = ["scr-login","scr-mypage","scr-quizlist","scr-quiz","scr-result","scr-surveylist","scr-survey"];
 function show(id){
   screens.forEach(s => $(s).hidden = (s !== id));
   /* 動く画面へ移るときは「画面イメージ」の箱を閉じる */
@@ -1156,7 +1142,6 @@ function info(id, text){ const m=$(id); m.className="msg info"; m.textContent=te
 function clearMsg(id){ const m=$(id); m.className="msg"; m.textContent=""; }
 
 let quizSet=null, questions=[], cur=0, answers={}, startedAt=0;
-const SURVEY_KEY = "shinro_2026";
 
 /* ---- ログイン ---- */
 $("btn-login").onclick = async () => {
@@ -1179,11 +1164,7 @@ async function goMyPage(){
   $("my-class").textContent = p.class_name || "クラス未設定";
   $("my-no").textContent = p.student_no;
   show("scr-mypage"); clearMsg("my-msg");
-  try{
-    const r = await api.get("/rest/v1/survey_responses?select=answers&survey_key=eq."+SURVEY_KEY+"&limit=1");
-    $("survey-done-badge").hidden = !r.length;
-    window._surveyPrev = r.length ? r[0].answers : null;
-  }catch(e){ /* バッジなしで続行 */ }
+  try{ await loadSurveyMap(); renderSurveyBadge(); }catch(e){ /* バッジなしで続行 */ }
 }
 
 /* ---- テスト一覧 ---- */
@@ -1263,38 +1244,86 @@ function showResult(r){
 }
 $("btn-r-home").onclick=goMyPage;
 
-/* ---- 進路アンケート ---- */
-$("btn-gosurvey").onclick = ()=>{
-  clearMsg("survey-msg");
-  const prev = window._surveyPrev;
+/* ---- アンケート（定義は assets/surveys.js・回答は survey_responses） ---- */
+let surveyMap = {};      // survey_key → {answers, submitted_at}（ログイン本人の分だけ。RLSが他人の行を返さない）
+let curSurvey = null;
+async function loadSurveyMap(){
+  const rows = await api.get("/rest/v1/survey_responses?select=survey_key,answers,submitted_at");
+  surveyMap = {};
+  rows.forEach(r=>{ surveyMap[r.survey_key] = r; });
+}
+function renderSurveyBadge(){
+  const n = SURVEYS.filter(s=>surveyMap[s.key]).length, t = SURVEYS.length, b = $("survey-done-badge");
+  b.hidden = (n===0);
+  b.textContent = (n===t) ? "ぜんぶ ていしゅつ済み" : n+"／"+t+" ていしゅつ済み";
+}
+function fmtDay(iso){ const d=new Date(iso); return (d.getMonth()+1)+"/"+d.getDate(); }
+/* 一覧: まだ答えていないもの → 答えたもの（ていしゅつ済みバッジ）の順に並べる */
+function renderSurveyList(){
+  const list=$("survey-list"); list.innerHTML="";
+  const todo = SURVEYS.filter(s=>!surveyMap[s.key]);
+  const done = SURVEYS.filter(s=> surveyMap[s.key]);
+  todo.concat(done).forEach(s=>{
+    const d = surveyMap[s.key];
+    const b=document.createElement("button");
+    b.className = "row" + (d ? " done" : "");
+    b.style.setProperty("--c", s.color);
+    b.innerHTML = "<span class='bar'></span><span class='txt'>"+
+      "<span class='sb'>"+s.sb+"</span>"+
+      "<span class='nm'>"+s.title+(d ? " <span class='badge-done'>ていしゅつ済み</span>" : "")+"</span>"+
+      "<span class='ds'>"+(d ? fmtDay(d.submitted_at)+" に ていしゅつ。なおして もういちど だせます" : s.desc)+"</span>"+
+      "</span><span class='go'></span>";
+    b.onclick = ()=>openSurvey(s);
+    list.appendChild(b);
+  });
+}
+$("btn-gosurvey").onclick = ()=>{ clearMsg("surveylist-msg"); renderSurveyList(); show("scr-surveylist"); };
+$("btn-survey-back").onclick = ()=>{ clearMsg("surveylist-msg"); renderSurveyList(); show("scr-surveylist"); };
+
+/* 回答画面: 定義の q[] から入力欄を組み立てる。提出済みなら前回の答えを入れておく */
+function openSurvey(s){
+  curSurvey = s; clearMsg("survey-msg");
+  const prev = surveyMap[s.key] ? (surveyMap[s.key].answers || {}) : null;
+  $("survey-title").textContent = s.title;
+  $("survey-intro").innerHTML = s.intro;
+  const box=$("survey-fields"); box.innerHTML="";
+  s.q.forEach((q,i)=>{
+    const id = "sv-"+q.k, num = "①②③④⑤⑥⑦⑧⑨".charAt(i) || (i+1)+".";
+    const f=document.createElement("div"); f.className="field";
+    let inner = "<label for='"+id+"'>"+num+" "+q.l+"</label>";
+    if(q.t==="select"){
+      inner += "<select id='"+id+"'><option value=''>えらんで ください</option>"+
+               q.o.map(o=>"<option>"+o+"</option>").join("")+"</select>";
+    }else{
+      inner += "<input id='"+id+"' type='text' placeholder='"+(q.ph||"")+"'>";
+    }
+    f.innerHTML = inner; box.appendChild(f);
+    if(prev && prev[q.k]!=null) $(id).value = prev[q.k];
+  });
   if(prev){
-    $("sv-job").value = prev.job || "";
-    $("sv-field").value = prev.field || "";
-    $("sv-town").value = prev.town || "";
     info("survey-msg","ていしゅつ済みです。なおして もういちど そうしん できます。");
     $("btn-survey-submit").textContent = "なおして そうしん";
   }else{
     $("btn-survey-submit").textContent = "そうしん（送信）";
   }
   show("scr-survey");
-};
+}
 $("btn-survey-submit").onclick = async ()=>{
-  const ans = {
-    job: $("sv-job").value.trim(),
-    field: $("sv-field").value,
-    town: $("sv-town").value.trim(),
-  };
-  if(!ans.job && !ans.field && !ans.town){ err("survey-msg","1つ以上 かいてください"); return; }
+  const s = curSurvey; if(!s) return;
+  const ans = {}; let filled = 0;
+  s.q.forEach(q=>{ const v = $("sv-"+q.k).value.trim(); ans[q.k] = v; if(v) filled++; });
+  if(!filled){ err("survey-msg","1つ以上 こたえてください"); return; }
   const btn=$("btn-survey-submit");
   btn.disabled=true; btn.textContent="そうしん中…";
   try{
     // student_id は送らない（DB側の既定値 auth.uid() = ログイン本人に固定される）
+    const now = new Date().toISOString();
     await api.upsert("survey_responses","student_id,survey_key",{
-      survey_key: SURVEY_KEY, answers: ans, submitted_at: new Date().toISOString(),
+      survey_key: s.key, answers: ans, submitted_at: now,
     });
-    window._surveyPrev = ans;
-    await goMyPage();
-    info("my-msg","アンケートを うけとりました。ありがとうございます！");
+    surveyMap[s.key] = { survey_key: s.key, answers: ans, submitted_at: now };
+    renderSurveyBadge(); renderSurveyList(); show("scr-surveylist");
+    info("surveylist-msg","「"+s.title+"」を うけとりました。ありがとうございます！");
   }catch(e){
     err("survey-msg","そうしんできませんでした。もういちど おしてください。（"+e.message+"）");
   }finally{ btn.disabled=false; btn.textContent="そうしん（送信）"; }

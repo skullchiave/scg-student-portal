@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>e2e survey flow</title></head>
+<body>
+<iframe id="f" src="../src/index.html" width="420" height="900"></iframe>
+<pre id="out">RUNNING</pre>
+<script>
+/* 回帰テスト（tests/run_e2e_survey.py から起動）。学生画面をそのまま iframe で動かし、ログイン→アンケート一覧→回答→一覧に戻る までを実際に操作する。
+   結果は #out に JSON で書く（--dump-dom で回収）。
+   アカウントは負荷試験用 l150。回答は検査専用の定義 test_multi_ui（本番の SURVEYS に無い＝どの画面にも出ない）に出すので、
+   本物の4本の回答数を汚さない。 */
+const out = document.getElementById("out"), log = { steps: [] };
+const step = (name, ok, detail) => log.steps.push({ name, ok: !!ok, detail: detail === undefined ? "" : String(detail).slice(0, 220) });
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function until(fn, ms = 20000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (fn()) return true; } catch (e) {} await sleep(150); } return false; }
+function rows(d) { return [...d.querySelectorAll("#survey-list .row")].map(r => (r.classList.contains("done") ? "[済]" : "[ ]") + r.querySelector(".nm").textContent.replace(/\s+/g, " ").trim()); }
+(async () => {
+  const f = document.getElementById("f");
+  await until(() => f.contentDocument && f.contentDocument.getElementById("btn-login"));
+  const w = f.contentWindow, d = f.contentDocument;
+  try { w.localStorage.clear(); } catch (e) {}
+  const $ = id => d.getElementById(id);
+  // 検査専用のアンケートを5本目として差し込む（がくひと同じ「select 3問」の形）
+  w.eval("SURVEYS").push({ key: "test_multi_ui", sb: "Test", color: "#888888", title: "じどうけんさの アンケート", desc: "e2e", intro: "e2e",
+    q: [{ k: "a", t: "select", l: "A", sl: "A", o: ["1", "2"] }, { k: "b", t: "select", l: "B", sl: "B", o: ["1", "2"] }, { k: "c", t: "select", l: "C", sl: "C", o: ["1", "2"] }] });
+  await until(() => !$("scr-login").hidden, 8000);
+  step("login screen shown", !$("scr-login").hidden);
+  $("in-no").value = "l150"; $("in-pw").value = "sakura24"; $("btn-login").click();
+  step("mypage shown after login", await until(() => !$("scr-mypage").hidden), $("login-msg").textContent);
+  step("my-name", true, $("my-name").textContent);
+  await sleep(1500); // survey map の読込を待つ
+  step("badge before (hidden: no real answers yet)", $("survey-done-badge").hidden === true, "hidden=" + $("survey-done-badge").hidden + " text=" + $("survey-done-badge").textContent);
+  $("btn-gosurvey").click();
+  step("survey list shown", await until(() => !$("scr-surveylist").hidden), "");
+  const before = rows(d);
+  step("list before (5 rows, all todo, real 4 first)", before.length === 5 && before.every(x => x.startsWith("[ ]")) && before[4].includes("じどうけんさ"), before.join(" | "));
+  const target = [...d.querySelectorAll("#survey-list .row")].find(r => r.textContent.includes("じどうけんさ"));
+  target.click();
+  step("survey form shown", await until(() => !$("scr-survey").hidden), $("survey-title").textContent);
+  const selects = [...d.querySelectorAll("#survey-fields select")];
+  step("form has 3 selects", selects.length === 3, selects.length);
+  // 未回答のまま送信 → エラー表示
+  $("btn-survey-submit").click();
+  await sleep(300);
+  step("empty submit is rejected", $("survey-msg").textContent.includes("1つ以上"), $("survey-msg").textContent);
+  selects.forEach(s => { s.selectedIndex = 1; });
+  $("btn-survey-submit").click();
+  step("back to list after submit", await until(() => !$("scr-surveylist").hidden && $("surveylist-msg").textContent.includes("うけとりました"), 25000), $("survey-msg").textContent + " / " + $("surveylist-msg").textContent);
+  const after = rows(d);
+  step("answered one sank to bottom with badge", after.length === 5 && after[4].startsWith("[済]") && after[4].includes("じどうけんさ") && after[4].includes("ていしゅつ済み"), after.join(" | "));
+  step("real 4 still todo on top", after.slice(0, 4).every(x => x.startsWith("[ ]")), after.slice(0, 4).join(" | "));
+  // 再度開くと前回の答えが入っていて「なおして そうしん」になる
+  [...d.querySelectorAll("#survey-list .row")].find(r => r.textContent.includes("じどうけんさ")).click();
+  await until(() => !$("scr-survey").hidden);
+  const sel2 = [...d.querySelectorAll("#survey-fields select")];
+  step("reopen: previous answers prefilled + button label", sel2.every(s => s.selectedIndex === 1) && $("btn-survey-submit").textContent.includes("なおして"), $("btn-survey-submit").textContent + " / " + $("survey-msg").textContent);
+  $("btn-survey-back").click();
+  await until(() => !$("scr-surveylist").hidden);
+  d.querySelector("#scr-surveylist [data-back]").click();
+  step("back to mypage", await until(() => !$("scr-mypage").hidden), "");
+  step("badge after = 1／5", $("survey-done-badge").hidden === false && $("survey-done-badge").textContent.includes("1／5"), "hidden=" + $("survey-done-badge").hidden + " text=" + $("survey-done-badge").textContent);
+  $("btn-gosurvey").click();
+  step("btn-gosurvey (= #survey deep link) opens list", await until(() => !$("scr-surveylist").hidden), "");
+  // 本物の しんろ を開いて既存形式（text/select/text）が組み上がるか
+  [...d.querySelectorAll("#survey-list .row")].find(r => r.textContent.includes("しんろ")).click();
+  await until(() => !$("scr-survey").hidden);
+  const kinds = [...d.querySelectorAll("#survey-fields .field")].map(x => x.querySelector("select") ? "select" : "text");
+  step("shinro form = text/select/text with 10 options", kinds.join(",") === "text,select,text" && d.querySelectorAll("#survey-fields select option").length === 11, kinds.join(",") + " options=" + d.querySelectorAll("#survey-fields select option").length);
+  log.done = true;
+  out.textContent = "E2E_RESULT " + JSON.stringify(log);
+})().catch(e => { log.error = String(e); out.textContent = "E2E_RESULT " + JSON.stringify(log); });
+</script>
+</body></html>

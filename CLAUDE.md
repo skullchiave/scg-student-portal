@@ -33,6 +33,15 @@
 - service_role キーをコード・リポに入れない（anonキーは公開可なので直書きOK）
 - UI文言は学生向け=やさしい日本語（N4相当・分かち書き寄り）、教師向け=普通の日本語
 
+## アンケート（2026-09-03 に複数化）
+
+- 定義は `src/assets/surveys.js` の `SURVEYS` 配列 **1か所**（index.html と teacher.html が同じファイルを読む）。
+  1本足すときは配列に1件追加するだけ（`{key, sb, color, title, desc, intro, q:[{k,t,l,sl, o|ph}]}`）。DB変更は不要
+- `key` は一度公開したら変えない（回答は `survey_responses` に `survey_key` で入り、(student_id, survey_key) で upsert＝再提出は上書き）
+- 学生画面の一覧は「まだ」→「ていしゅつ済み（バッジ・下へ沈む）」の順。文言はやさしい日本語（N4・分かち書き）
+- `python tests/test_surveys.py` で定義を検査。`--live` を付けると本物のDBに upsert→読み戻しの往復検査
+  （テスト用キー `test_multi_*` を l150 で使う＝画面には出ない）
+
 ## デモアカウント / 検証
 
 README.md 参照（s001〜s040 / t001 / l001〜l150、テストと負荷試験の実行方法）。

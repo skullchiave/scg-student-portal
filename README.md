@@ -44,6 +44,8 @@
 
 ```
 python tests/test_security.py       # セキュリティ回帰テスト（スキーマ変更したら必ず）
+python tests/test_surveys.py --live # アンケート定義の検査＋DB往復（surveys.js を変えたら）
+python tests/run_e2e_survey.py      # ブラウザ実操作: ログイン→アンケート一覧→回答→提出済みが下へ沈む（Chrome必要）
 python scripts/loadtest.py tokens   # 負荷テスト準備: 150名分のログイン（低速・30分）
 python scripts/loadtest.py burst    # 負荷テスト本番: ログイン済み150名の一斉受験
 ```

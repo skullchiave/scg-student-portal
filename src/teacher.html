@@ -75,7 +75,8 @@
         <div class="stat"><div class="v" id="sv-rest">–</div><div class="l">未提出（次に支援する人）</div></div>
       </div>
       <div class="panel">
-        <h2>しんろアンケート 回答一覧</h2>
+        <h2>アンケート 回答一覧</h2>
+        <select id="sv-pick" style="font-family:inherit;font-size:1rem;padding:8px 12px;margin:2px 0 12px;border:1px solid var(--line);border-radius:10px;max-width:100%;"></select>
         <div class="feed" id="sv-list" style="max-height:460px;"><div style="color:var(--sub)">回答待ち…</div></div>
       </div>
     </div>
@@ -95,6 +96,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="assets/api.js"></script>
+<script src="assets/surveys.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 function err(id,t){ const m=$(id); m.className="msg err"; m.textContent=t; }
@@ -166,6 +168,15 @@ async function tickQuiz(){
   lastCount=n;
 }
 
+/* どのアンケートを見るか（定義は assets/surveys.js・学生画面と共通） */
+let svKey = SURVEYS[0].key;
+function svDef(){ return SURVEYS.find(s=>s.key===svKey) || SURVEYS[0]; }
+$("sv-pick").innerHTML = SURVEYS.map(s=>"<option value='"+s.key+"'>"+s.title+"</option>").join("");
+$("sv-pick").onchange = ()=>{
+  svKey = $("sv-pick").value;
+  $("sv-list").innerHTML = "<div style='color:var(--sub)'>読み込み中…</div>";
+  tickSurvey().catch(()=>{});
+};
 async function tickSurvey(){
   // 学生総数（初回だけ取得）: 未提出数 = 次に支援する人 の算出用
   // デモではA①クラス（成基太郎1〜20）を対象クラスとして数える。本番はクラス選択UIに置き換える
@@ -173,7 +184,7 @@ async function tickSurvey(){
     const all = await api.get("/rest/v1/profiles?select=id&role=eq.student&class_name=eq."+encodeURIComponent("A①クラス"));
     studentTotal = all.length;
   }
-  const rows = await api.get("/rest/v1/survey_responses?select=answers,submitted_at,profiles(student_no,display_name)&survey_key=eq.shinro_2026&order=submitted_at.desc");
+  const rows = await api.get("/rest/v1/survey_responses?select=answers,submitted_at,profiles(student_no,display_name)&survey_key=eq."+svKey+"&order=submitted_at.desc");
   $("sv-count").textContent = rows.length;
   $("sv-rest").textContent = Math.max(0, studentTotal - rows.length);
   if(rows.length){
@@ -185,9 +196,7 @@ async function tickSurvey(){
         "<span class='fname'>"+esc(r.profiles.display_name)+"（"+r.profiles.student_no+"）</span>"+
         "<span class='ftime'>"+t+"</span></div>"+
         "<div class='svans'>"+
-        "<span>しごと: <b>"+esc(a.job)+"</b></span>"+
-        "<span>ぶんや: <b>"+esc(a.field)+"</b></span>"+
-        "<span>まち: <b>"+esc(a.town)+"</b></span>"+
+        svDef().q.map(q=>"<span>"+q.sl+": <b>"+esc(a[q.k])+"</b></span>").join("")+
         "</div></div>";
     }).join("");
   }else{
