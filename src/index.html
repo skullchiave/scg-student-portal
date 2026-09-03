@@ -6,8 +6,21 @@
 <title>SCG 学生ポータル</title>
 <meta name="theme-color" content="#10365e">
 <link rel="stylesheet" href="assets/app.css">
+<link rel="stylesheet" href="assets/preview.css">
 </head>
 <body>
+<div class="langbar">
+  <div class="langin">
+    <span class="langlbl">Language</span>
+    <button class="lang" type="button" data-lang="ja" aria-pressed="true">日本語</button>
+    <button class="lang" type="button" data-lang="en" aria-pressed="false">English</button>
+    <button class="lang" type="button" data-lang="bn" aria-pressed="false"><span class="native">বাংলা</span> Bengali</button>
+    <button class="lang" type="button" data-lang="my" aria-pressed="false"><span class="native">မြန်မာ</span> Burmese</button>
+    <button class="lang" type="button" data-lang="ne" aria-pressed="false"><span class="native">नेपाली</span> Nepali</button>
+    <button class="lang" type="button" data-lang="zh" aria-pressed="false"><span class="native">中文</span> Chinese</button>
+    <button class="lang" type="button" data-lang="si" aria-pressed="false"><span class="native">සිංහල</span> Sinhala</button>
+  </div>
+</div>
 <header>
   <div class="hin">
     <div class="eyebrow">SCG Student Portal</div>
@@ -45,7 +58,7 @@
         </div>
       </div>
     </div>
-    <div class="sechead">Menu</div>
+    <div class="sechead">いま動きます</div>
     <div class="list">
       <button class="row" id="btn-gotest" style="--c:#1769aa">
         <span class="bar"></span>
@@ -66,6 +79,32 @@
         <span class="go"></span>
       </button>
     </div>
+
+    <div class="sechead">これから作る画面（イメージ）</div>
+    <div class="list">
+      <button class="row" data-go="grades" style="--c:#1769aa"><span class="bar"></span>
+        <span class="txt"><span class="sb">Record</span><span class="nm">せいせき（成績）</span>
+        <span class="ds">JLPT・JPT・定期試験・模試・出席率</span></span><span class="go"></span></button>
+      <button class="row" data-go="news" style="--c:#c77700"><span class="bar"></span>
+        <span class="txt"><span class="sb">News</span><span class="nm">おしらせ</span>
+        <span class="ds">試験の日程・休みの期間・大事な連絡</span></span><span class="go"></span></button>
+      <button class="row" data-go="jobs" style="--c:#7b5cd6"><span class="bar"></span>
+        <span class="txt"><span class="sb">Job</span><span class="nm">アルバイト</span>
+        <span class="ds">求人と、28時間ルールの注意</span></span><span class="go"></span></button>
+      <button class="row" data-go="schools" style="--c:#1f7a8c"><span class="bar"></span>
+        <span class="txt"><span class="sb">Schools</span><span class="nm">しんがく先の情報</span>
+        <span class="ds">専門学校・大学の一覧と出願の締切</span></span><span class="go"></span></button>
+      <button class="row" data-go="voices" style="--c:#0f9b8e"><span class="bar"></span>
+        <span class="txt"><span class="sb">Voices</span><span class="nm">せんぱいの声</span>
+        <span class="ds">いま進学先にいる卒業生へのインタビュー</span></span><span class="go"></span></button>
+      <button class="row" data-go="survey" style="--c:#2f9e44"><span class="bar"></span>
+        <span class="txt"><span class="sb">Survey</span><span class="nm">アンケート一覧</span>
+        <span class="ds">複数のアンケートを並べる画面のイメージ</span></span><span class="go"></span></button>
+      <button class="row" data-go="study" style="--c:#d64545"><span class="bar"></span>
+        <span class="txt"><span class="sb">Drill</span><span class="nm">テスト・ドリル</span>
+        <span class="ds">小テストと、JLPTの語彙ドリル</span></span><span class="go"></span></button>
+    </div>
+
     <div class="inpanel">
       <div class="msg" id="my-msg"></div>
       <button class="btn ghost" id="btn-logout" style="margin-top:8px;">ログアウト</button>
@@ -153,14 +192,1383 @@
     </div>
   </section>
 
+  <!-- ══════ ここから下は「画面イメージ」。Supabaseにはつながらない ══════ -->
+  <div class="app" data-lang="ja">
+
+
+<!-- ══════════ ホーム ══════════ -->
+<!-- ══════════ 成績 ══════════ -->
+<section data-screen="grades" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> もどる</button></div>
+
+  <div class="panel">
+    <h2>出席率</h2>
+    <p class="lede">入管が見ている数字です。90%より下げないでください。</p>
+    <div class="meter">
+      <div class="meterhead">
+        <div class="big">94.2<small>%</small></div>
+        <span class="pill ok">良好</span>
+      </div>
+      <div class="track"><div class="fill" style="width:94.2%"></div></div>
+      <div class="limit"><i style="left:90%"></i><span style="left:90%">90%ライン</span></div>
+    </div>
+    <div class="note">今学期は121日のうち<b>7日</b>休んでいます。そのうち2日はまだ理由が届いていません。
+      事務所に届を出せば、記録を見直せます。</div>
+  </div>
+
+  <div class="panel">
+    <h2>JLPT</h2>
+    <p class="lede">合格した級は、ずっとあなたのものです。次の試験は 2026年12月7日。</p>
+    <div class="ladder">
+      <div class="step done"><div class="lv">N5</div><div class="st">合格</div></div>
+      <div class="step done"><div class="lv">N4</div><div class="st">合格</div></div>
+      <div class="step done"><div class="lv">N3</div><div class="st">合格</div></div>
+      <div class="step now"><div class="lv">N2</div><div class="st">申込済</div></div>
+      <div class="step"><div class="lv">N1</div><div class="st">—</div></div>
+    </div>
+    <dl class="kv">
+      <dt>前回の結果</dt><dd>N3 — 108 / 180（2025年12月）</dd>
+      <dt>申込中</dt><dd>N2 — 2026年12月</dd>
+    </dl>
+  </div>
+
+  <div class="panel">
+    <h2>JPT</h2>
+    <p class="lede">いちばん良かった点数を使います。最新の点数ではありません。</p>
+    <div class="spark">
+      <svg viewBox="0 0 320 88" role="img" aria-label="JPTの点数：2025年10月 445点、2026年2月 480点、2026年5月 520点、2026年7月 555点">
+        <line x1="34" y1="8" x2="316" y2="8" stroke="#eceff3" stroke-width="1"></line>
+        <line x1="34" y1="34" x2="316" y2="34" stroke="#eceff3" stroke-width="1"></line>
+        <line x1="34" y1="60" x2="316" y2="60" stroke="#eceff3" stroke-width="1"></line>
+        <text x="30" y="12" text-anchor="end" font-size="9" fill="#7b8794">600</text>
+        <text x="30" y="38" text-anchor="end" font-size="9" fill="#7b8794">500</text>
+        <text x="30" y="64" text-anchor="end" font-size="9" fill="#7b8794">400</text>
+        <path d="M52 74 L140 65 L228 52 L306 43 L306 60 L228 60 L140 60 L52 60 Z" fill="#1769aa" opacity=".08"></path>
+        <polyline points="52,74 140,65 228,52 306,43" fill="none" stroke="#1769aa" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round"></polyline>
+        <circle cx="52" cy="74" r="3" fill="#fff" stroke="#1769aa" stroke-width="2"></circle>
+        <circle cx="140" cy="65" r="3" fill="#fff" stroke="#1769aa" stroke-width="2"></circle>
+        <circle cx="228" cy="52" r="3" fill="#fff" stroke="#1769aa" stroke-width="2"></circle>
+        <circle cx="306" cy="43" r="4.5" fill="#1769aa"></circle>
+        <text x="306" y="33" text-anchor="end" font-size="11" font-weight="700" fill="#10365e">555</text>
+      </svg>
+      <div class="sparkfoot"><span>2025-10</span><span>2026-02</span><span>2026-05</span><span>2026-07</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>定期試験 — 2026年度 第1回</h2>
+    <p class="lede">科目ごとに重みが違います。点数のほとんどは文法で決まります。</p>
+    <div class="meterhead" style="margin-top:2px">
+      <div class="big">78<small> / 100</small></div>
+      <span class="pill ok">クラス平均（71）より上</span>
+    </div>
+    <div class="skills">
+      <div class="skill">
+        <span class="nmw">文法 <em>配点 60</em></span><span class="sc">49<s> / 60</s></span>
+        <span class="t"><i style="width:81.7%"></i></span>
+      </div>
+      <div class="skill">
+        <span class="nmw">会話 <em>配点 20</em></span><span class="sc">17<s> / 20</s></span>
+        <span class="t"><i style="width:85%"></i></span>
+      </div>
+      <div class="skill">
+        <span class="nmw">漢字 <em>配点 10</em></span><span class="sc">8<s> / 10</s></span>
+        <span class="t"><i style="width:80%"></i></span>
+      </div>
+      <div class="skill low">
+        <span class="nmw">読解 <em>配点 5</em></span><span class="sc">2<s> / 5</s></span>
+        <span class="t"><i style="width:40%"></i></span>
+      </div>
+      <div class="skill">
+        <span class="nmw">聴解 <em>配点 5</em></span><span class="sc">2<s> / 5</s></span>
+        <span class="t"><i style="width:40%"></i></span>
+      </div>
+    </div>
+    <div class="note">いま一番弱いのは読解です。この試験では5点しかありませんが、
+      <b>JLPTでは60点</b>あります。12月までに練習しておきましょう。</div>
+  </div>
+
+  <div class="panel">
+    <h2>模試（N2）</h2>
+    <div class="meterhead" style="margin-top:2px">
+      <div class="big">112<small> / 180</small></div>
+      <span class="pill warn">ぎりぎり</span>
+    </div>
+    <dl class="kv">
+      <dt>言語知識</dt><dd>41 / 60</dd>
+      <dt>読解</dt><dd>28 / 60</dd>
+      <dt>聴解</dt><dd>43 / 60</dd>
+    </dl>
+    <div class="note">模試は「<b>まだ早い</b>」と教えてくれますが、「受かる」とは言えません。
+      去年N2に合格した人は、この模試で<b>110点以上</b>でした。ちょうどその線の上です。</div>
+  </div>
+
+  <div class="panel">
+    <h2>これまでの伸び</h2>
+    <p class="lede">定期試験の点数を、学期ごとに並べています。</p>
+    <div class="hist">
+      <div class="hrow"><span class="hl">2025 第2回</span><span class="ht"><i style="width:58%"></i></span>
+        <span class="hv">58</span></div>
+      <div class="hrow"><span class="hl">2025 第3回</span><span class="ht"><i style="width:64%"></i></span>
+        <span class="hv">64<em class="up">+6</em></span></div>
+      <div class="hrow"><span class="hl">2026 第1回</span><span class="ht"><i style="width:71%"></i></span>
+        <span class="hv">71<em class="up">+7</em></span></div>
+      <div class="hrow"><span class="hl">2026 第2回</span><span class="ht"><i style="width:78%"></i></span>
+        <span class="hv">78<em class="up">+7</em></span></div>
+    </div>
+    <div class="note">毎回、上がっています。点数の大半は文法なので、そこは今のやり方を続けてください。
+      あとは読解に時間を使いましょう。</div>
+  </div>
+
+  <div class="panel">
+    <h2>月ごとの出席率</h2>
+    <p class="lede">1か月低くても問題ありません。3か月続くと危ないです。</p>
+    <div class="months">
+      <div class="mo"><div class="mb"><i style="height:97%"></i></div><div class="ml">4月</div><div class="mv">97%</div></div>
+      <div class="mo"><div class="mb"><i style="height:95%"></i></div><div class="ml">5月</div><div class="mv">95%</div></div>
+      <div class="mo"><div class="mb warn"><i style="height:88%"></i></div><div class="ml">6月</div><div class="mv">88%</div></div>
+      <div class="mo"><div class="mb"><i style="height:96%"></i></div><div class="ml">7月</div><div class="mv">96%</div></div>
+      <div class="mo"><div class="mb"><i style="height:93%"></i></div><div class="ml">8月</div><div class="mv">93%</div></div>
+      <div class="mo"><div class="mb"><i style="height:96%"></i></div><div class="ml">9月</div><div class="mv">96%</div></div>
+    </div>
+    <div class="note">6月が低いのは、1週間に5日休んだためです。3日以上体調が悪いときは事務所に連絡してください。
+      診断書があれば、記録の付け方が変わります。</div>
+  </div>
+</section>
+
+<!-- ══════════ アンケート一覧 ══════════ -->
+<section data-screen="survey" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> もどる</button></div>
+  <div class="panel">
+    <h2>アンケート</h2>
+    <p class="lede">あなたの答えを見られるのは、担任の先生と進路指導の先生だけです。
+      ほかの学生には見えません。</p>
+  </div>
+  <div class="sechead"><span>まだ答えていないもの</span></div>
+  <div class="list">
+    <button class="row" data-go="survey-career" style="--c:#2f9e44">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">締切 2026-09-20</span><span class="nm">進路希望アンケート</span>
+        <span class="ds">4問 · 2分くらい</span></span>
+      <span class="tail">未回答</span>
+      <span class="go"></span>
+    </button>
+    <button class="row" data-go="survey-life" style="--c:#7b5cd6">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">締切 2026-09-30</span><span class="nm">生活・住まいアンケート</span>
+        <span class="ds">3問 · いくつでも選べる質問があります</span></span>
+      <span class="tail">未回答</span>
+      <span class="go"></span>
+    </button>
+  </div>
+  <div class="sechead"><span>終わったもの</span></div>
+  <div class="list">
+    <button class="row" data-soon style="--c:#7b8794">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">2026-08-25 回答</span><span class="nm">夏休みの報告</span>
+        <span class="ds">5問すべてに答えました</span></span>
+      <span class="tail">回答済</span>
+      <span class="go"></span>
+    </button>
+    <button class="row" data-soon style="--c:#7b8794">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">2026-07-10 締切</span><span class="nm">授業アンケート（第1学期）</span>
+        <span class="ds">このアンケートは終わりました。ご協力ありがとうございました。</span></span>
+      <span class="tail">締切</span>
+      <span class="go"></span>
+    </button>
+  </div>
+</section>
+
+<!-- ══════════ アンケート1：進路 ══════════ -->
+<section data-screen="survey-career" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back-to="survey"><i></i> アンケート一覧へ</button></div>
+  <div class="panel">
+    <h2>進路希望アンケート</h2>
+    <p class="lede">次の面談の前に、担任の先生が読みます。2026年9月20日まで直せます。</p>
+    <div class="qhead">
+      <span class="track"><span class="fill" data-fill style="width:0%"></span></span>
+      <span class="cnt"><span data-done>0</span> / <span data-total>4</span></span>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">卒業したあと、どうしたいですか。</div>
+      <div class="qs">1つ選んでください。あとで変えられます。</div>
+      <div class="opts">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>専門学校へ進学</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>大学へ進学</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>日本で就職</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>国へ帰る</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>まだ決めていない</button>
+      </div>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">どの分野に興味がありますか。</div>
+      <div class="qs">1つ選んでください。</div>
+      <div class="opts">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>IT・プログラミング</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>ビジネス・貿易</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>ホテル・観光</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>デザイン・アニメ</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>介護</button>
+      </div>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">12月のJLPTは、どの級を受けますか。</div>
+      <div class="qs">合格した人は、学校が次の級で申し込みます。</div>
+      <div class="opts">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>N2</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>N3</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>受けない</button>
+      </div>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">いまの日本での生活はどうですか。</div>
+      <div class="qs">1＝とても大変　5＝とても良い</div>
+      <div class="opts scale">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>1</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>2</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>3</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>4</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>5</button>
+      </div>
+    </div>
+
+    <button class="btn" type="button" data-save>回答を保存する</button>
+  </div>
+</section>
+
+<!-- ══════════ アンケート2：生活 ══════════ -->
+<section data-screen="survey-life" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back-to="survey"><i></i> アンケート一覧へ</button></div>
+  <div class="panel">
+    <h2>生活・住まいアンケート</h2>
+    <p class="lede">学校が早く問題に気づくためのものです。成績には関係しないので、正直に答えてください。</p>
+    <div class="qhead">
+      <span class="track"><span class="fill" data-fill style="width:0%"></span></span>
+      <span class="cnt"><span data-done>0</span> / <span data-total>3</span></span>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">いま、どこに住んでいますか。</div>
+      <div class="qs">1つ選んでください。</div>
+      <div class="opts">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>学校の寮</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>アパート（友だちと一緒）</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>アパート（一人）</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>家族・親戚の家</button>
+      </div>
+    </div>
+
+    <div class="q" data-q data-multi>
+      <div class="qt">いま困っていることはありますか。</div>
+      <div class="qs">いくつでも選べます。困っていなければ、選ばなくて大丈夫です。</div>
+      <div class="chips">
+        <button class="chipbtn" type="button" aria-pressed="false">お金</button>
+        <button class="chipbtn" type="button" aria-pressed="false">体の調子</button>
+        <button class="chipbtn" type="button" aria-pressed="false">日本語の勉強</button>
+        <button class="chipbtn" type="button" aria-pressed="false">アルバイト</button>
+        <button class="chipbtn" type="button" aria-pressed="false">近所・騒音</button>
+        <button class="chipbtn" type="button" aria-pressed="false">ホームシック</button>
+        <button class="chipbtn" type="button" aria-pressed="false">ビザ・書類</button>
+      </div>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">先生に相談したいですか。</div>
+      <div class="qs">1つ選んでください。</div>
+      <div class="opts">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>はい、早めに</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>はい、急ぎではありません</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>いいえ、大丈夫です</button>
+      </div>
+    </div>
+
+    <button class="btn" type="button" data-save>回答を保存する</button>
+  </div>
+</section>
+
+<!-- ══════════ お知らせ ══════════ -->
+<section data-screen="news" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> もどる</button></div>
+  <div class="sechead"><span>学校からのお知らせ</span><span class="upd">更新 2026-09-03</span></div>
+  <div class="list">
+    <div class="item unread">
+      <div class="top"><span class="date">2026-09-02</span><span class="pill ng">重要</span></div>
+      <div class="ttl">12月JLPTの申込は 9月19日まで</div>
+      <div class="bd">申込は学校がまとめて行います。9月19日（金）までに、3,500円と写真1枚を事務所へ。
+        これを逃すと、12月の試験は受けられません。</div>
+    </div>
+    <div class="item unread">
+      <div class="top"><span class="date">2026-09-01</span><span class="pill ng">ビザ</span></div>
+      <div class="ttl">在留カードの更新は3か月前から</div>
+      <div class="bd">2027年3月より前に期限が来る人は、今月中に事務所へ来てください。
+        入管は出席率を見ます。先に「成績」の画面で自分の数字を確認しておきましょう。</div>
+    </div>
+    <div class="item unread">
+      <div class="top"><span class="date">2026-08-30</span><span class="pill warn">日程</span></div>
+      <div class="ttl">定期試験：10月8日〜10日</div>
+      <div class="bd">A-1クラスは午前です（奇数のクラスが午前）。10分前には来てください。
+        鉛筆と学生証を忘れずに。</div>
+    </div>
+    <div class="item">
+      <div class="top"><span class="date">2026-08-28</span><span class="pill flat">イベント</span></div>
+      <div class="ttl">オープンキャンパスのバス — 10月12日 9:00</div>
+      <div class="bd">大阪の専門学校3校をまわる無料バスです。20席。
+        10月5日までに、職員室前の紙に名前を書いてください。</div>
+    </div>
+    <div class="item">
+      <div class="top"><span class="date">2026-08-22</span><span class="pill flat">休み</span></div>
+      <div class="ttl">9月21日〜25日は学校が休みです</div>
+      <div class="bd">秋休みです。事務所も閉まります。アルバイト先に出す証明書が必要な人は、
+        9月19日までに申し込んでください。</div>
+    </div>
+    <div class="item">
+      <div class="top"><span class="date">2026-08-18</span><span class="pill warn">健康</span></div>
+      <div class="ttl">健康診断（無料） — 9月30日</div>
+      <div class="bd">全員参加です。30分くらいで終わります。2時間前から食べないでください。
+        自分の時間は掲示板に貼ってあります。</div>
+    </div>
+    <div class="item">
+      <div class="top"><span class="date">2026-08-10</span><span class="pill flat">生活</span></div>
+      <div class="ttl">引っ越したら学校にも教えてください</div>
+      <div class="bd">住所が変わったら、14日以内に市役所へ届けます。学校にも教えてください。
+        入管は在留カードの住所を見ています。</div>
+    </div>
+    <div class="item">
+      <div class="top"><span class="date">2026-08-04</span><span class="pill flat">生活</span></div>
+      <div class="ttl">この区のゴミ出しルールが変わりました</div>
+      <div class="bd">燃えるゴミは火曜と金曜、プラスチックは水曜になりました。
+        6か国語の絵入り案内が、玄関の掲示板にあります。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ アルバイト ══════════ -->
+<section data-screen="jobs" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> もどる</button></div>
+
+  <div class="panel">
+    <h2>応募する前に</h2>
+    <p class="lede">これは学校の決まりではなく、入管の決まりです。</p>
+    <div class="note">働けるのは<b>1週間に28時間</b>までです。長い休みの期間は1日8時間まで。
+      在留カードに<b>資格外活動許可</b>が必要です。
+      働いてはいけない仕事もあります（お酒を出す店、パチンコなど）。</div>
+    <div class="note" style="margin-top:9px"><b>まず事務所に相談してください。</b>求人の紙を持ってきてください。
+      先生が時間と仕事の内容を一緒に確認します。5分で終わりますが、これで在留資格を守れた学生がいます。</div>
+  </div>
+
+  <div class="sechead"><span>募集中の仕事</span><span class="upd">更新 2026-08-28</span></div>
+  <div class="list">
+    <div class="item">
+      <div class="top"><span class="pill ok">募集中</span><span class="date">2026-08-28 掲載</span></div>
+      <div class="ttl">コンビニ — 朝のシフト</div>
+      <dl class="kv">
+        <dt>時給</dt><dd>1,150円</dd>
+        <dt>時間</dt><dd>6:00〜9:00 · 週3〜4日</dd>
+        <dt>場所</dt><dd>学校から徒歩8分</dd>
+        <dt>日本語</dt><dd>N4以上</dd>
+        <dt>ひとこと</dt><dd>午前の授業の人に向いています（学校の前に終わります）</dd>
+      </dl>
+    </div>
+    <div class="item">
+      <div class="top"><span class="pill ok">募集中</span><span class="date">2026-08-26 掲載</span></div>
+      <div class="ttl">スーパー — 品出し</div>
+      <dl class="kv">
+        <dt>時給</dt><dd>1,180円</dd>
+        <dt>時間</dt><dd>18:00〜21:00 · 週4日</dd>
+        <dt>場所</dt><dd>自転車で12分</dd>
+        <dt>日本語</dt><dd>N5以上</dd>
+        <dt>ひとこと</dt><dd>お客さんと話すことは少ないです</dd>
+      </dl>
+    </div>
+    <div class="item">
+      <div class="top"><span class="pill ok">募集中</span><span class="date">2026-08-20 掲載</span></div>
+      <div class="ttl">ホテル — 客室清掃</div>
+      <dl class="kv">
+        <dt>時給</dt><dd>1,220円</dd>
+        <dt>時間</dt><dd>10:00〜15:00 · 土日</dd>
+        <dt>場所</dt><dd>京都駅の近く</dd>
+        <dt>日本語</dt><dd>N5以上</dd>
+        <dt>ひとこと</dt><dd>土日だけなので、28時間を超えにくいです</dd>
+      </dl>
+    </div>
+    <div class="item">
+      <div class="top"><span class="pill warn">あと2人</span><span class="date">2026-08-14 掲載</span></div>
+      <div class="ttl">飲食店 — キッチン補助</div>
+      <dl class="kv">
+        <dt>時給</dt><dd>1,100円（まかない付き）</dd>
+        <dt>時間</dt><dd>17:30〜21:30 · 週3日</dd>
+        <dt>場所</dt><dd>徒歩15分</dd>
+        <dt>日本語</dt><dd>N4以上</dd>
+        <dt>ひとこと</dt><dd>洗い物と仕込みです。接客はありません。</dd>
+      </dl>
+    </div>
+    <div class="item">
+      <div class="top"><span class="pill warn">あと2人</span><span class="date">2026-08-08 掲載</span></div>
+      <div class="ttl">倉庫 — 荷物の仕分け</div>
+      <dl class="kv">
+        <dt>時給</dt><dd>1,300円</dd>
+        <dt>時間</dt><dd>9:00〜14:00 · 土日</dd>
+        <dt>場所</dt><dd>電車で25分</dd>
+        <dt>日本語</dt><dd>なくても大丈夫</dd>
+        <dt>ひとこと</dt><dd>体を使う仕事です。安全靴は貸してもらえます。</dd>
+      </dl>
+    </div>
+    <div class="item">
+      <div class="top"><span class="pill flat">締切</span><span class="date">2026-07-30 掲載</span></div>
+      <div class="ttl">弁当工場 — 夕方のシフト</div>
+      <dl class="kv">
+        <dt>時給</dt><dd>1,100円</dd>
+        <dt>時間</dt><dd>17:00〜21:00</dd>
+        <dt>場所</dt><dd>バスで20分</dd>
+        <dt>日本語</dt><dd>なくても大丈夫</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 進学先 ══════════ -->
+<section data-screen="schools" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> もどる</button></div>
+  <div class="panel">
+    <h2>進学先の情報</h2>
+    <p class="lede">この3年で、この学校から進学した先です。
+      出願の締切は「もうすぐ」ではなく、日付で書いてあります。</p>
+    <div class="note">赤い点は、締切まで6週間を切っているという意味です。
+      このページは人が手で更新しています。学校のホームページも必ず確認してください。</div>
+  </div>
+
+  <div class="sechead"><span>専門学校</span><span class="upd">更新 2026-08-25</span></div>
+  <div class="list">
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">IT</span>
+        <span>
+          <span class="sc-nm">大阪情報ITカレッジ</span>
+          <span class="sc-me">大阪 · 2年 · 2026年に3名が進学</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N2必要</span><span class="tag">寮あり</span>
+        <span class="tag">奨学金</span><span class="tag">年 1,180,000円</span></div>
+      <div class="deadline"><span class="dot"></span>出願締切 2026-10-15 · オープンキャンパス 2026-09-28</div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">HT</span>
+        <span>
+          <span class="sc-nm">京都ホテル・観光専門学校</span>
+          <span class="sc-me">京都 · 2年 · 2026年に5名が進学</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N3必要</span><span class="tag">インターン</span>
+        <span class="tag">制服あり</span><span class="tag">年 1,050,000円</span></div>
+      <div class="deadline"><span class="dot"></span>出願締切 2026-10-31 · オープンキャンパス 2026-10-05</div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">介護</span>
+        <span>
+          <span class="sc-nm">関西介護福祉カレッジ</span>
+          <span class="sc-me">大阪 · 2年 · 2026年に2名が進学</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N3必要</span><span class="tag">卒業後の就職あり</span>
+        <span class="tag">学費減免</span><span class="tag">年 980,000円</span></div>
+      <div class="deadline"><span class="dot"></span>出願締切 2026-10-20 · オープンキャンパス 2026-09-21</div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">DA</span>
+        <span>
+          <span class="sc-nm">神戸デザイン&amp;アニメ学院</span>
+          <span class="sc-me">神戸 · 3年 · 2025年に1名が進学</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N2必要</span><span class="tag">作品提出あり</span>
+        <span class="tag">年 1,320,000円</span></div>
+      <div class="deadline far"><span class="dot"></span>出願締切 2026-12-05 · オープンキャンパス 2026-11-09</div>
+    </div>
+  </div>
+
+  <div class="sechead"><span>大学</span><span class="upd">更新 2026-08-25</span></div>
+  <div class="list">
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">大A</span>
+        <span>
+          <span class="sc-nm">関西国際大学 — 経営学部</span>
+          <span class="sc-me">大阪 · 4年 · 2026年に1名が進学</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N2必要</span><span class="tag">EJU必要</span>
+        <span class="tag">日本語で面接</span><span class="tag">年 1,240,000円</span></div>
+      <div class="deadline far"><span class="dot"></span>出願締切 2026-11-28 · EJUは11月試験</div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">大B</span>
+        <span>
+          <span class="sc-nm">京都文化大学 — グローバル学部</span>
+          <span class="sc-me">京都 · 4年 · まだ進学者なし</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N2必要</span><span class="tag">EJU必要</span>
+        <span class="tag">小論文</span><span class="tag">年 1,380,000円</span></div>
+      <div class="deadline far"><span class="dot"></span>出願締切 2026-12-12</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 先輩の声 ══════════ -->
+<section data-screen="voices" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> もどる</button></div>
+  <div class="panel">
+    <h2>先輩の声</h2>
+    <p class="lede">卒業生に、同じ6つの質問をしています。だから学校どうしを同じ形で比べられます。
+      1〜2年前に、この教室に座っていた人たちです。</p>
+  </div>
+  <div class="sechead"><span>インタビュー</span><span class="upd">更新 2026-07-15</span></div>
+  <div class="list">
+    <div class="voice">
+      <div class="who">
+        <span class="ini">A</span>
+        <span><span class="nmv">卒業生 A さん</span><span class="sch">IT系専門学校（大阪）· 2年生</span></span>
+      </div>
+      <dl>
+        <dt>入学して意外だったこと</dt>
+        <dd>ほとんどの授業がグループワークでした。聞いてノートを取るだけだと思っていたのに、
+          毎日、日本語で話さないといけません。</dd>
+        <dt>学費以外にかかったお金</dt>
+        <dd>最初の月に、パソコンと教科書で4万円くらい。</dd>
+        <dt>本当に必要な日本語力</dt>
+        <dd>募集要項にはN2と書いてありますが、最初の学期はN3くらいの会話でなんとかなります。
+          大変なのは教科書を読むほうです。</dd>
+        <dt>入学前にやっておけばよかったこと</dt>
+        <dd>日本語のタイピング。半年くらい、みんなより遅かったです。</dd>
+      </dl>
+    </div>
+    <div class="voice">
+      <div class="who">
+        <span class="ini">B</span>
+        <span><span class="nmv">卒業生 B さん</span><span class="sch">ホテル・観光専門学校（京都）· 1年生</span></span>
+      </div>
+      <dl>
+        <dt>入学して意外だったこと</dt>
+        <dd>制服と髪型の決まりがありました。応募する前は誰も教えてくれませんでした。</dd>
+        <dt>1日のスケジュール</dt>
+        <dd>8:40 学校、15:30 終わり、17:00〜21:00 アルバイト。水曜日は休みです。</dd>
+        <dt>アルバイトとの両立</dt>
+        <dd>できます。ただしインターンの月はできません。その前にお金を貯めてください。</dd>
+        <dt>入学前にやっておけばよかったこと</dt>
+        <dd>敬語の練習。面接の2週間前にやっと覚えました。</dd>
+      </dl>
+    </div>
+    <div class="voice">
+      <div class="who">
+        <span class="ini">C</span>
+        <span><span class="nmv">卒業生 C さん</span><span class="sch">介護福祉の専門学校（大阪）· 2年生</span></span>
+      </div>
+      <dl>
+        <dt>入学して意外だったこと</dt>
+        <dd>1年生のうちに、学校が就職先を見つけてくれました。自分で探さなくてよかったです。</dd>
+        <dt>学費以外にかかったお金</dt>
+        <dd>ほとんどありません。制服が12,000円と、実習用の靴くらい。</dd>
+        <dt>本当に必要な日本語力</dt>
+        <dd>聴解がいちばん大事です。お年寄りは小さい声で、方言も使います。
+          読解は思ったより簡単でした。</dd>
+        <dt>入学前にやっておけばよかったこと</dt>
+        <dd>決める前に一度、介護施設を見ておくこと。見てから決めたほうがいい仕事です。</dd>
+      </dl>
+    </div>
+    <div class="voice">
+      <div class="who">
+        <span class="ini">D</span>
+        <span><span class="nmv">卒業生 D さん</span><span class="sch">大学 経営学部 · 1年生</span></span>
+      </div>
+      <dl>
+        <dt>入学して意外だったこと</dt>
+        <dd>誰も出席を確認しません。何も言われないまま、単位を落とすことがあります。</dd>
+        <dt>1日のスケジュール</dt>
+        <dd>1日3〜4コマで、あいだが長く空きます。その時間は図書館で使っています。</dd>
+        <dt>本当に必要な日本語力</dt>
+        <dd>書く力です。どの授業も最後に800〜1,200字のレポートが出ます。</dd>
+        <dt>入学前にやっておけばよかったこと</dt>
+        <dd>EJUの勉強をもっと早く。3か月前に始めたのでは遅かったです。</dd>
+      </dl>
+    </div>
+    <div class="voice">
+      <div class="who">
+        <span class="ini">E</span>
+        <span><span class="nmv">卒業生 E さん</span><span class="sch">就職（食品会社・大阪）· 2年目</span></span>
+      </div>
+      <dl>
+        <dt>入学して意外だったこと</dt>
+        <dd>面接で日本語のことは聞かれませんでした。「なぜ日本を選んだか」「5年後どうしたいか」でした。</dd>
+        <dt>本当に必要な日本語力</dt>
+        <dd>応募の条件はN2でした。働き始めてから大変なのは電話です。</dd>
+        <dt>お金のこと</dt>
+        <dd>最初の給料は税引き前で195,000円。家賃は58,000円。足りますが、余裕はありません。</dd>
+        <dt>入学前にやっておけばよかったこと</dt>
+        <dd>卒業の1年前から探し始めること。会社の募集はとても早く締め切られます。</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ テスト・ドリル ══════════ -->
+<section data-screen="study" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> もどる</button></div>
+  <div class="sechead"><span>先生からのテスト</span></div>
+  <div class="list">
+    <button class="row" style="--c:#d64545" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">受けられます</span><span class="nm">復習テスト 1</span>
+        <span class="ds">10問 · 5分くらい · 出したらすぐ採点されます</span></span>
+      <span class="tail">未受験</span>
+      <span class="go"></span>
+    </button>
+    <button class="row" style="--c:#7b8794" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">2026-08-19 受験ずみ</span><span class="nm">漢字チェック — 第12〜16課</span>
+        <span class="ds">10問中8問 正解 · 間違えたところを見る</span></span>
+      <span class="tail">8/10</span>
+      <span class="go"></span>
+    </button>
+  </div>
+  <div class="sechead"><span>何回でも練習できます</span><span class="upd">点数は記録されません</span></div>
+  <div class="list">
+    <button class="row" style="--c:#7b5cd6" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">ドリル</span><span class="nm">JLPT N2 語彙</span>
+        <span class="ds">640語 · 覚えるまで何回でも</span></span>
+      <span class="go"></span>
+    </button>
+    <button class="row" style="--c:#0f9b8e" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">ドリル</span><span class="nm">動詞の活用</span>
+        <span class="ds">形の練習だけです · 意味は授業で説明します</span></span>
+      <span class="go"></span>
+    </button>
+    <button class="row" style="--c:#1769aa" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">ドリル</span><span class="nm">敬語 — 尊敬語と謙譲語</span>
+        <span class="ds">20問 · 面接やアルバイトの前に役立ちます</span></span>
+      <span class="go"></span>
+    </button>
+    <button class="row" style="--c:#c77700" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">ドリル</span><span class="nm">読解 — 短い文章</span>
+        <span class="ds">今学期いちばん弱いところです · 5本</span></span>
+      <span class="tail">おすすめ</span>
+      <span class="go"></span>
+    </button>
+  </div>
+</section>
+
+
+  </div>
+  <div class="app" data-lang="en" hidden>
+
+
+<!-- ══════════ HOME ══════════ -->
+<!-- ══════════ GRADES ══════════ -->
+<section data-screen="grades" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
+
+  <div class="panel">
+    <h2>Attendance</h2>
+    <p class="lede">Immigration checks this number. Keep it above 90%.</p>
+    <div class="meter">
+      <div class="meterhead">
+        <div class="big">94.2<small>%</small></div>
+        <span class="pill ok">Good</span>
+      </div>
+      <div class="track"><div class="fill" style="width:94.2%"></div></div>
+      <div class="limit"><i style="left:90%"></i><span style="left:90%">90% line</span></div>
+    </div>
+    <div class="note">Absent <b>7 days</b> of 121 school days this term. Two of them are not yet
+      explained — bring a note to the office to have them reviewed.</div>
+  </div>
+
+  <div class="panel">
+    <h2>JLPT</h2>
+    <p class="lede">You keep the level you passed. Next test is 2026-12-07.</p>
+    <div class="ladder">
+      <div class="step done"><div class="lv">N5</div><div class="st">Passed</div></div>
+      <div class="step done"><div class="lv">N4</div><div class="st">Passed</div></div>
+      <div class="step done"><div class="lv">N3</div><div class="st">Passed</div></div>
+      <div class="step now"><div class="lv">N2</div><div class="st">Applied</div></div>
+      <div class="step"><div class="lv">N1</div><div class="st">—</div></div>
+    </div>
+    <dl class="kv">
+      <dt>Last result</dt><dd>N3 — 108 / 180 (2025-12)</dd>
+      <dt>Applied for</dt><dd>N2 — December 2026</dd>
+    </dl>
+  </div>
+
+  <div class="panel">
+    <h2>JPT</h2>
+    <p class="lede">Your best score is used, not your latest one.</p>
+    <div class="spark">
+      <svg viewBox="0 0 320 88" role="img" aria-label="JPT scores: 445 in 2025-10, 480 in 2026-02, 520 in 2026-05, 555 in 2026-07">
+        <line x1="34" y1="8" x2="316" y2="8" stroke="#eceff3" stroke-width="1"></line>
+        <line x1="34" y1="34" x2="316" y2="34" stroke="#eceff3" stroke-width="1"></line>
+        <line x1="34" y1="60" x2="316" y2="60" stroke="#eceff3" stroke-width="1"></line>
+        <text x="30" y="12" text-anchor="end" font-size="9" fill="#7b8794">600</text>
+        <text x="30" y="38" text-anchor="end" font-size="9" fill="#7b8794">500</text>
+        <text x="30" y="64" text-anchor="end" font-size="9" fill="#7b8794">400</text>
+        <path d="M52 74 L140 65 L228 52 L306 43 L306 60 L228 60 L140 60 L52 60 Z" fill="#1769aa" opacity=".08"></path>
+        <polyline points="52,74 140,65 228,52 306,43" fill="none" stroke="#1769aa" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round"></polyline>
+        <circle cx="52" cy="74" r="3" fill="#fff" stroke="#1769aa" stroke-width="2"></circle>
+        <circle cx="140" cy="65" r="3" fill="#fff" stroke="#1769aa" stroke-width="2"></circle>
+        <circle cx="228" cy="52" r="3" fill="#fff" stroke="#1769aa" stroke-width="2"></circle>
+        <circle cx="306" cy="43" r="4.5" fill="#1769aa"></circle>
+        <text x="306" y="33" text-anchor="end" font-size="11" font-weight="700" fill="#10365e">555</text>
+      </svg>
+      <div class="sparkfoot"><span>2025-10</span><span>2026-02</span><span>2026-05</span><span>2026-07</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Term Exam — 1st term, 2026</h2>
+    <p class="lede">Each part counts differently. Grammar decides most of your score.</p>
+    <div class="meterhead" style="margin-top:2px">
+      <div class="big">78<small> / 100</small></div>
+      <span class="pill ok">Above class average (71)</span>
+    </div>
+    <div class="skills">
+      <div class="skill">
+        <span class="nmw">Grammar <em>weight 60</em></span><span class="sc">49<s> / 60</s></span>
+        <span class="t"><i style="width:81.7%"></i></span>
+      </div>
+      <div class="skill">
+        <span class="nmw">Conversation <em>weight 20</em></span><span class="sc">17<s> / 20</s></span>
+        <span class="t"><i style="width:85%"></i></span>
+      </div>
+      <div class="skill">
+        <span class="nmw">Kanji <em>weight 10</em></span><span class="sc">8<s> / 10</s></span>
+        <span class="t"><i style="width:80%"></i></span>
+      </div>
+      <div class="skill low">
+        <span class="nmw">Reading <em>weight 5</em></span><span class="sc">2<s> / 5</s></span>
+        <span class="t"><i style="width:40%"></i></span>
+      </div>
+      <div class="skill">
+        <span class="nmw">Listening <em>weight 5</em></span><span class="sc">2<s> / 5</s></span>
+        <span class="t"><i style="width:40%"></i></span>
+      </div>
+    </div>
+    <div class="note">Reading is your weakest part. It is only 5 points here, but it is
+      <b>60 points on the JLPT</b> — practise it before December.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Mock Exam (N2)</h2>
+    <div class="meterhead" style="margin-top:2px">
+      <div class="big">112<small> / 180</small></div>
+      <span class="pill warn">Borderline</span>
+    </div>
+    <dl class="kv">
+      <dt>Language knowledge</dt><dd>41 / 60</dd>
+      <dt>Reading</dt><dd>28 / 60</dd>
+      <dt>Listening</dt><dd>43 / 60</dd>
+    </dl>
+    <div class="note">A mock exam can tell you to <b>wait</b>, but it cannot promise you will pass.
+      Students who passed N2 scored <b>110 or more</b> on this mock — you are just on that line.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Your progress</h2>
+    <p class="lede">Term exam score, term by term.</p>
+    <div class="hist">
+      <div class="hrow"><span class="hl">2025 · 2nd</span><span class="ht"><i style="width:58%"></i></span>
+        <span class="hv">58</span></div>
+      <div class="hrow"><span class="hl">2025 · 3rd</span><span class="ht"><i style="width:64%"></i></span>
+        <span class="hv">64<em class="up">+6</em></span></div>
+      <div class="hrow"><span class="hl">2026 · 1st</span><span class="ht"><i style="width:71%"></i></span>
+        <span class="hv">71<em class="up">+7</em></span></div>
+      <div class="hrow"><span class="hl">2026 · 2nd</span><span class="ht"><i style="width:78%"></i></span>
+        <span class="hv">78<em class="up">+7</em></span></div>
+    </div>
+    <div class="note">You have gone up every term. Grammar carries most of the score,
+      so keep doing what you are doing there — and give reading the time it needs.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Attendance by month</h2>
+    <p class="lede">One low month will not fail you. Three will.</p>
+    <div class="months">
+      <div class="mo"><div class="mb"><i style="height:97%"></i></div><div class="ml">Apr</div><div class="mv">97%</div></div>
+      <div class="mo"><div class="mb"><i style="height:95%"></i></div><div class="ml">May</div><div class="mv">95%</div></div>
+      <div class="mo"><div class="mb warn"><i style="height:88%"></i></div><div class="ml">Jun</div><div class="mv">88%</div></div>
+      <div class="mo"><div class="mb"><i style="height:96%"></i></div><div class="ml">Jul</div><div class="mv">96%</div></div>
+      <div class="mo"><div class="mb"><i style="height:93%"></i></div><div class="ml">Aug</div><div class="mv">93%</div></div>
+      <div class="mo"><div class="mb"><i style="height:96%"></i></div><div class="ml">Sep</div><div class="mv">96%</div></div>
+    </div>
+    <div class="note">June was low because of five absences in one week. If you are ill for more than
+      three days, tell the office — with a doctor's note it can be recorded differently.</div>
+  </div>
+</section>
+
+<!-- ══════════ SURVEY LIST ══════════ -->
+<section data-screen="survey" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
+  <div class="panel">
+    <h2>Surveys</h2>
+    <p class="lede">Only your homeroom teacher and the career guidance staff can see your answers.
+      Other students cannot see them.</p>
+  </div>
+  <div class="sechead"><span>Waiting for you</span></div>
+  <div class="list">
+    <button class="row" data-go="survey-career" style="--c:#2f9e44">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Closes 2026-09-20</span><span class="nm">Career Plan Survey</span>
+        <span class="ds">4 questions · about 2 minutes</span></span>
+      <span class="tail">Not started</span>
+      <span class="go"></span>
+    </button>
+    <button class="row" data-go="survey-life" style="--c:#7b5cd6">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Closes 2026-09-30</span><span class="nm">Life &amp; Housing Survey</span>
+        <span class="ds">3 questions · you can choose more than one answer</span></span>
+      <span class="tail">Not started</span>
+      <span class="go"></span>
+    </button>
+  </div>
+  <div class="sechead"><span>Finished</span></div>
+  <div class="list">
+    <button class="row" data-soon style="--c:#7b8794">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Answered 2026-08-25</span><span class="nm">Summer Holiday Report</span>
+        <span class="ds">You answered all 5 questions</span></span>
+      <span class="tail">Done</span>
+      <span class="go"></span>
+    </button>
+    <button class="row" data-soon style="--c:#7b8794">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Closed 2026-07-10</span><span class="nm">Class Feedback (1st term)</span>
+        <span class="ds">This survey is closed. Thank you for answering.</span></span>
+      <span class="tail">Closed</span>
+      <span class="go"></span>
+    </button>
+  </div>
+</section>
+
+<!-- ══════════ SURVEY 1: CAREER ══════════ -->
+<section data-screen="survey-career" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back-to="survey"><i></i> Back to surveys</button></div>
+  <div class="panel">
+    <h2>Career Plan Survey</h2>
+    <p class="lede">Your homeroom teacher uses this before your next meeting.
+      You can change your answers until 2026-09-20.</p>
+    <div class="qhead">
+      <span class="track"><span class="fill" data-fill style="width:0%"></span></span>
+      <span class="cnt"><span data-done>0</span> / <span data-total>4</span></span>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">What do you want to do after graduation?</div>
+      <div class="qs">Choose one. You can change it later.</div>
+      <div class="opts">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Vocational school (専門学校)</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>University (大学)</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Work in Japan</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Return to my country</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>I have not decided</button>
+      </div>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">Which field are you interested in?</div>
+      <div class="qs">Choose one.</div>
+      <div class="opts">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>IT / Programming</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Business / Trade</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Hotel / Tourism</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Design / Animation</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Care work (介護)</button>
+      </div>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">Which JLPT level will you take in December?</div>
+      <div class="qs">If you passed a level, the school enters you for the next one.</div>
+      <div class="opts">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>N2</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>N3</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>I will not take it</button>
+      </div>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">How is your life in Japan now?</div>
+      <div class="qs">1 = very hard, 5 = very good.</div>
+      <div class="opts scale">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>1</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>2</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>3</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>4</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>5</button>
+      </div>
+    </div>
+
+    <button class="btn" type="button" data-save>Save my answers</button>
+  </div>
+</section>
+
+<!-- ══════════ SURVEY 2: LIFE ══════════ -->
+<section data-screen="survey-life" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back-to="survey"><i></i> Back to surveys</button></div>
+  <div class="panel">
+    <h2>Life &amp; Housing Survey</h2>
+    <p class="lede">This helps the school find problems early. Answer honestly — it does not
+      affect your grades.</p>
+    <div class="qhead">
+      <span class="track"><span class="fill" data-fill style="width:0%"></span></span>
+      <span class="cnt"><span data-done>0</span> / <span data-total>3</span></span>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">Where do you live now?</div>
+      <div class="qs">Choose one.</div>
+      <div class="opts">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>School dormitory</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Apartment — sharing with friends</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Apartment — living alone</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>With family or relatives</button>
+      </div>
+    </div>
+
+    <div class="q" data-q data-multi>
+      <div class="qt">Is anything difficult right now?</div>
+      <div class="qs">You can choose more than one. Choose nothing if everything is fine.</div>
+      <div class="chips">
+        <button class="chipbtn" type="button" aria-pressed="false">Money</button>
+        <button class="chipbtn" type="button" aria-pressed="false">Health</button>
+        <button class="chipbtn" type="button" aria-pressed="false">Japanese study</button>
+        <button class="chipbtn" type="button" aria-pressed="false">Part-time job</button>
+        <button class="chipbtn" type="button" aria-pressed="false">Neighbours / noise</button>
+        <button class="chipbtn" type="button" aria-pressed="false">Homesick</button>
+        <button class="chipbtn" type="button" aria-pressed="false">Visa / paperwork</button>
+      </div>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">Do you want to talk to a teacher about it?</div>
+      <div class="qs">Choose one.</div>
+      <div class="opts">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Yes, soon</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Yes, but it is not urgent</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>No, thank you</button>
+      </div>
+    </div>
+
+    <button class="btn" type="button" data-save>Save my answers</button>
+  </div>
+</section>
+
+<!-- ══════════ NEWS ══════════ -->
+<section data-screen="news" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
+  <div class="sechead"><span>News from school</span><span class="upd">Updated 2026-09-03</span></div>
+  <div class="list">
+    <div class="item unread">
+      <div class="top"><span class="date">2026-09-02</span><span class="pill ng">Important</span></div>
+      <div class="ttl">JLPT December application closes 2026-09-19</div>
+      <div class="bd">The school applies for you. Bring 3,500 yen and one photo to the office
+        by Friday 19 September. If you miss this, you cannot take the December test.</div>
+    </div>
+    <div class="item unread">
+      <div class="top"><span class="date">2026-09-01</span><span class="pill ng">Visa</span></div>
+      <div class="ttl">Residence card renewal — start 3 months early</div>
+      <div class="bd">If your card expires before March 2027, come to the office this month.
+        Immigration looks at your attendance, so check your number on the Grades page first.</div>
+    </div>
+    <div class="item unread">
+      <div class="top"><span class="date">2026-08-30</span><span class="pill warn">Schedule</span></div>
+      <div class="ttl">Term exam: 8–10 October</div>
+      <div class="bd">Class A-1 takes the exam in the morning (odd-numbered classes are morning).
+        Come 10 minutes early. Bring a pencil and your student card.</div>
+    </div>
+    <div class="item">
+      <div class="top"><span class="date">2026-08-28</span><span class="pill flat">Event</span></div>
+      <div class="ttl">Open campus bus — 12 October, 9:00</div>
+      <div class="bd">Free bus to three vocational schools in Osaka. 20 seats.
+        Put your name on the list outside the staff room by 5 October.</div>
+    </div>
+    <div class="item">
+      <div class="top"><span class="date">2026-08-22</span><span class="pill flat">Holiday</span></div>
+      <div class="ttl">School closed 21–25 September</div>
+      <div class="bd">Autumn break. The office is closed too. If you need a certificate for
+        your part-time job, ask before 19 September.</div>
+    </div>
+    <div class="item">
+      <div class="top"><span class="date">2026-08-18</span><span class="pill warn">Health</span></div>
+      <div class="ttl">Free health check — 30 September</div>
+      <div class="bd">All students must attend. It takes about 30 minutes.
+        Do not eat for 2 hours before your time. Your time is on the noticeboard.</div>
+    </div>
+    <div class="item">
+      <div class="top"><span class="date">2026-08-10</span><span class="pill flat">Life</span></div>
+      <div class="ttl">Tell us when you move house</div>
+      <div class="bd">If you change your address, you must tell the city office within 14 days,
+        and tell the school as well. Immigration uses the address on your residence card.</div>
+    </div>
+    <div class="item">
+      <div class="top"><span class="date">2026-08-04</span><span class="pill flat">Life</span></div>
+      <div class="ttl">Rubbish rules changed in this ward</div>
+      <div class="bd">Burnable rubbish is now Tuesday and Friday. Plastic is Wednesday.
+        A picture guide in six languages is on the noticeboard by the entrance.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ JOBS ══════════ -->
+<section data-screen="jobs" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
+
+  <div class="panel">
+    <h2>Before you apply</h2>
+    <p class="lede">These rules come from immigration, not from the school.</p>
+    <div class="note">You may work <b>28 hours per week</b> at most. During long school holidays
+      the limit is 8 hours per day. You need a <b>work permit</b> (資格外活動許可) on your residence card.
+      Some jobs are not allowed at all — bars, pachinko, and similar places.</div>
+    <div class="note" style="margin-top:9px"><b>Ask the office first.</b> Bring the job advertisement.
+      A teacher will check the hours and the type of work with you before you apply. It takes 5 minutes
+      and it has saved students their visa.</div>
+  </div>
+
+  <div class="sechead"><span>Openings</span><span class="upd">Updated 2026-08-28</span></div>
+  <div class="list">
+    <div class="item">
+      <div class="top"><span class="pill ok">Accepting</span><span class="date">Posted 2026-08-28</span></div>
+      <div class="ttl">Convenience store — morning shift</div>
+      <dl class="kv">
+        <dt>Pay</dt><dd>1,150 yen / hour</dd>
+        <dt>Hours</dt><dd>06:00–09:00, 3–4 days a week</dd>
+        <dt>Place</dt><dd>8 minutes walk from school</dd>
+        <dt>Japanese</dt><dd>N4 or above</dd>
+        <dt>Note</dt><dd>Good for morning classes — you finish before school starts</dd>
+      </dl>
+    </div>
+    <div class="item">
+      <div class="top"><span class="pill ok">Accepting</span><span class="date">Posted 2026-08-26</span></div>
+      <div class="ttl">Supermarket — shelf stocking</div>
+      <dl class="kv">
+        <dt>Pay</dt><dd>1,180 yen / hour</dd>
+        <dt>Hours</dt><dd>18:00–21:00, 4 days a week</dd>
+        <dt>Place</dt><dd>12 minutes by bicycle</dd>
+        <dt>Japanese</dt><dd>N5 or above</dd>
+        <dt>Note</dt><dd>Little conversation with customers</dd>
+      </dl>
+    </div>
+    <div class="item">
+      <div class="top"><span class="pill ok">Accepting</span><span class="date">Posted 2026-08-20</span></div>
+      <div class="ttl">Hotel — room cleaning</div>
+      <dl class="kv">
+        <dt>Pay</dt><dd>1,220 yen / hour</dd>
+        <dt>Hours</dt><dd>10:00–15:00, weekends</dd>
+        <dt>Place</dt><dd>Kyoto Station area</dd>
+        <dt>Japanese</dt><dd>N5 or above</dd>
+        <dt>Note</dt><dd>Weekend only — easy to stay under 28 hours</dd>
+      </dl>
+    </div>
+    <div class="item">
+      <div class="top"><span class="pill warn">2 places left</span><span class="date">Posted 2026-08-14</span></div>
+      <div class="ttl">Restaurant — kitchen help</div>
+      <dl class="kv">
+        <dt>Pay</dt><dd>1,100 yen / hour (＋ meal)</dd>
+        <dt>Hours</dt><dd>17:30–21:30, 3 days a week</dd>
+        <dt>Place</dt><dd>15 minutes on foot</dd>
+        <dt>Japanese</dt><dd>N4 or above</dd>
+        <dt>Note</dt><dd>Washing up and preparation. No serving.</dd>
+      </dl>
+    </div>
+    <div class="item">
+      <div class="top"><span class="pill warn">2 places left</span><span class="date">Posted 2026-08-08</span></div>
+      <div class="ttl">Warehouse — parcel sorting</div>
+      <dl class="kv">
+        <dt>Pay</dt><dd>1,300 yen / hour</dd>
+        <dt>Hours</dt><dd>09:00–14:00, Saturday and Sunday</dd>
+        <dt>Place</dt><dd>25 minutes by train</dd>
+        <dt>Japanese</dt><dd>Not required</dd>
+        <dt>Note</dt><dd>Physical work. Safety shoes are lent to you.</dd>
+      </dl>
+    </div>
+    <div class="item">
+      <div class="top"><span class="pill flat">Closed</span><span class="date">Posted 2026-07-30</span></div>
+      <div class="ttl">Bento factory — evening shift</div>
+      <dl class="kv">
+        <dt>Pay</dt><dd>1,100 yen / hour</dd>
+        <dt>Hours</dt><dd>17:00–21:00</dd>
+        <dt>Place</dt><dd>20 minutes by bus</dd>
+        <dt>Japanese</dt><dd>Not required</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ SCHOOLS ══════════ -->
+<section data-screen="schools" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
+  <div class="panel">
+    <h2>Schools &amp; Courses</h2>
+    <p class="lede">Schools that took students from here in the last three years.
+      Each card shows when the application closes — the date, not "soon".</p>
+    <div class="note">A red dot means the deadline is within 6 weeks.
+      Always check the school's own website too — this page is updated by hand.</div>
+  </div>
+
+  <div class="sechead"><span>Vocational schools</span><span class="upd">Updated 2026-08-25</span></div>
+  <div class="list">
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">IT</span>
+        <span>
+          <span class="sc-nm">Osaka Institute of Information Technology</span>
+          <span class="sc-me">Osaka · 2 years · 3 students went here in 2026</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N2 required</span><span class="tag">Dormitory</span>
+        <span class="tag">Scholarship</span><span class="tag">1,180,000 yen / year</span></div>
+      <div class="deadline"><span class="dot"></span>Applications close 2026-10-15 · Open campus 2026-09-28</div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">HT</span>
+        <span>
+          <span class="sc-nm">Kyoto Hotel &amp; Tourism College</span>
+          <span class="sc-me">Kyoto · 2 years · 5 students went here in 2026</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N3 required</span><span class="tag">Internship</span>
+        <span class="tag">Uniform</span><span class="tag">1,050,000 yen / year</span></div>
+      <div class="deadline"><span class="dot"></span>Applications close 2026-10-31 · Open campus 2026-10-05</div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">CA</span>
+        <span>
+          <span class="sc-nm">Kansai College of Care Work</span>
+          <span class="sc-me">Osaka · 2 years · 2 students went here in 2026</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N3 required</span><span class="tag">Job after graduation</span>
+        <span class="tag">Fee reduction</span><span class="tag">980,000 yen / year</span></div>
+      <div class="deadline"><span class="dot"></span>Applications close 2026-10-20 · Open campus 2026-09-21</div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">DA</span>
+        <span>
+          <span class="sc-nm">Kobe Design &amp; Animation School</span>
+          <span class="sc-me">Kobe · 3 years · 1 student went here in 2025</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N2 required</span><span class="tag">Portfolio needed</span>
+        <span class="tag">1,320,000 yen / year</span></div>
+      <div class="deadline far"><span class="dot"></span>Applications close 2026-12-05 · Open campus 2026-11-09</div>
+    </div>
+  </div>
+
+  <div class="sechead"><span>Universities</span><span class="upd">Updated 2026-08-25</span></div>
+  <div class="list">
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">UA</span>
+        <span>
+          <span class="sc-nm">Kansai International University — Faculty of Business</span>
+          <span class="sc-me">Osaka · 4 years · 1 student went here in 2026</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N2 required</span><span class="tag">EJU needed</span>
+        <span class="tag">Interview in Japanese</span><span class="tag">1,240,000 yen / year</span></div>
+      <div class="deadline far"><span class="dot"></span>Applications close 2026-11-28 · EJU November test</div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">UB</span>
+        <span>
+          <span class="sc-nm">Kyoto Bunka University — Faculty of Global Studies</span>
+          <span class="sc-me">Kyoto · 4 years · no students yet</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N2 required</span><span class="tag">EJU needed</span>
+        <span class="tag">Essay</span><span class="tag">1,380,000 yen / year</span></div>
+      <div class="deadline far"><span class="dot"></span>Applications close 2026-12-12</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ SENIOR VOICES ══════════ -->
+<section data-screen="voices" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
+  <div class="panel">
+    <h2>Senior Voices</h2>
+    <p class="lede">Graduates answer the same six questions, so you can compare schools fairly.
+      These are people who sat in your classroom one or two years ago.</p>
+  </div>
+  <div class="sechead"><span>Interviews</span><span class="upd">Updated 2026-07-15</span></div>
+  <div class="list">
+    <div class="voice">
+      <div class="who">
+        <span class="ini">A</span>
+        <span><span class="nmv">Graduate A</span><span class="sch">IT vocational school, Osaka — 2nd year</span></span>
+      </div>
+      <dl>
+        <dt>What surprised you</dt>
+        <dd>Almost every class is group work. I thought I would just listen and take notes,
+          but I have to speak Japanese every day.</dd>
+        <dt>Money outside tuition</dt>
+        <dd>About 40,000 yen for a laptop and textbooks in the first month.</dd>
+        <dt>Japanese you really need</dt>
+        <dd>N2 is written in the requirements, but N3 level conversation is enough for the first term.
+          Reading the textbooks is the hard part.</dd>
+        <dt>What I should have done first</dt>
+        <dd>Learned to touch-type in Japanese. Everyone else was faster than me for six months.</dd>
+      </dl>
+    </div>
+    <div class="voice">
+      <div class="who">
+        <span class="ini">B</span>
+        <span><span class="nmv">Graduate B</span><span class="sch">Hotel &amp; tourism school, Kyoto — 1st year</span></span>
+      </div>
+      <dl>
+        <dt>What surprised you</dt>
+        <dd>There is a uniform and a hair rule. Nobody told me before I applied.</dd>
+        <dt>A day in my life</dt>
+        <dd>08:40 school, 15:30 finish, 17:00–21:00 part-time job. Wednesday is free.</dd>
+        <dt>Part-time work</dt>
+        <dd>Possible, but not in the internship month. Save money before that month.</dd>
+        <dt>What I should have done first</dt>
+        <dd>Practising keigo. I only learned it two weeks before the interview.</dd>
+      </dl>
+    </div>
+    <div class="voice">
+      <div class="who">
+        <span class="ini">C</span>
+        <span><span class="nmv">Graduate C</span><span class="sch">Care work college, Osaka — 2nd year</span></span>
+      </div>
+      <dl>
+        <dt>What surprised you</dt>
+        <dd>The school found my job for me in the first year. I did not have to look.</dd>
+        <dt>Money outside tuition</dt>
+        <dd>Almost nothing. Uniform 12,000 yen, and the practice shoes.</dd>
+        <dt>Japanese you really need</dt>
+        <dd>Listening matters most. Old people speak quietly and use dialect.
+          Reading is easier than I feared.</dd>
+        <dt>What I should have done first</dt>
+        <dd>Visited a care home once before deciding. It is a job you should see first.</dd>
+      </dl>
+    </div>
+    <div class="voice">
+      <div class="who">
+        <span class="ini">D</span>
+        <span><span class="nmv">Graduate D</span><span class="sch">University, Faculty of Business — 1st year</span></span>
+      </div>
+      <dl>
+        <dt>What surprised you</dt>
+        <dd>Nobody checks if you come. You can fail without anyone telling you.</dd>
+        <dt>A day in my life</dt>
+        <dd>Three or four classes a day, and long gaps between them. I use the gaps in the library.</dd>
+        <dt>Japanese you really need</dt>
+        <dd>Writing. Every class ends with a report of 800–1,200 characters.</dd>
+        <dt>What I should have done first</dt>
+        <dd>The EJU practice, much earlier. I started three months before and that was late.</dd>
+      </dl>
+    </div>
+    <div class="voice">
+      <div class="who">
+        <span class="ini">E</span>
+        <span><span class="nmv">Graduate E</span><span class="sch">Working — food company, Osaka — 2nd year</span></span>
+      </div>
+      <dl>
+        <dt>What surprised you</dt>
+        <dd>The interview was not about Japanese. They asked why I chose Japan and what I want in 5 years.</dd>
+        <dt>Japanese you really need</dt>
+        <dd>N2 was the line to apply. At work, the hard part is the telephone.</dd>
+        <dt>Money</dt>
+        <dd>First salary 195,000 yen before tax. Rent 58,000 yen. It is enough, but not much.</dd>
+        <dt>What I should have done first</dt>
+        <dd>Started looking one year before graduation. Companies close applications very early.</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ TESTS & DRILLS ══════════ -->
+<section data-screen="study" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
+  <div class="sechead"><span>Tests from your teacher</span></div>
+  <div class="list">
+    <button class="row" style="--c:#d64545" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Open now</span><span class="nm">Review Test 1</span>
+        <span class="ds">10 questions · about 5 minutes · marked straight away</span></span>
+      <span class="tail">Open</span>
+      <span class="go"></span>
+    </button>
+    <button class="row" style="--c:#7b8794" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Finished 2026-08-19</span><span class="nm">Kanji Check — Lesson 12–16</span>
+        <span class="ds">You scored 8 / 10 · see which ones you missed</span></span>
+      <span class="tail">8/10</span>
+      <span class="go"></span>
+    </button>
+  </div>
+  <div class="sechead"><span>Practise as much as you like</span><span class="upd">Score not recorded</span></div>
+  <div class="list">
+    <button class="row" style="--c:#7b5cd6" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Drill</span><span class="nm">JLPT N2 Vocabulary</span>
+        <span class="ds">640 words · repeat until you remember</span></span>
+      <span class="go"></span>
+    </button>
+    <button class="row" style="--c:#0f9b8e" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Drill</span><span class="nm">Verb Conjugation</span>
+        <span class="ds">Form practice only · meaning is explained in class</span></span>
+      <span class="go"></span>
+    </button>
+    <button class="row" style="--c:#1769aa" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Drill</span><span class="nm">Keigo — sonkeigo &amp; kenjougo</span>
+        <span class="ds">20 questions · useful before interviews and part-time work</span></span>
+      <span class="go"></span>
+    </button>
+    <button class="row" style="--c:#c77700" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Drill</span><span class="nm">Reading — short passages</span>
+        <span class="ds">Your weakest part this term · 5 passages</span></span>
+      <span class="tail">Suggested</span>
+      <span class="go"></span>
+    </button>
+  </div>
+</section>
+
+
+  </div>
+
 </main>
 <footer>SCG 学生ポータル（デモ）</footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="assets/api.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const screens = ["scr-login","scr-mypage","scr-quizlist","scr-quiz","scr-result","scr-survey"];
-function show(id){ screens.forEach(s => $(s).hidden = (s !== id)); window.scrollTo(0,0); }
+function show(id){
+  screens.forEach(s => $(s).hidden = (s !== id));
+  /* 動く画面へ移るときは「画面イメージ」の箱を閉じる */
+  document.querySelectorAll(".app").forEach(a => a.classList.add("app-off"));
+  window.scrollTo(0,0);
+}
 function err(id, text){ const m=$(id); m.className="msg err"; m.textContent=text; }
 function info(id, text){ const m=$(id); m.className="msg info"; m.textContent=text; }
 function clearMsg(id){ const m=$(id); m.className="msg"; m.textContent=""; }
@@ -322,6 +1730,121 @@ $("btn-survey-submit").onclick = async ()=>{
     }catch(e){ api.logout(); }
   }
   show("scr-login");
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   ここから下は「画面イメージ」用。Supabase には一切つながらない。
+   上の動く画面（ログイン/テスト/進路アンケート）のコードは変更していない。
+   ══════════════════════════════════════════════════════════════ */
+(function () {
+  "use strict";
+  var toastEl = document.getElementById("toast"), toastTimer = null;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("on"); }, 2400);
+  }
+
+  function activeApp() {
+    return document.querySelector('.app[data-lang="' + curLang + '"]');
+  }
+  var curLang = "ja";
+
+  /* モック画面を開く。動く画面は全部閉じる。 */
+  function openMock(name) {
+    screens.forEach(function (s) { document.getElementById(s).hidden = true; });
+    document.querySelectorAll(".app").forEach(function (a) {
+      a.classList.remove("app-off");
+      a.hidden = (a.getAttribute("data-lang") !== curLang);
+    });
+    activeApp().querySelectorAll("[data-screen]").forEach(function (s) {
+      s.hidden = (s.getAttribute("data-screen") !== name);
+    });
+    window.scrollTo(0, 0);
+  }
+  function currentMock() {
+    var a = activeApp();
+    var v = a && a.querySelector("[data-screen]:not([hidden])");
+    return v ? v.getAttribute("data-screen") : null;
+  }
+
+  document.addEventListener("click", function (e) {
+    var go = e.target.closest("[data-go]");
+    if (go) { openMock(go.getAttribute("data-go")); return; }
+    var bt = e.target.closest("[data-back-to]");
+    if (bt) { openMock(bt.getAttribute("data-back-to")); return; }
+    /* モック内の「もどる」はマイページへ。動く画面側の [data-back] は既存JSが担当 */
+    var bk = e.target.closest(".app [data-back]");
+    if (bk) { e.stopPropagation(); goMyPage(); return; }
+    var soon = e.target.closest("[data-soon]");
+    if (soon) {
+      toast(curLang === "ja" ? "画面のイメージです。ここから本物のテストが開きます。"
+                             : "Mock-up only — this opens the real test.");
+    }
+  }, true);
+
+  /* 言語切替。日本語と英語だけ実装。同じ画面のまま移る。 */
+  var READY = { ja: 1, en: 1 };
+  document.querySelectorAll(".lang").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var code = b.getAttribute("data-lang");
+      if (!READY[code]) { toast(b.textContent.trim() + "：翻訳はまだ作っていません。"); return; }
+      if (code === curLang) return;
+      var screen = currentMock();
+      curLang = code;
+      document.documentElement.lang = code;
+      document.querySelectorAll(".lang").forEach(function (x) {
+        x.setAttribute("aria-pressed", x.getAttribute("data-lang") === code ? "true" : "false");
+      });
+      if (screen) openMock(screen);           /* モックを見ていたら同じ画面のまま */
+      else document.querySelectorAll(".app").forEach(function (a) {
+        a.hidden = (a.getAttribute("data-lang") !== code);
+      });
+    });
+  });
+
+  /* アンケート（イメージ）：選ぶ動きと進捗だけ。送信先は無い。 */
+  function refresh(form) {
+    var qs = form.querySelectorAll("[data-q]"), n = 0;
+    qs.forEach(function (q) {
+      var sel = q.hasAttribute("data-multi") ? '.chipbtn[aria-pressed="true"]' : '.opt[aria-pressed="true"]';
+      if (q.querySelector(sel)) n++;
+    });
+    form.querySelector("[data-done]").textContent = n;
+    form.querySelector("[data-fill]").style.width = (n / qs.length * 100) + "%";
+    return { n: n, total: qs.length };
+  }
+  document.querySelectorAll('[data-screen="survey-career"], [data-screen="survey-life"]').forEach(function (form) {
+    form.querySelectorAll("[data-q]").forEach(function (q) {
+      if (q.hasAttribute("data-multi")) {
+        q.querySelectorAll(".chipbtn").forEach(function (c) {
+          c.addEventListener("click", function () {
+            c.setAttribute("aria-pressed", c.getAttribute("aria-pressed") === "true" ? "false" : "true");
+            refresh(form);
+          });
+        });
+      } else {
+        q.querySelectorAll(".opt").forEach(function (o) {
+          o.addEventListener("click", function () {
+            q.querySelectorAll(".opt").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
+            o.setAttribute("aria-pressed", "true");
+            refresh(form);
+          });
+        });
+      }
+    });
+    form.querySelector("[data-save]").addEventListener("click", function () {
+      var r = refresh(form), ja = (curLang === "ja");
+      if (r.n < r.total) {
+        toast(ja ? ("すべての質問に答えてください（" + r.n + " / " + r.total + "）")
+                 : ("Please answer all questions (" + r.n + " of " + r.total + " done)."));
+      } else {
+        toast(ja ? "保存しました（画面のイメージです）。" : "Saved (mock-up only).");
+      }
+    });
+    refresh(form);
+  });
 })();
 </script>
 </body>
