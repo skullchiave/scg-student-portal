@@ -79,12 +79,12 @@ h1{margin:0;font-size:1.18rem;font-weight:700;letter-spacing:.02em}
 </div>
 
 <div class="overall">
-  <div class="lab"><span>全体進捗（段階1: MTGデモまで）</span><b>90%</b></div>
-  <div class="bar"><i style="width:90%"></i></div>
+  <div class="lab"><span>全体進捗（段階1: MTGデモまで）</span><b>92%</b></div>
+  <div class="bar"><i style="width:92%"></i></div>
 </div>
 
 <div class="stage">
-  <div class="stage-head">段階1 — 金曜MTGデモ <span class="cnt">6/8 完了</span></div>
+  <div class="stage-head">段階1 — 金曜MTGデモ <span class="cnt">11/12 完了</span></div>
   <div class="step done"><div class="title"><span class="bdg">完了</span>裏方構築（Supabase 東京・無料枠）</div>
     <div class="desc">ログイン認証・小テストDB・行単位アクセス制御(RLS)・サーバー側採点RPC</div></div>
   <div class="step done"><div class="title"><span class="bdg">完了</span>セキュリティ回帰テスト 12項目 PASS</div>
@@ -102,8 +102,12 @@ h1{margin:0;font-size:1.18rem;font-weight:700;letter-spacing:.02em}
     <div class="out">150名が同一瞬間に送信 → 成功率100%・平均応答1.2秒・再送ゼロ。出題取得も150/150成功。ログインAPIのみ回数制限あり→「事前ログイン持続」方式で回避済み</div></div>
   <div class="step done"><div class="title"><span class="bdg">完了</span>MTG用A4資料＋デモ用アカウントカード（印刷用）</div>
     <div class="out">ドライブ 0.2 claude-work\【学生ポータル】 Student Portal\ に2点。実測値も焼き込み済み</div></div>
+  <div class="step done"><div class="title"><span class="bdg">完了</span>画面イメージ5本を本番と同居（成績・お知らせ・アルバイト・進学先・先輩の声）</div>
+    <div class="desc">9/3 会社: 構想メモの画面を日本語/英語の2ツリーで起こし、動く画面と同じ index.html に統合（Supabase非接続・DEMOダミー）。マイページは「いま動きます」「これから作る画面（イメージ）」の2節で本物と区別</div></div>
+  <div class="step done"><div class="title"><span class="bdg">完了</span>重複の解消 — テストとアンケートは本物だけに</div>
+    <div class="out">9/3 夜（家）: イメージ側にあった「アンケート一覧・進路/生活アンケート・テスト・ドリル」4画面×2言語を削除し、1機能=1入口にした。言語バーは日本語/English のみ実装（他5言語は「まだ」表示）。動く画面のコードは無改変</div></div>
   <div class="step now"><div class="title"><span class="bdg">今ここ</span>きあの実機確認（木曜夜）→ 金曜MTG本番</div>
-    <div class="desc">自分のスマホで s001/sakura24 ログイン→受験、別画面で t001 の教師モニター確認。資料を印刷</div></div>
+    <div class="desc">自分のスマホで s001/sakura24 ログイン→受験→アンケート、別画面で t001 の教師モニター確認。言語バー（English）と画面イメージ5本も一度タップして見ておく。資料を印刷</div></div>
 </div>
 
 <div class="stage">
@@ -124,12 +128,12 @@ h1{margin:0;font-size:1.18rem;font-weight:700;letter-spacing:.02em}
 
 <div class="summary">
   <h3>💬 今のひとこと</h3>
-  一晩で「ログイン→小テスト→即時採点→教師ライブ集計」が本物のURLで動き、<b>150名同時テスト成功率100%・
-  セキュリティ回帰13項目PASS・自動診断ERROR 0件</b>まで揃った。残るはきあの実機確認と資料印刷だけ。
-  金曜は「説得せず、見せる」。
+  本番URL1本に「動く画面（ログイン→小テスト→採点／進路アンケート）」と「これから作る画面のイメージ5本（日英）」が同居し、
+  テストとアンケートの二重入口も消えた。<b>150名同時100%・回帰17項目PASS・診断ERROR 0件</b>は維持。
+  残るはきあの実機確認と資料印刷。金曜は「説得せず、見せる」。
 </div>
 
-<div class="updated">最終更新: 2026-09-03 深夜（Claude Code）</div>
+<div class="updated">最終更新: 2026-09-03 夜（Claude Code・家）</div>
 </div>
 </body>
 </html>

@@ -97,12 +97,6 @@
       <button class="row" data-go="voices" style="--c:#0f9b8e"><span class="bar"></span>
         <span class="txt"><span class="sb">Voices</span><span class="nm">せんぱいの声</span>
         <span class="ds">いま進学先にいる卒業生へのインタビュー</span></span><span class="go"></span></button>
-      <button class="row" data-go="survey" style="--c:#2f9e44"><span class="bar"></span>
-        <span class="txt"><span class="sb">Survey</span><span class="nm">アンケート一覧</span>
-        <span class="ds">複数のアンケートを並べる画面のイメージ</span></span><span class="go"></span></button>
-      <button class="row" data-go="study" style="--c:#d64545"><span class="bar"></span>
-        <span class="txt"><span class="sb">Drill</span><span class="nm">テスト・ドリル</span>
-        <span class="ds">小テストと、JLPTの語彙ドリル</span></span><span class="go"></span></button>
     </div>
 
     <div class="inpanel">
@@ -192,11 +186,12 @@
     </div>
   </section>
 
-  <!-- ══════ ここから下は「画面イメージ」。Supabaseにはつながらない ══════ -->
+  <!-- ══════ ここから下は「画面イメージ」。Supabaseにはつながらない ══════
+       画面イメージは 成績・お知らせ・アルバイト・進学先・先輩の声 の5本だけ。
+       テストとアンケートは上の「動く画面」が本物なので、イメージ側には置かない（2026-09-03 重複を削除）。 ══════ -->
   <div class="app" data-lang="ja">
 
 
-<!-- ══════════ ホーム ══════════ -->
 <!-- ══════════ 成績 ══════════ -->
 <section data-screen="grades" hidden>
   <div class="backrow"><button class="backbtn" type="button" data-back><i></i> もどる</button></div>
@@ -334,161 +329,6 @@
     </div>
     <div class="note">6月が低いのは、1週間に5日休んだためです。3日以上体調が悪いときは事務所に連絡してください。
       診断書があれば、記録の付け方が変わります。</div>
-  </div>
-</section>
-
-<!-- ══════════ アンケート一覧 ══════════ -->
-<section data-screen="survey" hidden>
-  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> もどる</button></div>
-  <div class="panel">
-    <h2>アンケート</h2>
-    <p class="lede">あなたの答えを見られるのは、担任の先生と進路指導の先生だけです。
-      ほかの学生には見えません。</p>
-  </div>
-  <div class="sechead"><span>まだ答えていないもの</span></div>
-  <div class="list">
-    <button class="row" data-go="survey-career" style="--c:#2f9e44">
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">締切 2026-09-20</span><span class="nm">進路希望アンケート</span>
-        <span class="ds">4問 · 2分くらい</span></span>
-      <span class="tail">未回答</span>
-      <span class="go"></span>
-    </button>
-    <button class="row" data-go="survey-life" style="--c:#7b5cd6">
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">締切 2026-09-30</span><span class="nm">生活・住まいアンケート</span>
-        <span class="ds">3問 · いくつでも選べる質問があります</span></span>
-      <span class="tail">未回答</span>
-      <span class="go"></span>
-    </button>
-  </div>
-  <div class="sechead"><span>終わったもの</span></div>
-  <div class="list">
-    <button class="row" data-soon style="--c:#7b8794">
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">2026-08-25 回答</span><span class="nm">夏休みの報告</span>
-        <span class="ds">5問すべてに答えました</span></span>
-      <span class="tail">回答済</span>
-      <span class="go"></span>
-    </button>
-    <button class="row" data-soon style="--c:#7b8794">
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">2026-07-10 締切</span><span class="nm">授業アンケート（第1学期）</span>
-        <span class="ds">このアンケートは終わりました。ご協力ありがとうございました。</span></span>
-      <span class="tail">締切</span>
-      <span class="go"></span>
-    </button>
-  </div>
-</section>
-
-<!-- ══════════ アンケート1：進路 ══════════ -->
-<section data-screen="survey-career" hidden>
-  <div class="backrow"><button class="backbtn" type="button" data-back-to="survey"><i></i> アンケート一覧へ</button></div>
-  <div class="panel">
-    <h2>進路希望アンケート</h2>
-    <p class="lede">次の面談の前に、担任の先生が読みます。2026年9月20日まで直せます。</p>
-    <div class="qhead">
-      <span class="track"><span class="fill" data-fill style="width:0%"></span></span>
-      <span class="cnt"><span data-done>0</span> / <span data-total>4</span></span>
-    </div>
-
-    <div class="q" data-q>
-      <div class="qt">卒業したあと、どうしたいですか。</div>
-      <div class="qs">1つ選んでください。あとで変えられます。</div>
-      <div class="opts">
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>専門学校へ進学</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>大学へ進学</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>日本で就職</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>国へ帰る</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>まだ決めていない</button>
-      </div>
-    </div>
-
-    <div class="q" data-q>
-      <div class="qt">どの分野に興味がありますか。</div>
-      <div class="qs">1つ選んでください。</div>
-      <div class="opts">
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>IT・プログラミング</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>ビジネス・貿易</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>ホテル・観光</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>デザイン・アニメ</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>介護</button>
-      </div>
-    </div>
-
-    <div class="q" data-q>
-      <div class="qt">12月のJLPTは、どの級を受けますか。</div>
-      <div class="qs">合格した人は、学校が次の級で申し込みます。</div>
-      <div class="opts">
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>N2</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>N3</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>受けない</button>
-      </div>
-    </div>
-
-    <div class="q" data-q>
-      <div class="qt">いまの日本での生活はどうですか。</div>
-      <div class="qs">1＝とても大変　5＝とても良い</div>
-      <div class="opts scale">
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>1</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>2</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>3</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>4</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>5</button>
-      </div>
-    </div>
-
-    <button class="btn" type="button" data-save>回答を保存する</button>
-  </div>
-</section>
-
-<!-- ══════════ アンケート2：生活 ══════════ -->
-<section data-screen="survey-life" hidden>
-  <div class="backrow"><button class="backbtn" type="button" data-back-to="survey"><i></i> アンケート一覧へ</button></div>
-  <div class="panel">
-    <h2>生活・住まいアンケート</h2>
-    <p class="lede">学校が早く問題に気づくためのものです。成績には関係しないので、正直に答えてください。</p>
-    <div class="qhead">
-      <span class="track"><span class="fill" data-fill style="width:0%"></span></span>
-      <span class="cnt"><span data-done>0</span> / <span data-total>3</span></span>
-    </div>
-
-    <div class="q" data-q>
-      <div class="qt">いま、どこに住んでいますか。</div>
-      <div class="qs">1つ選んでください。</div>
-      <div class="opts">
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>学校の寮</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>アパート（友だちと一緒）</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>アパート（一人）</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>家族・親戚の家</button>
-      </div>
-    </div>
-
-    <div class="q" data-q data-multi>
-      <div class="qt">いま困っていることはありますか。</div>
-      <div class="qs">いくつでも選べます。困っていなければ、選ばなくて大丈夫です。</div>
-      <div class="chips">
-        <button class="chipbtn" type="button" aria-pressed="false">お金</button>
-        <button class="chipbtn" type="button" aria-pressed="false">体の調子</button>
-        <button class="chipbtn" type="button" aria-pressed="false">日本語の勉強</button>
-        <button class="chipbtn" type="button" aria-pressed="false">アルバイト</button>
-        <button class="chipbtn" type="button" aria-pressed="false">近所・騒音</button>
-        <button class="chipbtn" type="button" aria-pressed="false">ホームシック</button>
-        <button class="chipbtn" type="button" aria-pressed="false">ビザ・書類</button>
-      </div>
-    </div>
-
-    <div class="q" data-q>
-      <div class="qt">先生に相談したいですか。</div>
-      <div class="qs">1つ選んでください。</div>
-      <div class="opts">
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>はい、早めに</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>はい、急ぎではありません</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>いいえ、大丈夫です</button>
-      </div>
-    </div>
-
-    <button class="btn" type="button" data-save>回答を保存する</button>
   </div>
 </section>
 
@@ -820,62 +660,11 @@
   </div>
 </section>
 
-<!-- ══════════ テスト・ドリル ══════════ -->
-<section data-screen="study" hidden>
-  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> もどる</button></div>
-  <div class="sechead"><span>先生からのテスト</span></div>
-  <div class="list">
-    <button class="row" style="--c:#d64545" data-soon>
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">受けられます</span><span class="nm">復習テスト 1</span>
-        <span class="ds">10問 · 5分くらい · 出したらすぐ採点されます</span></span>
-      <span class="tail">未受験</span>
-      <span class="go"></span>
-    </button>
-    <button class="row" style="--c:#7b8794" data-soon>
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">2026-08-19 受験ずみ</span><span class="nm">漢字チェック — 第12〜16課</span>
-        <span class="ds">10問中8問 正解 · 間違えたところを見る</span></span>
-      <span class="tail">8/10</span>
-      <span class="go"></span>
-    </button>
-  </div>
-  <div class="sechead"><span>何回でも練習できます</span><span class="upd">点数は記録されません</span></div>
-  <div class="list">
-    <button class="row" style="--c:#7b5cd6" data-soon>
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">ドリル</span><span class="nm">JLPT N2 語彙</span>
-        <span class="ds">640語 · 覚えるまで何回でも</span></span>
-      <span class="go"></span>
-    </button>
-    <button class="row" style="--c:#0f9b8e" data-soon>
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">ドリル</span><span class="nm">動詞の活用</span>
-        <span class="ds">形の練習だけです · 意味は授業で説明します</span></span>
-      <span class="go"></span>
-    </button>
-    <button class="row" style="--c:#1769aa" data-soon>
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">ドリル</span><span class="nm">敬語 — 尊敬語と謙譲語</span>
-        <span class="ds">20問 · 面接やアルバイトの前に役立ちます</span></span>
-      <span class="go"></span>
-    </button>
-    <button class="row" style="--c:#c77700" data-soon>
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">ドリル</span><span class="nm">読解 — 短い文章</span>
-        <span class="ds">今学期いちばん弱いところです · 5本</span></span>
-      <span class="tail">おすすめ</span>
-      <span class="go"></span>
-    </button>
-  </div>
-</section>
-
 
   </div>
   <div class="app" data-lang="en" hidden>
 
 
-<!-- ══════════ HOME ══════════ -->
 <!-- ══════════ GRADES ══════════ -->
 <section data-screen="grades" hidden>
   <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
@@ -1013,163 +802,6 @@
     </div>
     <div class="note">June was low because of five absences in one week. If you are ill for more than
       three days, tell the office — with a doctor's note it can be recorded differently.</div>
-  </div>
-</section>
-
-<!-- ══════════ SURVEY LIST ══════════ -->
-<section data-screen="survey" hidden>
-  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
-  <div class="panel">
-    <h2>Surveys</h2>
-    <p class="lede">Only your homeroom teacher and the career guidance staff can see your answers.
-      Other students cannot see them.</p>
-  </div>
-  <div class="sechead"><span>Waiting for you</span></div>
-  <div class="list">
-    <button class="row" data-go="survey-career" style="--c:#2f9e44">
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">Closes 2026-09-20</span><span class="nm">Career Plan Survey</span>
-        <span class="ds">4 questions · about 2 minutes</span></span>
-      <span class="tail">Not started</span>
-      <span class="go"></span>
-    </button>
-    <button class="row" data-go="survey-life" style="--c:#7b5cd6">
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">Closes 2026-09-30</span><span class="nm">Life &amp; Housing Survey</span>
-        <span class="ds">3 questions · you can choose more than one answer</span></span>
-      <span class="tail">Not started</span>
-      <span class="go"></span>
-    </button>
-  </div>
-  <div class="sechead"><span>Finished</span></div>
-  <div class="list">
-    <button class="row" data-soon style="--c:#7b8794">
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">Answered 2026-08-25</span><span class="nm">Summer Holiday Report</span>
-        <span class="ds">You answered all 5 questions</span></span>
-      <span class="tail">Done</span>
-      <span class="go"></span>
-    </button>
-    <button class="row" data-soon style="--c:#7b8794">
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">Closed 2026-07-10</span><span class="nm">Class Feedback (1st term)</span>
-        <span class="ds">This survey is closed. Thank you for answering.</span></span>
-      <span class="tail">Closed</span>
-      <span class="go"></span>
-    </button>
-  </div>
-</section>
-
-<!-- ══════════ SURVEY 1: CAREER ══════════ -->
-<section data-screen="survey-career" hidden>
-  <div class="backrow"><button class="backbtn" type="button" data-back-to="survey"><i></i> Back to surveys</button></div>
-  <div class="panel">
-    <h2>Career Plan Survey</h2>
-    <p class="lede">Your homeroom teacher uses this before your next meeting.
-      You can change your answers until 2026-09-20.</p>
-    <div class="qhead">
-      <span class="track"><span class="fill" data-fill style="width:0%"></span></span>
-      <span class="cnt"><span data-done>0</span> / <span data-total>4</span></span>
-    </div>
-
-    <div class="q" data-q>
-      <div class="qt">What do you want to do after graduation?</div>
-      <div class="qs">Choose one. You can change it later.</div>
-      <div class="opts">
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Vocational school (専門学校)</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>University (大学)</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Work in Japan</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Return to my country</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>I have not decided</button>
-      </div>
-    </div>
-
-    <div class="q" data-q>
-      <div class="qt">Which field are you interested in?</div>
-      <div class="qs">Choose one.</div>
-      <div class="opts">
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>IT / Programming</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Business / Trade</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Hotel / Tourism</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Design / Animation</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Care work (介護)</button>
-      </div>
-    </div>
-
-    <div class="q" data-q>
-      <div class="qt">Which JLPT level will you take in December?</div>
-      <div class="qs">If you passed a level, the school enters you for the next one.</div>
-      <div class="opts">
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>N2</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>N3</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>I will not take it</button>
-      </div>
-    </div>
-
-    <div class="q" data-q>
-      <div class="qt">How is your life in Japan now?</div>
-      <div class="qs">1 = very hard, 5 = very good.</div>
-      <div class="opts scale">
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>1</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>2</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>3</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>4</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>5</button>
-      </div>
-    </div>
-
-    <button class="btn" type="button" data-save>Save my answers</button>
-  </div>
-</section>
-
-<!-- ══════════ SURVEY 2: LIFE ══════════ -->
-<section data-screen="survey-life" hidden>
-  <div class="backrow"><button class="backbtn" type="button" data-back-to="survey"><i></i> Back to surveys</button></div>
-  <div class="panel">
-    <h2>Life &amp; Housing Survey</h2>
-    <p class="lede">This helps the school find problems early. Answer honestly — it does not
-      affect your grades.</p>
-    <div class="qhead">
-      <span class="track"><span class="fill" data-fill style="width:0%"></span></span>
-      <span class="cnt"><span data-done>0</span> / <span data-total>3</span></span>
-    </div>
-
-    <div class="q" data-q>
-      <div class="qt">Where do you live now?</div>
-      <div class="qs">Choose one.</div>
-      <div class="opts">
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>School dormitory</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Apartment — sharing with friends</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Apartment — living alone</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>With family or relatives</button>
-      </div>
-    </div>
-
-    <div class="q" data-q data-multi>
-      <div class="qt">Is anything difficult right now?</div>
-      <div class="qs">You can choose more than one. Choose nothing if everything is fine.</div>
-      <div class="chips">
-        <button class="chipbtn" type="button" aria-pressed="false">Money</button>
-        <button class="chipbtn" type="button" aria-pressed="false">Health</button>
-        <button class="chipbtn" type="button" aria-pressed="false">Japanese study</button>
-        <button class="chipbtn" type="button" aria-pressed="false">Part-time job</button>
-        <button class="chipbtn" type="button" aria-pressed="false">Neighbours / noise</button>
-        <button class="chipbtn" type="button" aria-pressed="false">Homesick</button>
-        <button class="chipbtn" type="button" aria-pressed="false">Visa / paperwork</button>
-      </div>
-    </div>
-
-    <div class="q" data-q>
-      <div class="qt">Do you want to talk to a teacher about it?</div>
-      <div class="qs">Choose one.</div>
-      <div class="opts">
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Yes, soon</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Yes, but it is not urgent</button>
-        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>No, thank you</button>
-      </div>
-    </div>
-
-    <button class="btn" type="button" data-save>Save my answers</button>
   </div>
 </section>
 
@@ -1502,56 +1134,6 @@
   </div>
 </section>
 
-<!-- ══════════ TESTS & DRILLS ══════════ -->
-<section data-screen="study" hidden>
-  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
-  <div class="sechead"><span>Tests from your teacher</span></div>
-  <div class="list">
-    <button class="row" style="--c:#d64545" data-soon>
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">Open now</span><span class="nm">Review Test 1</span>
-        <span class="ds">10 questions · about 5 minutes · marked straight away</span></span>
-      <span class="tail">Open</span>
-      <span class="go"></span>
-    </button>
-    <button class="row" style="--c:#7b8794" data-soon>
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">Finished 2026-08-19</span><span class="nm">Kanji Check — Lesson 12–16</span>
-        <span class="ds">You scored 8 / 10 · see which ones you missed</span></span>
-      <span class="tail">8/10</span>
-      <span class="go"></span>
-    </button>
-  </div>
-  <div class="sechead"><span>Practise as much as you like</span><span class="upd">Score not recorded</span></div>
-  <div class="list">
-    <button class="row" style="--c:#7b5cd6" data-soon>
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">Drill</span><span class="nm">JLPT N2 Vocabulary</span>
-        <span class="ds">640 words · repeat until you remember</span></span>
-      <span class="go"></span>
-    </button>
-    <button class="row" style="--c:#0f9b8e" data-soon>
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">Drill</span><span class="nm">Verb Conjugation</span>
-        <span class="ds">Form practice only · meaning is explained in class</span></span>
-      <span class="go"></span>
-    </button>
-    <button class="row" style="--c:#1769aa" data-soon>
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">Drill</span><span class="nm">Keigo — sonkeigo &amp; kenjougo</span>
-        <span class="ds">20 questions · useful before interviews and part-time work</span></span>
-      <span class="go"></span>
-    </button>
-    <button class="row" style="--c:#c77700" data-soon>
-      <span class="bar"></span>
-      <span class="txt"><span class="sb">Drill</span><span class="nm">Reading — short passages</span>
-        <span class="ds">Your weakest part this term · 5 passages</span></span>
-      <span class="tail">Suggested</span>
-      <span class="go"></span>
-    </button>
-  </div>
-</section>
-
 
   </div>
 
@@ -1772,16 +1354,9 @@ $("btn-survey-submit").onclick = async ()=>{
   document.addEventListener("click", function (e) {
     var go = e.target.closest("[data-go]");
     if (go) { openMock(go.getAttribute("data-go")); return; }
-    var bt = e.target.closest("[data-back-to]");
-    if (bt) { openMock(bt.getAttribute("data-back-to")); return; }
     /* モック内の「もどる」はマイページへ。動く画面側の [data-back] は既存JSが担当 */
     var bk = e.target.closest(".app [data-back]");
     if (bk) { e.stopPropagation(); goMyPage(); return; }
-    var soon = e.target.closest("[data-soon]");
-    if (soon) {
-      toast(curLang === "ja" ? "画面のイメージです。ここから本物のテストが開きます。"
-                             : "Mock-up only — this opens the real test.");
-    }
   }, true);
 
   /* 言語切替。日本語と英語だけ実装。同じ画面のまま移る。 */
@@ -1798,53 +1373,17 @@ $("btn-survey-submit").onclick = async ()=>{
         x.setAttribute("aria-pressed", x.getAttribute("data-lang") === code ? "true" : "false");
       });
       if (screen) openMock(screen);           /* モックを見ていたら同じ画面のまま */
-      else document.querySelectorAll(".app").forEach(function (a) {
-        a.hidden = (a.getAttribute("data-lang") !== code);
-      });
+      else {
+        document.querySelectorAll(".app").forEach(function (a) {
+          a.hidden = (a.getAttribute("data-lang") !== code);
+        });
+        /* 動く画面（ログイン/テスト/アンケート）は日本語のみ。切替が効く範囲を伝える */
+        toast(code === "ja" ? "画面イメージ（せいせき・おしらせ など）を 日本語に しました。"
+                            : "Image screens (grades, news, ...) will show in English. Login, quiz and survey stay in Japanese.");
+      }
     });
   });
 
-  /* アンケート（イメージ）：選ぶ動きと進捗だけ。送信先は無い。 */
-  function refresh(form) {
-    var qs = form.querySelectorAll("[data-q]"), n = 0;
-    qs.forEach(function (q) {
-      var sel = q.hasAttribute("data-multi") ? '.chipbtn[aria-pressed="true"]' : '.opt[aria-pressed="true"]';
-      if (q.querySelector(sel)) n++;
-    });
-    form.querySelector("[data-done]").textContent = n;
-    form.querySelector("[data-fill]").style.width = (n / qs.length * 100) + "%";
-    return { n: n, total: qs.length };
-  }
-  document.querySelectorAll('[data-screen="survey-career"], [data-screen="survey-life"]').forEach(function (form) {
-    form.querySelectorAll("[data-q]").forEach(function (q) {
-      if (q.hasAttribute("data-multi")) {
-        q.querySelectorAll(".chipbtn").forEach(function (c) {
-          c.addEventListener("click", function () {
-            c.setAttribute("aria-pressed", c.getAttribute("aria-pressed") === "true" ? "false" : "true");
-            refresh(form);
-          });
-        });
-      } else {
-        q.querySelectorAll(".opt").forEach(function (o) {
-          o.addEventListener("click", function () {
-            q.querySelectorAll(".opt").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
-            o.setAttribute("aria-pressed", "true");
-            refresh(form);
-          });
-        });
-      }
-    });
-    form.querySelector("[data-save]").addEventListener("click", function () {
-      var r = refresh(form), ja = (curLang === "ja");
-      if (r.n < r.total) {
-        toast(ja ? ("すべての質問に答えてください（" + r.n + " / " + r.total + "）")
-                 : ("Please answer all questions (" + r.n + " of " + r.total + " done)."));
-      } else {
-        toast(ja ? "保存しました（画面のイメージです）。" : "Saved (mock-up only).");
-      }
-    });
-    refresh(form);
-  });
 })();
 </script>
 </body>
