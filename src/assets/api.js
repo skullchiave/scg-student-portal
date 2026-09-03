@@ -6,6 +6,12 @@
 const SB_URL = "https://egdcbxzpgwenmfabpodd.supabase.co";
 const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnZGNieHpwZ3dlbm1mYWJwb2RkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNTcwNDYsImV4cCI6MjEwMzkzMzA0Nn0.m908C67Nh4KsYnH_LWvP4wAjOtxI79hhE-BKS1MCxX0";
 const MAIL_DOMAIN = "stu.scg-portal.jp"; // 学籍番号→内部メールアドレス変換（実在しない管理用ドメイン）
+/* エラー文言: i18n.js（t）が読まれていればその言語、無ければ日本語の fallback */
+const M = (key, fallback, vars) => {
+  if (typeof t === "function") return t(key, vars);
+  let s = fallback; if (vars) Object.keys(vars).forEach(k => { s = s.split("{" + k + "}").join(vars[k]); });
+  return s;
+};
 
 /* ログインは localStorage で持続化する（重要）:
  * Supabaseのサインイン APIには同一IPからの回数制限がある。学校Wi-Fiで全員が
@@ -53,8 +59,8 @@ const api = {
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       if (body.error_code === "invalid_credentials" || res.status === 400)
-        throw new Error("番号かパスワードがちがいます");
-      throw new Error("ログインできませんでした（" + res.status + "）");
+        throw new Error(M("err.badlogin", "番号かパスワードがちがいます"));
+      throw new Error(M("err.login", "ログインできませんでした（{s}）", { s: res.status }));
     }
     const data = await res.json();
     this.token = data.access_token;
@@ -63,7 +69,7 @@ const api = {
     // プロフィール取得
     const p = await this._fetch("/rest/v1/profiles?select=student_no,display_name,role,class_name&id=eq." + data.user.id);
     const rows = await p.json();
-    if (!rows.length) throw new Error("プロフィールが見つかりません");
+    if (!rows.length) throw new Error(M("err.noprofile", "プロフィールが見つかりません"));
     this.profile = rows[0];
     _store.setItem("sp_profile", JSON.stringify(this.profile));
     return this.profile;
@@ -98,13 +104,13 @@ const api = {
     if (res.status === 401 && await this._refresh()) {
       res = await this._fetch(path, opts); // 新トークンで1回だけやり直す
     }
-    if (res.status === 401) { this.logout(); location.reload(); throw new Error("再ログインしてください"); }
+    if (res.status === 401) { this.logout(); location.reload(); throw new Error(M("err.relogin", "再ログインしてください")); }
     return res;
   },
 
   async get(path) {
     const res = await this._authed(path);
-    if (!res.ok) throw new Error("読み込みに失敗しました（" + res.status + "）");
+    if (!res.ok) throw new Error(M("err.read", "読み込みに失敗しました（{s}）", { s: res.status }));
     return res.json();
   },
 
@@ -117,7 +123,7 @@ const api = {
     });
     if (!res.ok) {
       const b = await res.json().catch(() => ({}));
-      throw new Error(b.message || "送信に失敗しました（" + res.status + "）");
+      throw new Error(b.message || M("err.send", "送信に失敗しました（{s}）", { s: res.status }));
     }
     return res.json();
   },
@@ -128,7 +134,7 @@ const api = {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body.message || "送信に失敗しました（" + res.status + "）");
+      throw new Error(body.message || M("err.send", "送信に失敗しました（{s}）", { s: res.status }));
     }
     return res.json();
   },

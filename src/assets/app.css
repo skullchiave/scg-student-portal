@@ -193,3 +193,22 @@ footer{text-align:center;color:var(--sub);font-size:.72rem;padding:10px 16px 30p
 /* アンケート一覧: 提出済みの行は名前を控えめに（バッジで状態を示す） */
 .row.done .nm{color:var(--sub);}
 .row.done .badge-done{vertical-align:middle;}
+
+/* ── 言語切替（ヘッダー右上の 🌐 ボタン。メニューは body 直下に置き、header の overflow に切られない） ── */
+.hrow{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.langsw{position:relative;z-index:5;}
+.langbtn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.55);
+  color:#fff;border-radius:99px;padding:6px 12px 6px 10px;font-size:.84rem;font-weight:700;font-family:inherit;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;white-space:nowrap;line-height:1.2;}
+.langbtn:hover,.langbtn:active,.langbtn[aria-expanded="true"]{background:rgba(255,255,255,.3);}
+.langbtn .car{width:7px;height:7px;border-right:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(45deg);margin:-4px 2px 0 2px;}
+.langmenu{position:fixed;min-width:230px;background:#fff;color:var(--ink);border-radius:14px;
+  box-shadow:0 10px 30px rgba(16,21,27,.24);padding:6px;z-index:100;}
+.langmenu button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left;background:none;
+  border:0;border-radius:10px;padding:11px 12px;font-family:inherit;font-size:1rem;color:var(--ink);cursor:pointer;}
+.langmenu button:hover,.langmenu button:active{background:color-mix(in srgb,var(--blue) 8%,transparent);}
+.langmenu button.cur{font-weight:800;color:var(--blue-d);}
+.langmenu button.cur .nat::after{content:" ✓";}
+.langmenu button[disabled]{color:var(--sub);cursor:default;opacity:.7;}
+.langmenu button[disabled]:hover{background:none;}
+.langmenu .en{font-size:.74rem;color:var(--sub);white-space:nowrap;}

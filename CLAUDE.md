@@ -11,7 +11,7 @@
 
 ## 構成
 
-- 画面: `src/` → GitHub Pages（Actionsで `src/` だけをデプロイ。`.github/workflows/pages.yml`）
+- 画面: `src/`（学生 index.html／先生の管理画面 teacher.html＝小テスト集計・アンケート一覧が本物、他はイメージ）→ GitHub Pages（Actionsで `src/` だけをデプロイ。`.github/workflows/pages.yml`）
 - 裏方: Supabase 無料枠・東京（ref: `egdcbxzpgwenmfabpodd`、きあ個人アカウント wsedcrftgb@）
 - 依存ライブラリゼロ（教師画面のQR生成 qrcodejs のみCDN）。フレームワーク導入は要相談
 
@@ -33,10 +33,21 @@
 - service_role キーをコード・リポに入れない（anonキーは公開可なので直書きOK）
 - UI文言は学生向け=やさしい日本語（N4相当・分かち書き寄り）、教師向け=普通の日本語
 
+## 多言語（2026-09-04）
+
+- 文言は `src/assets/i18n.js` の `I18N` **1か所**。HTML は `data-i18n="キー"`、JS は `t("キー",{穴})`、
+  アンケート定義などの `{ja,en}` は `tx()`。無いキー/言語は日本語に落ちる（画面が空にならない）
+- 切替はヘッダー右上の 🌐 メニュー（`mountLangSwitch`）。選択は localStorage `sp_lang` に保存し次回も同じ言語
+- 動的に組み立てる部分は `window` の `sp:lang` イベントで描き直す（index.html の「言語」節）
+- **実装済みは日本語/English**。中国語・ネパール語・ミャンマー語・シンハラ語・ベンガル語はメニューに「じゅんびちゅう」で並ぶだけ。
+  足すときは ① `LANGS` に ready ② `I18N[コード]` ③ surveys.js の `{ja,en}` に追加 → 翻訳確認スタッフの確認後に公開
+- 画面イメージ（`.app[data-lang]`）だけは文言外部化せず日英の2本の木のまま（本物にする時に作り直すため）
+
 ## アンケート（2026-09-03 に複数化）
 
 - 定義は `src/assets/surveys.js` の `SURVEYS` 配列 **1か所**（index.html と teacher.html が同じファイルを読む）。
-  1本足すときは配列に1件追加するだけ（`{key, sb, color, title, desc, intro, q:[{k,t,l,sl, o|ph}]}`）。DB変更は不要
+  1本足すときは配列に1件追加するだけ（`{key, sb, color, title:{ja,en}, desc:{ja,en}, intro:{ja,en}, q:[{k,t,l:{ja,en},sl, o:[{v,ja,en}]|ph:{ja,en}}]}`）。DB変更は不要
+- 選択肢は **`v`（言語に依らない値）で保存**される。教師画面は `optLabel()` で日本語名に戻す（昔の日本語文の回答もそのまま出る）
 - `key` は一度公開したら変えない（回答は `survey_responses` に `survey_key` で入り、(student_id, survey_key) で upsert＝再提出は上書き）
 - 学生画面の一覧は「まだ」→「ていしゅつ済み（バッジ・下へ沈む）」の順。文言はやさしい日本語（N4・分かち書き）
 - `python tests/test_surveys.py` で定義を検査。`--live` を付けると本物のDBに upsert→読み戻しの往復検査

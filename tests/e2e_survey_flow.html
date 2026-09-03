@@ -20,13 +20,27 @@ function rows(d) { return [...d.querySelectorAll("#survey-list .row")].map(r => 
   try { w.localStorage.clear(); } catch (e) {}
   const $ = id => d.getElementById(id);
   // 検査専用のアンケートを5本目として差し込む（がくひと同じ「select 3問」の形）
-  w.eval("SURVEYS").push({ key: "test_multi_ui_" + Date.now(), sb: "Test", color: "#888888", title: "じどうけんさの アンケート", desc: "e2e", intro: "e2e",
-    q: [{ k: "a", t: "select", l: "A", sl: "A", o: ["1", "2"] }, { k: "b", t: "select", l: "B", sl: "B", o: ["1", "2"] }, { k: "c", t: "select", l: "C", sl: "C", o: ["1", "2"] }] });
+  w.eval("SURVEYS").push({ key: "test_multi_ui_" + Date.now(), sb: "Test", color: "#888888",
+    title: { ja: "じどうけんさの アンケート", en: "Self-check survey" }, desc: { ja: "e2e", en: "e2e" }, intro: { ja: "e2e", en: "e2e" },
+    q: [ { k: "a", t: "select", l: { ja: "A", en: "A" }, sl: "A", o: [{ v: "1", ja: "いち", en: "one" }, { v: "2", ja: "に", en: "two" }] },
+         { k: "b", t: "select", l: { ja: "B", en: "B" }, sl: "B", o: [{ v: "1", ja: "いち", en: "one" }, { v: "2", ja: "に", en: "two" }] },
+         { k: "c", t: "select", l: { ja: "C", en: "C" }, sl: "C", o: [{ v: "1", ja: "いち", en: "one" }, { v: "2", ja: "に", en: "two" }] } ] });
   await until(() => !$("scr-login").hidden, 8000);
   step("login screen shown", !$("scr-login").hidden);
   $("in-no").value = "l150"; $("in-pw").value = "sakura24"; $("btn-login").click();
   step("mypage shown after login", await until(() => !$("scr-mypage").hidden), $("login-msg").textContent);
   step("my-name", true, $("my-name").textContent);
+  // 言語切替: 🌐 ボタンがあり、English にすると静的文言と動的文言が変わり、選択が保存される
+  step("lang switch button present (ja)", !!$("langbtn") && $("langcur").textContent === "日本語", $("langcur") && $("langcur").textContent);
+  w.eval('setLang("en")');
+  await sleep(200);
+  step("en: mypage strings switched", $("btn-gotest").textContent.includes("Take a quiz") && $("my-name").textContent.indexOf(" さん") < 0 && $("langcur").textContent === "English",
+       $("btn-gotest").textContent.trim() + " / " + $("my-name").textContent + " / " + $("langcur").textContent);
+  let saved = null; try { saved = w.localStorage.getItem("sp_lang"); } catch (e) {}
+  step("en: choice is remembered (localStorage sp_lang)", saved === "en", saved);
+  w.eval('setLang("ja")');
+  await sleep(200);
+  step("back to ja", $("btn-gotest").textContent.includes("テストを うける"), $("btn-gotest").textContent.trim());
   await sleep(1500); // survey map の読込を待つ
   step("badge before (hidden: no real answers yet)", $("survey-done-badge").hidden === true, "hidden=" + $("survey-done-badge").hidden + " text=" + $("survey-done-badge").textContent);
   $("btn-gosurvey").click();
@@ -47,6 +61,11 @@ function rows(d) { return [...d.querySelectorAll("#survey-list .row")].map(r => 
   step("back to list after submit", await until(() => !$("scr-surveylist").hidden && $("surveylist-msg").textContent.includes("うけとりました"), 25000), $("survey-msg").textContent + " / " + $("surveylist-msg").textContent);
   const after = rows(d);
   step("answered one sank to bottom with badge", after.length === 5 && after[4].startsWith("[済]") && after[4].includes("じどうけんさ") && after[4].includes("ていしゅつ済み"), after.join(" | "));
+  // 英語に切り替えても並びと状態は同じで、文言だけ変わる（保存値は言語に依らない）
+  w.eval('setLang("en")'); await sleep(200);
+  const afterEn = rows(d);
+  step("en: same order, English labels", afterEn.length === 5 && afterEn[4].startsWith("[済]") && afterEn[4].includes("Self-check") && afterEn[4].includes("Submitted") && afterEn[0].includes("Career"), afterEn.join(" | "));
+  w.eval('setLang("ja")'); await sleep(200);
   step("real 4 still todo on top", after.slice(0, 4).every(x => x.startsWith("[ ]")), after.slice(0, 4).join(" | "));
   // 再度開くと前回の答えが入っていて「なおして そうしん」になる
   [...d.querySelectorAll("#survey-list .row")].find(r => r.textContent.includes("じどうけんさ")).click();

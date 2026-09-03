@@ -9,23 +9,14 @@
 <link rel="stylesheet" href="assets/preview.css">
 </head>
 <body>
-<div class="langbar">
-  <div class="langin">
-    <span class="langlbl">Language</span>
-    <button class="lang" type="button" data-lang="ja" aria-pressed="true">日本語</button>
-    <button class="lang" type="button" data-lang="en" aria-pressed="false">English</button>
-    <button class="lang" type="button" data-lang="bn" aria-pressed="false"><span class="native">বাংলা</span> Bengali</button>
-    <button class="lang" type="button" data-lang="my" aria-pressed="false"><span class="native">မြန်မာ</span> Burmese</button>
-    <button class="lang" type="button" data-lang="ne" aria-pressed="false"><span class="native">नेपाली</span> Nepali</button>
-    <button class="lang" type="button" data-lang="zh" aria-pressed="false"><span class="native">中文</span> Chinese</button>
-    <button class="lang" type="button" data-lang="si" aria-pressed="false"><span class="native">සිංහල</span> Sinhala</button>
-  </div>
-</div>
 <header>
   <div class="hin">
-    <div class="eyebrow">SCG Student Portal</div>
+    <div class="hrow">
+      <div class="eyebrow">SCG Student Portal</div>
+      <div class="langsw" id="langsw"></div>
+    </div>
     <div class="plate"><img src="assets/logo-school.png" alt="学校ロゴ"></div>
-    <h1>学生ポータル <span class="thin">for 学生</span></h1>
+    <h1><span data-i18n="app.title">学生ポータル</span> <span class="thin" data-i18n="app.for">for 学生</span></h1>
   </div>
 </header>
 <main>
@@ -33,16 +24,16 @@
   <!-- ログイン -->
   <section id="scr-login" hidden>
     <div class="panel">
-      <h2>ログイン</h2>
+      <h2 data-i18n="login.title">ログイン</h2>
       <div class="field">
-        <label for="in-no">がくせきばんごう（学籍番号）</label>
+        <label for="in-no" data-i18n="login.no">がくせきばんごう（学籍番号）</label>
         <input id="in-no" type="text" autocomplete="username" autocapitalize="none" placeholder="s001">
       </div>
       <div class="field">
-        <label for="in-pw">パスワード</label>
+        <label for="in-pw" data-i18n="login.pw">パスワード</label>
         <input id="in-pw" type="password" autocomplete="current-password" placeholder="********">
       </div>
-      <button class="btn" id="btn-login">ログイン</button>
+      <button class="btn" id="btn-login" data-i18n="login.btn">ログイン</button>
       <div class="msg" id="login-msg"></div>
     </div>
   </section>
@@ -58,14 +49,14 @@
         </div>
       </div>
     </div>
-    <div class="sechead">いま動きます</div>
+    <div class="sechead" data-i18n="my.now">いま動きます</div>
     <div class="list">
       <button class="row" id="btn-gotest" style="--c:#1769aa">
         <span class="bar"></span>
         <span class="txt">
           <span class="sb">Quiz</span>
-          <span class="nm">テストを うける</span>
-          <span class="ds">2つから えらぶ もんだい。すぐに てんすうが でます</span>
+          <span class="nm" data-i18n="my.quiz">テストを うける</span>
+          <span class="ds" data-i18n="my.quiz.ds">2つから えらぶ もんだい。すぐに てんすうが でます</span>
         </span>
         <span class="go"></span>
       </button>
@@ -73,43 +64,43 @@
         <span class="bar"></span>
         <span class="txt">
           <span class="sb">Survey</span>
-          <span class="nm">アンケートに こたえる<span class="badge-done" id="survey-done-badge" hidden>ていしゅつ済み</span></span>
-          <span class="ds">しんろ・すまい・アルバイト・がくひ の 4つ</span>
+          <span class="nm"><span data-i18n="my.survey">アンケートに こたえる</span><span class="badge-done" id="survey-done-badge" hidden>ていしゅつ済み</span></span>
+          <span class="ds" data-i18n="my.survey.ds">しんろ・すまい・アルバイト・がくひ の 4つ</span>
         </span>
         <span class="go"></span>
       </button>
     </div>
 
-    <div class="sechead">これから作る画面（イメージ）</div>
+    <div class="sechead" data-i18n="my.soon">これから作る画面（イメージ）</div>
     <div class="list">
       <button class="row" data-go="grades" style="--c:#1769aa"><span class="bar"></span>
-        <span class="txt"><span class="sb">Record</span><span class="nm">せいせき（成績）</span>
-        <span class="ds">JLPT・JPT・定期試験・模試・出席率</span></span><span class="go"></span></button>
+        <span class="txt"><span class="sb">Record</span><span class="nm" data-i18n="my.grades">せいせき（成績）</span>
+        <span class="ds" data-i18n="my.grades.ds">JLPT・JPT・定期試験・模試・出席率</span></span><span class="go"></span></button>
       <button class="row" data-go="news" style="--c:#c77700"><span class="bar"></span>
-        <span class="txt"><span class="sb">News</span><span class="nm">おしらせ</span>
-        <span class="ds">試験の日程・休みの期間・大事な連絡</span></span><span class="go"></span></button>
+        <span class="txt"><span class="sb">News</span><span class="nm" data-i18n="my.news">おしらせ</span>
+        <span class="ds" data-i18n="my.news.ds">試験の日程・休みの期間・大事な連絡</span></span><span class="go"></span></button>
       <button class="row" data-go="jobs" style="--c:#7b5cd6"><span class="bar"></span>
-        <span class="txt"><span class="sb">Job</span><span class="nm">アルバイト</span>
-        <span class="ds">求人と、28時間ルールの注意</span></span><span class="go"></span></button>
+        <span class="txt"><span class="sb">Job</span><span class="nm" data-i18n="my.jobs">アルバイト</span>
+        <span class="ds" data-i18n="my.jobs.ds">求人と、28時間ルールの注意</span></span><span class="go"></span></button>
       <button class="row" data-go="schools" style="--c:#1f7a8c"><span class="bar"></span>
-        <span class="txt"><span class="sb">Schools</span><span class="nm">しんがく先の情報</span>
-        <span class="ds">専門学校・大学の一覧と出願の締切</span></span><span class="go"></span></button>
+        <span class="txt"><span class="sb">Schools</span><span class="nm" data-i18n="my.schools">しんがく先の情報</span>
+        <span class="ds" data-i18n="my.schools.ds">専門学校・大学の一覧と出願の締切</span></span><span class="go"></span></button>
       <button class="row" data-go="voices" style="--c:#0f9b8e"><span class="bar"></span>
-        <span class="txt"><span class="sb">Voices</span><span class="nm">せんぱいの声</span>
-        <span class="ds">いま進学先にいる卒業生へのインタビュー</span></span><span class="go"></span></button>
+        <span class="txt"><span class="sb">Voices</span><span class="nm" data-i18n="my.voices">せんぱいの声</span>
+        <span class="ds" data-i18n="my.voices.ds">いま進学先にいる卒業生へのインタビュー</span></span><span class="go"></span></button>
     </div>
 
     <div class="inpanel">
       <div class="msg" id="my-msg"></div>
-      <button class="btn ghost" id="btn-logout" style="margin-top:8px;">ログアウト</button>
+      <button class="btn ghost" id="btn-logout" style="margin-top:8px;" data-i18n="my.logout">ログアウト</button>
     </div>
   </section>
 
   <!-- テスト一覧 -->
   <section id="scr-quizlist" hidden>
     <div class="backrow">
-      <button class="backbtn" data-back><i></i> もどる</button>
-      <span class="backtitle">テストを うける</span>
+      <button class="backbtn" data-back><i></i> <span data-i18n="q.back">もどる</span></button>
+      <span class="backtitle" data-i18n="my.quiz">テストを うける</span>
     </div>
     <div class="list" id="quiz-list"></div>
     <div class="inpanel"><div class="msg" id="list-msg"></div></div>
@@ -139,19 +130,19 @@
       </div>
     </div>
     <div class="panel">
-      <h2>こたえの かくにん</h2>
+      <h2 data-i18n="r.check">こたえの かくにん</h2>
       <div id="r-list"></div>
     </div>
     <div class="inpanel">
-      <button class="btn" id="btn-r-home">マイページへ もどる</button>
+      <button class="btn" id="btn-r-home" data-i18n="r.home">マイページへ もどる</button>
     </div>
   </section>
 
   <!-- アンケート一覧（まだ → ていしゅつ済み の順。定義は assets/surveys.js） -->
   <section id="scr-surveylist" hidden>
     <div class="backrow">
-      <button class="backbtn" data-back><i></i> もどる</button>
-      <span class="backtitle">アンケート</span>
+      <button class="backbtn" data-back><i></i> <span data-i18n="q.back">もどる</span></button>
+      <span class="backtitle" data-i18n="sv.title">アンケート</span>
     </div>
     <div class="inpanel"><div class="msg" id="surveylist-msg"></div></div>
     <div class="list" id="survey-list"></div>
@@ -160,7 +151,7 @@
   <!-- アンケート回答（定義から質問を組み立てる） -->
   <section id="scr-survey" hidden>
     <div class="backrow">
-      <button class="backbtn" id="btn-survey-back"><i></i> もどる</button>
+      <button class="backbtn" id="btn-survey-back"><i></i> <span data-i18n="q.back">もどる</span></button>
       <span class="backtitle" id="survey-title"></span>
     </div>
     <div class="panel">
@@ -1123,9 +1114,10 @@
   </div>
 
 </main>
-<footer>SCG 学生ポータル（デモ）</footer>
+<footer data-i18n="app.footer">SCG 学生ポータル（デモ）</footer>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<script src="assets/i18n.js"></script>
 <script src="assets/api.js"></script>
 <script src="assets/surveys.js"></script>
 <script>
@@ -1141,17 +1133,17 @@ function err(id, text){ const m=$(id); m.className="msg err"; m.textContent=text
 function info(id, text){ const m=$(id); m.className="msg info"; m.textContent=text; }
 function clearMsg(id){ const m=$(id); m.className="msg"; m.textContent=""; }
 
-let quizSet=null, questions=[], cur=0, answers={}, startedAt=0;
+let quizSet=null, questions=[], cur=0, answers={}, startedAt=0, lastResult=null;
 
 /* ---- ログイン ---- */
 $("btn-login").onclick = async () => {
   clearMsg("login-msg");
   const no=$("in-no").value.trim(), pw=$("in-pw").value;
-  if(!no||!pw){ err("login-msg","番号とパスワードを入れてください"); return; }
-  $("btn-login").disabled=true; $("btn-login").textContent="ログインしています…";
+  if(!no||!pw){ err("login-msg",t("login.need")); return; }
+  $("btn-login").disabled=true; $("btn-login").textContent=t("login.busy");
   try{ await api.login(no,pw); await goMyPage(); }
   catch(e){ err("login-msg", e.message); }
-  finally{ $("btn-login").disabled=false; $("btn-login").textContent="ログイン"; }
+  finally{ $("btn-login").disabled=false; $("btn-login").textContent=t("login.btn"); }
 };
 $("in-pw").addEventListener("keydown", e=>{ if(e.key==="Enter") $("btn-login").click(); });
 $("btn-logout").onclick = () => { api.logout(); show("scr-login"); };
@@ -1160,8 +1152,8 @@ document.querySelectorAll("[data-back]").forEach(b=>b.onclick=goMyPage);
 /* ---- マイページ ---- */
 async function goMyPage(){
   const p = api.profile;
-  $("my-name").textContent = p.display_name + " さん";
-  $("my-class").textContent = p.class_name || "クラス未設定";
+  $("my-name").textContent = t("my.san",{name:p.display_name});
+  $("my-class").textContent = p.class_name || t("my.noclass");
   $("my-no").textContent = p.student_no;
   show("scr-mypage"); clearMsg("my-msg");
   try{ await loadSurveyMap(); renderSurveyBadge(); }catch(e){ /* バッジなしで続行 */ }
@@ -1170,10 +1162,10 @@ async function goMyPage(){
 /* ---- テスト一覧 ---- */
 $("btn-gotest").onclick = async ()=>{
   show("scr-quizlist"); clearMsg("list-msg");
-  $("quiz-list").innerHTML = "<div style='color:var(--sub);padding:18px 22px;'>よみこみ中…</div>";
+  $("quiz-list").innerHTML = "<div style='color:var(--sub);padding:18px 22px;'>"+t("q.loading")+"</div>";
   try{
     const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson&is_open=eq.true&order=created_at.desc");
-    if(!sets.length){ $("quiz-list").innerHTML="<div style='color:var(--sub);padding:18px 22px;'>いま うけられるテストは ありません</div>"; return; }
+    if(!sets.length){ $("quiz-list").innerHTML="<div style='color:var(--sub);padding:18px 22px;'>"+t("q.none")+"</div>"; return; }
     $("quiz-list").innerHTML = "";
     sets.forEach(s=>{
       const b=document.createElement("button");
@@ -1192,7 +1184,7 @@ async function startQuiz(s){
   quizSet=s; answers={}; cur=0; startedAt=Date.now();
   try{
     questions = await api.get("/rest/v1/questions?select=id,seq,prompt,choice_a,choice_b&quiz_set_id=eq."+s.id+"&order=seq");
-    if(!questions.length){ err("list-msg","もんだいが ありません"); return; }
+    if(!questions.length){ err("list-msg",t("q.noq")); return; }
     show("scr-quiz"); render();
   }catch(e){ err("list-msg", e.message); }
 }
@@ -1201,7 +1193,7 @@ function render(){
   const q=questions[cur];
   $("qnum").textContent = (cur+1)+" / "+questions.length;
   $("qfill").style.width = (cur/questions.length*100)+"%";
-  $("qprompt").textContent = "（　）に なにを いれますか。 " + q.prompt;
+  $("qprompt").textContent = t("q.prompt") + q.prompt;
   $("ch-a-txt").textContent = q.choice_a;
   $("ch-b-txt").textContent = q.choice_b;
   ["ch-a","ch-b"].forEach(id=>$(id).classList.remove("sel"));
@@ -1209,13 +1201,13 @@ function render(){
   if(chosen==="a")$("ch-a").classList.add("sel");
   if(chosen==="b")$("ch-b").classList.add("sel");
   $("btn-next").disabled = !chosen;
-  $("btn-next").textContent = (cur===questions.length-1) ? "そうしん（送信）" : "つぎへ";
+  $("btn-next").textContent = (cur===questions.length-1) ? t("q.submit") : t("q.next");
 }
 $("ch-a").onclick=()=>{ answers[questions[cur].id]="a"; render(); };
 $("ch-b").onclick=()=>{ answers[questions[cur].id]="b"; render(); };
 $("btn-next").onclick = async ()=>{
   if(cur < questions.length-1){ cur++; render(); return; }
-  $("btn-next").disabled=true; $("btn-next").textContent="そうしん中…";
+  $("btn-next").disabled=true; $("btn-next").textContent=t("q.sending");
   try{
     const r = await api.rpc("submit_attempt",{
       p_quiz_set_id: quizSet.id, p_answers: answers,
@@ -1223,13 +1215,14 @@ $("btn-next").onclick = async ()=>{
     });
     showResult(r);
   }catch(e){
-    err("quiz-msg","そうしんできませんでした。もういちど おしてください。（"+e.message+"）");
-    $("btn-next").disabled=false; $("btn-next").textContent="そうしん（送信）";
+    err("quiz-msg",t("q.fail",{msg:e.message}));
+    $("btn-next").disabled=false; $("btn-next").textContent=t("q.submit");
   }
 };
 function showResult(r){
+  lastResult=r;
   $("r-score").textContent = r.score;
-  $("r-of").textContent = "／ "+r.total+" もん せいかい";
+  $("r-of").textContent = t("r.of",{total:r.total});
   const list=$("r-list"); list.innerHTML="";
   r.results.forEach(item=>{
     const q = questions.find(x=>x.seq===item.seq);
@@ -1237,7 +1230,7 @@ function showResult(r){
     const correctTxt = item.correct==="a" ? q.choice_a : q.choice_b;
     row.innerHTML =
       "<span class='rmark "+(item.is_correct?"ok'>○":"ng'>✕")+"</span>"+
-      "<div class='rbody'>"+item.seq+". "+q.prompt+"<br>こたえ: <span class='ans'>"+correctTxt+"</span></div>";
+      "<div class='rbody'>"+item.seq+". "+q.prompt+"<br>"+t("r.ans")+"<span class='ans'>"+correctTxt+"</span></div>";
     list.appendChild(row);
   });
   show("scr-result");
@@ -1253,9 +1246,9 @@ async function loadSurveyMap(){
   rows.forEach(r=>{ surveyMap[r.survey_key] = r; });
 }
 function renderSurveyBadge(){
-  const n = SURVEYS.filter(s=>surveyMap[s.key]).length, t = SURVEYS.length, b = $("survey-done-badge");
+  const n = SURVEYS.filter(s=>surveyMap[s.key]).length, tot = SURVEYS.length, b = $("survey-done-badge");
   b.hidden = (n===0);
-  b.textContent = (n===t) ? "ぜんぶ ていしゅつ済み" : n+"／"+t+" ていしゅつ済み";
+  b.textContent = (n===tot) ? t("sv.badge.all") : t("sv.badge.n",{n:n,t:tot});
 }
 function fmtDay(iso){ const d=new Date(iso); return (d.getMonth()+1)+"/"+d.getDate(); }
 /* 一覧: まだ答えていないもの → 答えたもの（ていしゅつ済みバッジ）の順に並べる */
@@ -1270,8 +1263,8 @@ function renderSurveyList(){
     b.style.setProperty("--c", s.color);
     b.innerHTML = "<span class='bar'></span><span class='txt'>"+
       "<span class='sb'>"+s.sb+"</span>"+
-      "<span class='nm'>"+s.title+(d ? " <span class='badge-done'>ていしゅつ済み</span>" : "")+"</span>"+
-      "<span class='ds'>"+(d ? fmtDay(d.submitted_at)+" に ていしゅつ。なおして もういちど だせます" : s.desc)+"</span>"+
+      "<span class='nm'>"+tx(s.title)+(d ? " <span class='badge-done'>"+t("sv.done")+"</span>" : "")+"</span>"+
+      "<span class='ds'>"+(d ? t("sv.doneds",{d:fmtDay(d.submitted_at)}) : tx(s.desc))+"</span>"+
       "</span><span class='go'></span>";
     b.onclick = ()=>openSurvey(s);
     list.appendChild(b);
@@ -1284,27 +1277,32 @@ $("btn-survey-back").onclick = ()=>{ clearMsg("surveylist-msg"); renderSurveyLis
 function openSurvey(s){
   curSurvey = s; clearMsg("survey-msg");
   const prev = surveyMap[s.key] ? (surveyMap[s.key].answers || {}) : null;
-  $("survey-title").textContent = s.title;
-  $("survey-intro").innerHTML = s.intro;
+  $("survey-title").textContent = tx(s.title);
+  $("survey-intro").innerHTML = tx(s.intro);
   const box=$("survey-fields"); box.innerHTML="";
   s.q.forEach((q,i)=>{
     const id = "sv-"+q.k, num = "①②③④⑤⑥⑦⑧⑨".charAt(i) || (i+1)+".";
     const f=document.createElement("div"); f.className="field";
-    let inner = "<label for='"+id+"'>"+num+" "+q.l+"</label>";
+    let inner = "<label for='"+id+"'>"+num+" "+tx(q.l)+"</label>";
     if(q.t==="select"){
-      inner += "<select id='"+id+"'><option value=''>えらんで ください</option>"+
-               q.o.map(o=>"<option>"+o+"</option>").join("")+"</select>";
+      // 保存されるのは o.v（言語に依らない値）。表示だけ今の言語
+      inner += "<select id='"+id+"'><option value=''>"+t("sv.choose")+"</option>"+
+               q.o.map(o=>"<option value='"+o.v+"'>"+tx(o)+"</option>").join("")+"</select>";
     }else{
-      inner += "<input id='"+id+"' type='text' placeholder='"+(q.ph||"")+"'>";
+      inner += "<input id='"+id+"' type='text' placeholder='"+tx(q.ph)+"'>";
     }
     f.innerHTML = inner; box.appendChild(f);
-    if(prev && prev[q.k]!=null) $(id).value = prev[q.k];
+    if(prev && prev[q.k]!=null){
+      let v = prev[q.k];
+      if(q.t==="select"){ const hit = q.o.find(o=>o.v===v||o.ja===v||o.en===v); v = hit ? hit.v : ""; }  // 昔の回答（日本語の文）も拾う
+      $(id).value = v;
+    }
   });
   if(prev){
-    info("survey-msg","ていしゅつ済みです。なおして もういちど そうしん できます。");
-    $("btn-survey-submit").textContent = "なおして そうしん";
+    info("survey-msg",t("sv.prev"));
+    $("btn-survey-submit").textContent = t("sv.resubmit");
   }else{
-    $("btn-survey-submit").textContent = "そうしん（送信）";
+    $("btn-survey-submit").textContent = t("q.submit");
   }
   show("scr-survey");
 }
@@ -1312,9 +1310,9 @@ $("btn-survey-submit").onclick = async ()=>{
   const s = curSurvey; if(!s) return;
   const ans = {}; let filled = 0;
   s.q.forEach(q=>{ const v = $("sv-"+q.k).value.trim(); ans[q.k] = v; if(v) filled++; });
-  if(!filled){ err("survey-msg","1つ以上 こたえてください"); return; }
+  if(!filled){ err("survey-msg",t("sv.min1")); return; }
   const btn=$("btn-survey-submit");
-  btn.disabled=true; btn.textContent="そうしん中…";
+  btn.disabled=true; btn.textContent=t("q.sending");
   try{
     // student_id は送らない（DB側の既定値 auth.uid() = ログイン本人に固定される）
     const now = new Date().toISOString();
@@ -1323,11 +1321,31 @@ $("btn-survey-submit").onclick = async ()=>{
     });
     surveyMap[s.key] = { survey_key: s.key, answers: ans, submitted_at: now };
     renderSurveyBadge(); renderSurveyList(); show("scr-surveylist");
-    info("surveylist-msg","「"+s.title+"」を うけとりました。ありがとうございます！");
+    info("surveylist-msg",t("sv.received",{title:tx(s.title)}));
   }catch(e){
-    err("survey-msg","そうしんできませんでした。もういちど おしてください。（"+e.message+"）");
-  }finally{ btn.disabled=false; btn.textContent="そうしん（送信）"; }
+    err("survey-msg",t("q.fail",{msg:e.message}));
+  }finally{ btn.disabled=false; btn.textContent=t("q.submit"); }
 };
+
+/* ---- 言語（assets/i18n.js）---- */
+initLang();                       // 前回選んだ言語（localStorage）を復元。無ければ日本語
+mountLangSwitch($("langsw"));     // ヘッダー右上の 🌐 メニュー
+window.addEventListener("sp:lang", ()=>{
+  // 静的な文言は applyI18n() が貼り替え済み。ここでは JS が組み立てた部分だけ描き直す
+  if(!$("scr-mypage").hidden && api.profile){
+    $("my-name").textContent = t("my.san",{name:api.profile.display_name});
+    $("my-class").textContent = api.profile.class_name || t("my.noclass");
+    renderSurveyBadge();
+  }
+  if(!$("scr-quiz").hidden && questions.length) render();
+  if(!$("scr-result").hidden && lastResult) showResult(lastResult);
+  if(!$("scr-surveylist").hidden) renderSurveyList();
+  if(!$("scr-survey").hidden && curSurvey){
+    const keep={}; curSurvey.q.forEach(q=>{ const el=$("sv-"+q.k); if(el) keep[q.k]=el.value; });
+    openSurvey(curSurvey);                                       // 今の言語で組み直し
+    curSurvey.q.forEach(q=>{ if(keep[q.k]) $("sv-"+q.k).value=keep[q.k]; });   // 入力途中の値は残す
+  }
+});
 
 /* ---- 起動 ---- */
 (async ()=>{
@@ -1357,17 +1375,17 @@ $("btn-survey-submit").onclick = async ()=>{
     toastTimer = setTimeout(function () { toastEl.classList.remove("on"); }, 2400);
   }
 
+  function mockLang() { return LANG === "ja" ? "ja" : "en"; }   /* 画面イメージは日本語/英語の2本だけ */
   function activeApp() {
-    return document.querySelector('.app[data-lang="' + curLang + '"]');
+    return document.querySelector('.app[data-lang="' + mockLang() + '"]');
   }
-  var curLang = "ja";
 
   /* モック画面を開く。動く画面は全部閉じる。 */
   function openMock(name) {
     screens.forEach(function (s) { document.getElementById(s).hidden = true; });
     document.querySelectorAll(".app").forEach(function (a) {
       a.classList.remove("app-off");
-      a.hidden = (a.getAttribute("data-lang") !== curLang);
+      a.hidden = (a.getAttribute("data-lang") !== mockLang());
     });
     activeApp().querySelectorAll("[data-screen]").forEach(function (s) {
       s.hidden = (s.getAttribute("data-screen") !== name);
@@ -1375,7 +1393,7 @@ $("btn-survey-submit").onclick = async ()=>{
     window.scrollTo(0, 0);
   }
   function currentMock() {
-    var a = activeApp();
+    var a = document.querySelector(".app:not(.app-off):not([hidden])");   /* 今 見えている木（言語が変わった直後は旧言語の木） */
     var v = a && a.querySelector("[data-screen]:not([hidden])");
     return v ? v.getAttribute("data-screen") : null;
   }
@@ -1388,29 +1406,10 @@ $("btn-survey-submit").onclick = async ()=>{
     if (bk) { e.stopPropagation(); goMyPage(); return; }
   }, true);
 
-  /* 言語切替。日本語と英語だけ実装。同じ画面のまま移る。 */
-  var READY = { ja: 1, en: 1 };
-  document.querySelectorAll(".lang").forEach(function (b) {
-    b.addEventListener("click", function () {
-      var code = b.getAttribute("data-lang");
-      if (!READY[code]) { toast(b.textContent.trim() + "：翻訳はまだ作っていません。"); return; }
-      if (code === curLang) return;
-      var screen = currentMock();
-      curLang = code;
-      document.documentElement.lang = code;
-      document.querySelectorAll(".lang").forEach(function (x) {
-        x.setAttribute("aria-pressed", x.getAttribute("data-lang") === code ? "true" : "false");
-      });
-      if (screen) openMock(screen);           /* モックを見ていたら同じ画面のまま */
-      else {
-        document.querySelectorAll(".app").forEach(function (a) {
-          a.hidden = (a.getAttribute("data-lang") !== code);
-        });
-        /* 動く画面（ログイン/テスト/アンケート）は日本語のみ。切替が効く範囲を伝える */
-        toast(code === "ja" ? "画面イメージ（せいせき・おしらせ など）を 日本語に しました。"
-                            : "Image screens (grades, news, ...) will show in English. Login, quiz and survey stay in Japanese.");
-      }
-    });
+  /* 言語が変わったら、開いている画面イメージを同じ画面のまま新しい言語の木に移す */
+  window.addEventListener("sp:lang", function () {
+    var s = currentMock();
+    if (s) openMock(s);
   });
 
 })();
