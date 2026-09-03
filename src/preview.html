@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<!-- UIモック（見た目のみ）。ログイン・採点・保存はしない＝Supabaseに一切つながらない。
+     動く本番デモは index.html。ここは画面案を見せるためだけのページ。 -->
+<title>SCG Student Portal</title>
+<style>
+/* ─────────────────────────────────────────────────────────────
+   SCG Student Portal — UI mock (English)
+   本番 scg-student-portal/src/assets/app.css の様式を踏襲。
+   学校の青は PC版ツールボックス／スマホ入口と同じグラデを使う
+   （似た青を作り直さない＝学校の色を2種類にしない）。
+   単一テーマ。学校の識別色が固定なので配色は切り替えず、
+   代わりに背景・文字色を全て明示して host のテーマに影響されないようにする。
+   ───────────────────────────────────────────────────────────── */
+:root{
+  --ink:#10151b; --sub:#7b8794; --line:#e7eaef; --edge:#eceff3;
+  --bg:#f7f8fa; --surface:#fff;
+  --blue:#1769aa; --blue-d:#10365e; --blue-l:#3c92d5;
+  --ok:#2f9e44; --warn:#c77700; --ng:#d64545;
+  --okbg:#eaf6ed; --warnbg:#fdf3e3; --ngbg:#fbeceb;
+  --maxw:640px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+[hidden]{display:none!important;}
+html{-webkit-text-size-adjust:100%;}
+body{color:var(--ink);background:var(--bg);min-height:100dvh;
+  font-family:"Segoe UI Variable","Segoe UI","Hiragino Sans","Yu Gothic UI","Meiryo",
+    "Noto Sans Bengali","Noto Sans Myanmar","Noto Sans Devanagari","Noto Sans Sinhala",sans-serif;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+button{font-family:inherit;}
+:focus-visible{outline:2px solid var(--blue-l);outline-offset:2px;border-radius:6px;}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+/* ── 言語バー（最上部・要望どおり一番上） ── */
+.langbar{background:var(--blue-d);color:#fff;}
+.langin{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;gap:10px;
+  padding:8px 14px;padding-top:calc(8px + env(safe-area-inset-top,0px));overflow-x:auto;}
+.langin::-webkit-scrollbar{display:none;}
+.langlbl{flex:0 0 auto;font-size:.6rem;font-weight:800;letter-spacing:.18em;
+  text-transform:uppercase;color:rgba(255,255,255,.62);}
+.lang{flex:0 0 auto;background:transparent;border:1px solid rgba(255,255,255,.26);color:rgba(255,255,255,.82);
+  border-radius:99px;padding:5px 12px;font-size:.82rem;font-weight:600;cursor:pointer;white-space:nowrap;}
+.lang:hover{background:rgba(255,255,255,.1);}
+.lang[aria-pressed="true"]{background:#fff;color:var(--blue-d);border-color:#fff;font-weight:800;}
+.lang .native{opacity:.9;}
+
+/* ── ヒーロー ── */
+header{position:relative;overflow:hidden;color:#fff;
+  background:linear-gradient(125deg,var(--blue-d) 0%,var(--blue) 58%,var(--blue-l) 100%);
+  border-radius:0 0 26px 26px;box-shadow:0 12px 30px rgba(16,54,94,.18);padding:22px 22px 20px;}
+header::after{content:"";position:absolute;width:300px;height:300px;border-radius:50%;
+  right:-120px;top:-190px;border:58px solid rgba(255,255,255,.055);
+  box-shadow:0 0 0 34px rgba(255,255,255,.025);pointer-events:none;}
+.hin{position:relative;z-index:1;max-width:var(--maxw);margin:0 auto;}
+.eyebrow{font-size:.62rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.86);}
+header h1{color:#fff;font-size:clamp(1.3rem,5.4vw,1.7rem);font-weight:800;line-height:1.28;margin-top:9px;
+  text-wrap:balance;}
+header h1 .thin{font-weight:400;color:rgba(255,255,255,.72);}
+.demoflag{display:inline-flex;align-items:center;gap:6px;margin-top:12px;background:rgba(255,255,255,.15);
+  border:1px solid rgba(255,255,255,.34);border-radius:99px;padding:4px 11px;
+  font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;}
+
+main{max-width:var(--maxw);margin:0 auto;padding:20px 0 60px;}
+
+/* ── 面 ── */
+.panel,.list{background:var(--surface);border-top:1px solid var(--edge);border-bottom:1px solid var(--edge);
+  margin-bottom:16px;}
+.panel{padding:20px 22px;}
+@media (min-width:560px){
+  .panel,.list{border:1px solid var(--edge);border-radius:16px;margin:0 20px 16px;overflow:hidden;
+    box-shadow:0 1px 2px rgba(16,21,27,.04),0 10px 30px rgba(16,21,27,.05);}
+}
+.panel h2{font-size:1.02rem;font-weight:800;margin-bottom:4px;text-wrap:balance;}
+.panel .lede{font-size:.84rem;color:var(--sub);line-height:1.6;margin-bottom:14px;}
+.sechead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  font-size:.62rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--sub);padding:0 22px;margin:4px 0 8px;}
+@media (min-width:560px){.sechead{padding:0 42px;}}
+.sechead .upd{letter-spacing:.02em;text-transform:none;font-weight:600;font-size:.68rem;}
+.inpanel{padding:0 22px;}
+@media (min-width:560px){.inpanel{padding:0 42px;}}
+
+/* ── 行 ── */
+.row{display:flex;align-items:center;gap:15px;width:100%;text-align:left;color:inherit;
+  background:transparent;border:0;padding:16px 22px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.row+.row{border-top:1px solid var(--line);}
+.row:hover{background:color-mix(in srgb,var(--c,var(--blue)) 5%,transparent);}
+.row .bar{flex:0 0 auto;width:3px;height:38px;border-radius:99px;background:var(--c,var(--blue));}
+.row .txt{display:flex;flex-direction:column;min-width:0;flex:1;gap:3px;}
+.row .nm{font-size:1.1rem;font-weight:700;line-height:1.3;}
+.row .sb{font-size:.6rem;font-weight:800;letter-spacing:.17em;text-transform:uppercase;color:var(--c,var(--blue));}
+.row .ds{font-size:.79rem;color:var(--sub);line-height:1.5;}
+.row .go{flex:0 0 auto;width:9px;height:9px;border-right:2px solid var(--sub);
+  border-bottom:2px solid var(--sub);transform:rotate(-45deg);opacity:.5;}
+.row .tail{flex:0 0 auto;font-size:.72rem;font-weight:800;color:var(--c,var(--blue));
+  background:color-mix(in srgb,var(--c,var(--blue)) 11%,#fff);border-radius:99px;padding:3px 9px;}
+
+/* ── 学生カード ── */
+.me{display:flex;align-items:center;gap:14px;}
+.avatar{flex:0 0 auto;width:52px;height:52px;border-radius:15px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--blue-d),var(--blue-l));color:#fff;font-size:1.4rem;font-weight:800;}
+.mename{font-size:1.16rem;font-weight:800;letter-spacing:.01em;}
+.memeta{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:5px;
+  font-size:.78rem;color:var(--sub);font-variant-numeric:tabular-nums;}
+.chip{background:color-mix(in srgb,var(--blue) 10%,#fff);color:var(--blue);
+  border-radius:99px;padding:2px 9px;font-size:.72rem;font-weight:800;}
+
+/* ── 状態ストリップ ── */
+.strip{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);
+  border-top:1px solid var(--edge);border-bottom:1px solid var(--edge);margin-bottom:16px;}
+@media (min-width:560px){.strip{margin:0 20px 16px;border:1px solid var(--edge);border-radius:16px;overflow:hidden;}}
+.stat{background:var(--surface);padding:14px 12px;text-align:center;}
+.stat .k{font-size:.58rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--sub);}
+.stat .v{font-size:1.42rem;font-weight:800;margin-top:5px;font-variant-numeric:tabular-nums;line-height:1.1;}
+.stat .u{font-size:.8rem;font-weight:700;color:var(--sub);}
+.stat .n{font-size:.68rem;color:var(--sub);margin-top:3px;}
+
+/* ── 状態バッジ ── */
+.pill{display:inline-block;border-radius:99px;padding:3px 10px;font-size:.7rem;font-weight:800;letter-spacing:.02em;}
+.pill.ok{background:var(--okbg);color:var(--ok);}
+.pill.warn{background:var(--warnbg);color:var(--warn);}
+.pill.ng{background:var(--ngbg);color:var(--ng);}
+.pill.flat{background:var(--edge);color:var(--sub);}
+
+/* ── 出席率メーター ── */
+.meter{margin-top:14px;}
+.meterhead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:7px;}
+.meterhead .big{font-size:2.1rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;}
+.meterhead .big small{font-size:1rem;font-weight:700;color:var(--sub);}
+.track{position:relative;height:11px;border-radius:99px;background:var(--edge);overflow:hidden;}
+.track .fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--blue),var(--blue-l));}
+.limit{position:relative;height:19px;margin-top:5px;font-size:.65rem;color:var(--sub);}
+.limit i{position:absolute;top:-27px;width:2px;height:19px;background:var(--ng);opacity:.75;}
+.limit span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;color:var(--ng);font-weight:700;}
+
+/* ── 科目バー（定期試験の重み付き内訳） ── */
+.skills{display:flex;flex-direction:column;gap:11px;margin-top:14px;}
+.skill{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:baseline;}
+.skill .nmw{font-size:.85rem;font-weight:700;}
+.skill .nmw em{font-style:normal;font-size:.66rem;font-weight:700;color:var(--sub);margin-left:6px;
+  background:var(--edge);border-radius:99px;padding:1px 7px;}
+.skill .sc{font-size:.85rem;font-weight:800;font-variant-numeric:tabular-nums;}
+.skill .sc s{text-decoration:none;color:var(--sub);font-weight:600;}
+.skill .t{grid-column:1/-1;height:7px;border-radius:99px;background:var(--edge);overflow:hidden;}
+.skill .t i{display:block;height:100%;border-radius:99px;background:var(--blue);}
+.skill.low .t i{background:var(--warn);}
+
+/* ── JLPT の段 ── */
+.ladder{display:flex;gap:6px;margin-top:12px;}
+.step{flex:1;text-align:center;border-radius:11px;padding:9px 4px;border:1px solid var(--edge);background:#fff;}
+.step .lv{font-size:.95rem;font-weight:800;}
+.step .st{font-size:.6rem;font-weight:700;color:var(--sub);margin-top:3px;}
+.step.done{background:var(--okbg);border-color:color-mix(in srgb,var(--ok) 28%,#fff);}
+.step.done .lv,.step.done .st{color:var(--ok);}
+.step.now{background:var(--blue);border-color:var(--blue);}
+.step.now .lv,.step.now .st{color:#fff;}
+
+/* ── スパークライン ── */
+.spark{margin-top:12px;}
+.spark svg{display:block;width:100%;height:88px;}
+.sparkfoot{display:flex;justify-content:space-between;font-size:.68rem;color:var(--sub);margin-top:5px;
+  font-variant-numeric:tabular-nums;}
+
+/* ── お知らせ／求人 ── */
+.item{display:block;width:100%;text-align:left;background:transparent;border:0;color:inherit;
+  padding:15px 22px;cursor:default;}
+.item+.item{border-top:1px solid var(--line);}
+.item .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px;}
+.item .date{font-size:.72rem;color:var(--sub);font-variant-numeric:tabular-nums;}
+.item .ttl{font-size:1rem;font-weight:700;line-height:1.4;}
+.item .bd{font-size:.82rem;color:var(--sub);line-height:1.6;margin-top:4px;}
+.item.unread .ttl::after{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:var(--ng);margin-left:7px;vertical-align:middle;}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin-top:9px;font-size:.82rem;}
+.kv dt{color:var(--sub);font-weight:700;white-space:nowrap;}
+.kv dd{font-variant-numeric:tabular-nums;}
+
+/* ── アンケート（選ぶUI） ── */
+.qhead{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.qhead .track{flex:1;}
+.qhead .cnt{font-size:.74rem;font-weight:800;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.q{margin-bottom:22px;}
+.q .qt{font-size:1.04rem;font-weight:700;line-height:1.45;margin-bottom:3px;text-wrap:balance;}
+.q .qs{font-size:.78rem;color:var(--sub);margin-bottom:11px;}
+.opts{display:flex;flex-direction:column;gap:8px;}
+.opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;color:inherit;
+  border:1.5px solid var(--line);border-radius:13px;padding:13px 15px;cursor:pointer;font-size:.97rem;}
+.opt:hover{border-color:var(--blue-l);background:color-mix(in srgb,var(--blue) 3%,#fff);}
+.opt .mk{flex:0 0 auto;width:20px;height:20px;border-radius:50%;border:2px solid var(--line);
+  display:grid;place-items:center;}
+.opt .mk::after{content:"";width:9px;height:9px;border-radius:50%;background:transparent;}
+.opt[aria-pressed="true"]{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 7%,#fff);font-weight:700;}
+.opt[aria-pressed="true"] .mk{border-color:var(--blue);}
+.opt[aria-pressed="true"] .mk::after{background:var(--blue);}
+.opts.scale{flex-direction:row;gap:6px;}
+.opts.scale .opt{flex-direction:column;gap:6px;justify-content:center;text-align:center;padding:11px 4px;font-size:.8rem;}
+.opts.scale .opt .mk{width:16px;height:16px;}
+.opts.scale .opt .mk::after{width:7px;height:7px;}
+
+/* ── ボタン・戻る ── */
+.btn{display:block;width:100%;background:var(--blue);color:#fff;border:0;border-radius:13px;padding:15px;
+  font-size:1.02rem;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(23,105,170,.28);}
+.btn:hover{background:var(--blue-d);}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:none;}
+.btn.ghost:hover{background:var(--bg);}
+.backrow{padding:0 22px;margin-bottom:12px;}
+@media (min-width:560px){.backrow{padding:0 42px;}}
+.backbtn{display:inline-flex;align-items:center;gap:8px;background:transparent;border:0;color:var(--blue);
+  font-size:.92rem;font-weight:700;cursor:pointer;padding:6px 0;}
+.backbtn i{width:8px;height:8px;border-left:2px solid var(--blue);border-bottom:2px solid var(--blue);
+  transform:rotate(45deg);display:inline-block;}
+.note{font-size:.78rem;color:var(--sub);line-height:1.65;background:var(--bg);border-radius:12px;
+  padding:12px 14px;margin-top:14px;}
+.note b{color:var(--ink);}
+
+/* ── トースト ── */
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(14px);
+  background:var(--blue-d);color:#fff;border-radius:12px;padding:12px 20px;font-size:.9rem;font-weight:700;
+  box-shadow:0 10px 30px rgba(16,54,94,.32);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;
+  z-index:50;max-width:calc(100% - 40px);text-align:center;}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── 先輩の声 ── */
+.voice{padding:17px 22px;}
+.voice+.voice{border-top:1px solid var(--line);}
+.voice .who{display:flex;align-items:center;gap:11px;margin-bottom:10px;}
+.voice .ini{flex:0 0 auto;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
+  background:var(--edge);color:var(--blue-d);font-weight:800;font-size:.9rem;}
+.voice .nmv{font-size:.95rem;font-weight:800;}
+.voice .sch{font-size:.75rem;color:var(--sub);margin-top:2px;}
+.voice dl{display:flex;flex-direction:column;gap:9px;}
+.voice dt{font-size:.68rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--blue);}
+.voice dd{font-size:.87rem;line-height:1.65;margin-top:2px;}
+
+/* ── 追加：アンケート一覧・進学先・履歴・複数選択 ── */
+.hist{display:flex;flex-direction:column;gap:12px;}
+.hrow{display:grid;grid-template-columns:80px 1fr 68px;gap:11px;align-items:center;}
+.hrow .hl{font-size:.78rem;color:var(--sub);font-weight:700;}
+.hrow .ht{height:9px;border-radius:99px;background:var(--edge);overflow:hidden;}
+.hrow .ht i{display:block;height:100%;border-radius:99px;background:var(--blue);}
+.hrow .hv{font-size:.86rem;font-weight:800;font-variant-numeric:tabular-nums;text-align:right;}
+.hrow .hv em{font-style:normal;font-size:.7rem;font-weight:700;margin-left:5px;}
+.up{color:var(--ok);} .down{color:var(--ng);}
+
+.months{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:12px;}
+.mo{text-align:center;}
+.mo .mb{height:54px;background:var(--edge);border-radius:7px;display:flex;align-items:flex-end;overflow:hidden;}
+.mo .mb i{display:block;width:100%;border-radius:7px;background:var(--blue);}
+.mo .mb.warn i{background:var(--warn);}
+.mo .ml{font-size:.62rem;color:var(--sub);margin-top:5px;}
+.mo .mv{font-size:.68rem;font-weight:800;font-variant-numeric:tabular-nums;}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px;}
+.chipbtn{background:#fff;border:1.5px solid var(--line);border-radius:99px;padding:9px 15px;
+  font-size:.9rem;cursor:pointer;color:inherit;font-family:inherit;}
+.chipbtn:hover{border-color:var(--blue-l);}
+.chipbtn[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700;}
+
+.sc-card{padding:16px 22px;}
+.sc-card+.sc-card{border-top:1px solid var(--line);}
+.sc-top{display:flex;align-items:flex-start;gap:12px;}
+.sc-logo{flex:0 0 auto;width:42px;height:42px;border-radius:11px;display:grid;place-items:center;
+  background:var(--edge);color:var(--blue-d);font-weight:800;font-size:.8rem;}
+.sc-nm{font-size:1.02rem;font-weight:800;line-height:1.35;}
+.sc-me{font-size:.76rem;color:var(--sub);margin-top:3px;}
+.sc-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}
+.tag{font-size:.68rem;font-weight:700;background:var(--edge);color:var(--sub);border-radius:99px;padding:2px 9px;}
+.deadline{display:flex;align-items:center;gap:7px;margin-top:11px;font-size:.79rem;font-weight:700;}
+.deadline .dot{width:7px;height:7px;border-radius:50%;background:var(--ng);flex:0 0 auto;}
+.deadline.far .dot{background:var(--ok);}
+</style>
+</head>
+<body>
+
+<div class="langbar">
+  <div class="langin">
+    <span class="langlbl">Language</span>
+    <button class="lang" type="button" data-lang="en" aria-pressed="true">English</button>
+    <button class="lang" type="button" data-lang="bn" aria-pressed="false"><span class="native">বাংলা</span> Bengali</button>
+    <button class="lang" type="button" data-lang="my" aria-pressed="false"><span class="native">မြန်မာ</span> Burmese</button>
+    <button class="lang" type="button" data-lang="ne" aria-pressed="false"><span class="native">नेपाली</span> Nepali</button>
+    <button class="lang" type="button" data-lang="zh" aria-pressed="false"><span class="native">中文</span> Chinese</button>
+    <button class="lang" type="button" data-lang="si" aria-pressed="false"><span class="native">සිංහල</span> Sinhala</button>
+  </div>
+</div>
+
+<header>
+  <div class="hin">
+    <div class="eyebrow">SCG Student Portal</div>
+    <h1>Everything about your life in Japan <span class="thin">— in one place</span></h1>
+    <div class="demoflag">● Demo data — not a real student</div>
+  </div>
+</header>
+
+<main>
+
+<!-- ══════════ HOME ══════════ -->
+<section id="scr-home">
+  <div class="panel">
+    <div class="me">
+      <div class="avatar">DS</div>
+      <div>
+        <div class="mename">DEMO STUDENT</div>
+        <div class="memeta"><span class="chip">Class A-1</span><span>No. DEMO-0001</span><span>2nd year</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="strip">
+    <div class="stat">
+      <div class="k">Attendance</div>
+      <div class="v">94.2<span class="u">%</span></div>
+      <div class="n">This term</div>
+    </div>
+    <div class="stat">
+      <div class="k">JLPT</div>
+      <div class="v">N3</div>
+      <div class="n">Passed 2025-12</div>
+    </div>
+    <div class="stat">
+      <div class="k">JPT Best</div>
+      <div class="v">555</div>
+      <div class="n">2026-07</div>
+    </div>
+  </div>
+
+  <div class="sechead"><span>Menu</span></div>
+  <div class="list">
+    <button class="row" data-go="grades" style="--c:#1769aa">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Your record</span><span class="nm">My Grades</span>
+        <span class="ds">JLPT, JPT, term exams, mock exams and attendance</span></span>
+      <span class="go"></span>
+    </button>
+    <button class="row" data-go="survey" style="--c:#2f9e44">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Please answer</span><span class="nm">Survey</span>
+        <span class="ds">2 surveys are waiting for your answer</span></span>
+      <span class="tail">2 open</span>
+      <span class="go"></span>
+    </button>
+    <button class="row" data-go="news" style="--c:#c77700">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">From school</span><span class="nm">News</span>
+        <span class="ds">Exam dates, holidays and important notices</span></span>
+      <span class="tail">3 new</span>
+      <span class="go"></span>
+    </button>
+    <button class="row" data-go="jobs" style="--c:#7b5cd6">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Part-time work</span><span class="nm">Job Board</span>
+        <span class="ds">Openings, pay, and the 28-hour rule</span></span>
+      <span class="go"></span>
+    </button>
+    <button class="row" data-go="schools" style="--c:#1f7a8c">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Where you can go</span><span class="nm">Schools &amp; Courses</span>
+        <span class="ds">Vocational schools and universities, with application deadlines</span></span>
+      <span class="tail">3 closing</span>
+      <span class="go"></span>
+    </button>
+    <button class="row" data-go="voices" style="--c:#0f9b8e">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">After graduation</span><span class="nm">Senior Voices</span>
+        <span class="ds">Interviews with graduates at their schools now</span></span>
+      <span class="go"></span>
+    </button>
+    <button class="row" data-go="study" style="--c:#d64545">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Practice</span><span class="nm">Tests &amp; Drills</span>
+        <span class="ds">Mini tests and JLPT vocabulary drills</span></span>
+      <span class="go"></span>
+    </button>
+  </div>
+</section>
+
+<!-- ══════════ GRADES ══════════ -->
+<section id="scr-grades" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
+
+  <div class="panel">
+    <h2>Attendance</h2>
+    <p class="lede">Immigration checks this number. Keep it above 90%.</p>
+    <div class="meter">
+      <div class="meterhead">
+        <div class="big">94.2<small>%</small></div>
+        <span class="pill ok">Good</span>
+      </div>
+      <div class="track"><div class="fill" style="width:94.2%"></div></div>
+      <div class="limit"><i style="left:90%"></i><span style="left:90%">90% line</span></div>
+    </div>
+    <div class="note">Absent <b>7 days</b> of 121 school days this term. Two of them are not yet
+      explained — bring a note to the office to have them reviewed.</div>
+  </div>
+
+  <div class="panel">
+    <h2>JLPT</h2>
+    <p class="lede">You keep the level you passed. Next test is 2026-12-07.</p>
+    <div class="ladder">
+      <div class="step done"><div class="lv">N5</div><div class="st">Passed</div></div>
+      <div class="step done"><div class="lv">N4</div><div class="st">Passed</div></div>
+      <div class="step done"><div class="lv">N3</div><div class="st">Passed</div></div>
+      <div class="step now"><div class="lv">N2</div><div class="st">Applied</div></div>
+      <div class="step"><div class="lv">N1</div><div class="st">—</div></div>
+    </div>
+    <dl class="kv">
+      <dt>Last result</dt><dd>N3 — 108 / 180 (2025-12)</dd>
+      <dt>Applied for</dt><dd>N2 — December 2026</dd>
+    </dl>
+  </div>
+
+  <div class="panel">
+    <h2>JPT</h2>
+    <p class="lede">Your best score is used, not your latest one.</p>
+    <div class="spark">
+      <svg viewBox="0 0 320 88" role="img" aria-label="JPT scores: 445 in 2025-10, 480 in 2026-02, 520 in 2026-05, 555 in 2026-07">
+        <line x1="34" y1="8" x2="316" y2="8" stroke="#eceff3" stroke-width="1"></line>
+        <line x1="34" y1="34" x2="316" y2="34" stroke="#eceff3" stroke-width="1"></line>
+        <line x1="34" y1="60" x2="316" y2="60" stroke="#eceff3" stroke-width="1"></line>
+        <text x="30" y="12" text-anchor="end" font-size="9" fill="#7b8794">600</text>
+        <text x="30" y="38" text-anchor="end" font-size="9" fill="#7b8794">500</text>
+        <text x="30" y="64" text-anchor="end" font-size="9" fill="#7b8794">400</text>
+        <path d="M52 74 L140 65 L228 52 L306 43 L306 60 L228 60 L140 60 L52 60 Z" fill="#1769aa" opacity=".08"></path>
+        <polyline points="52,74 140,65 228,52 306,43" fill="none" stroke="#1769aa" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round"></polyline>
+        <circle cx="52" cy="74" r="3" fill="#fff" stroke="#1769aa" stroke-width="2"></circle>
+        <circle cx="140" cy="65" r="3" fill="#fff" stroke="#1769aa" stroke-width="2"></circle>
+        <circle cx="228" cy="52" r="3" fill="#fff" stroke="#1769aa" stroke-width="2"></circle>
+        <circle cx="306" cy="43" r="4.5" fill="#1769aa"></circle>
+        <text x="306" y="33" text-anchor="end" font-size="11" font-weight="700" fill="#10365e">555</text>
+      </svg>
+      <div class="sparkfoot"><span>2025-10</span><span>2026-02</span><span>2026-05</span><span>2026-07</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Term Exam — 1st term, 2026</h2>
+    <p class="lede">Each part counts differently. Grammar decides most of your score.</p>
+    <div class="meterhead" style="margin-top:2px">
+      <div class="big">78<small> / 100</small></div>
+      <span class="pill ok">Above class average (71)</span>
+    </div>
+    <div class="skills">
+      <div class="skill">
+        <span class="nmw">Grammar <em>weight 60</em></span><span class="sc">49<s> / 60</s></span>
+        <span class="t"><i style="width:81.7%"></i></span>
+      </div>
+      <div class="skill">
+        <span class="nmw">Conversation <em>weight 20</em></span><span class="sc">17<s> / 20</s></span>
+        <span class="t"><i style="width:85%"></i></span>
+      </div>
+      <div class="skill">
+        <span class="nmw">Kanji <em>weight 10</em></span><span class="sc">8<s> / 10</s></span>
+        <span class="t"><i style="width:80%"></i></span>
+      </div>
+      <div class="skill low">
+        <span class="nmw">Reading <em>weight 5</em></span><span class="sc">2<s> / 5</s></span>
+        <span class="t"><i style="width:40%"></i></span>
+      </div>
+      <div class="skill">
+        <span class="nmw">Listening <em>weight 5</em></span><span class="sc">2<s> / 5</s></span>
+        <span class="t"><i style="width:40%"></i></span>
+      </div>
+    </div>
+    <div class="note">Reading is your weakest part. It is only 5 points here, but it is
+      <b>60 points on the JLPT</b> — practise it before December.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Mock Exam (N2)</h2>
+    <div class="meterhead" style="margin-top:2px">
+      <div class="big">112<small> / 180</small></div>
+      <span class="pill warn">Borderline</span>
+    </div>
+    <dl class="kv">
+      <dt>Language knowledge</dt><dd>41 / 60</dd>
+      <dt>Reading</dt><dd>28 / 60</dd>
+      <dt>Listening</dt><dd>43 / 60</dd>
+    </dl>
+    <div class="note">A mock exam can tell you to <b>wait</b>, but it cannot promise you will pass.
+      Students who passed N2 scored <b>110 or more</b> on this mock — you are just on that line.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Your progress</h2>
+    <p class="lede">Term exam score, term by term.</p>
+    <div class="hist">
+      <div class="hrow"><span class="hl">2025 · 2nd</span><span class="ht"><i style="width:58%"></i></span>
+        <span class="hv">58</span></div>
+      <div class="hrow"><span class="hl">2025 · 3rd</span><span class="ht"><i style="width:64%"></i></span>
+        <span class="hv">64<em class="up">+6</em></span></div>
+      <div class="hrow"><span class="hl">2026 · 1st</span><span class="ht"><i style="width:71%"></i></span>
+        <span class="hv">71<em class="up">+7</em></span></div>
+      <div class="hrow"><span class="hl">2026 · 2nd</span><span class="ht"><i style="width:78%"></i></span>
+        <span class="hv">78<em class="up">+7</em></span></div>
+    </div>
+    <div class="note">You have gone up every term. Grammar carries most of the score,
+      so keep doing what you are doing there — and give reading the time it needs.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Attendance by month</h2>
+    <p class="lede">One low month will not fail you. Three will.</p>
+    <div class="months">
+      <div class="mo"><div class="mb"><i style="height:97%"></i></div><div class="ml">Apr</div><div class="mv">97%</div></div>
+      <div class="mo"><div class="mb"><i style="height:95%"></i></div><div class="ml">May</div><div class="mv">95%</div></div>
+      <div class="mo"><div class="mb warn"><i style="height:88%"></i></div><div class="ml">Jun</div><div class="mv">88%</div></div>
+      <div class="mo"><div class="mb"><i style="height:96%"></i></div><div class="ml">Jul</div><div class="mv">96%</div></div>
+      <div class="mo"><div class="mb"><i style="height:93%"></i></div><div class="ml">Aug</div><div class="mv">93%</div></div>
+      <div class="mo"><div class="mb"><i style="height:96%"></i></div><div class="ml">Sep</div><div class="mv">96%</div></div>
+    </div>
+    <div class="note">June was low because of five absences in one week. If you are ill for more than
+      three days, tell the office — with a doctor's note it can be recorded differently.</div>
+  </div>
+</section>
+
+<!-- ══════════ SURVEY LIST ══════════ -->
+<section id="scr-survey" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
+  <div class="panel">
+    <h2>Surveys</h2>
+    <p class="lede">Only your homeroom teacher and the career guidance staff can see your answers.
+      Other students cannot see them.</p>
+  </div>
+  <div class="sechead"><span>Waiting for you</span></div>
+  <div class="list">
+    <button class="row" data-go="survey-career" style="--c:#2f9e44">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Closes 2026-09-20</span><span class="nm">Career Plan Survey</span>
+        <span class="ds">4 questions · about 2 minutes</span></span>
+      <span class="tail">Not started</span>
+      <span class="go"></span>
+    </button>
+    <button class="row" data-go="survey-life" style="--c:#7b5cd6">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Closes 2026-09-30</span><span class="nm">Life &amp; Housing Survey</span>
+        <span class="ds">3 questions · you can choose more than one answer</span></span>
+      <span class="tail">Not started</span>
+      <span class="go"></span>
+    </button>
+  </div>
+  <div class="sechead"><span>Finished</span></div>
+  <div class="list">
+    <button class="row" data-soon style="--c:#7b8794">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Answered 2026-08-25</span><span class="nm">Summer Holiday Report</span>
+        <span class="ds">You answered all 5 questions</span></span>
+      <span class="tail">Done</span>
+      <span class="go"></span>
+    </button>
+    <button class="row" data-soon style="--c:#7b8794">
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Closed 2026-07-10</span><span class="nm">Class Feedback (1st term)</span>
+        <span class="ds">This survey is closed. Thank you for answering.</span></span>
+      <span class="tail">Closed</span>
+      <span class="go"></span>
+    </button>
+  </div>
+</section>
+
+<!-- ══════════ SURVEY 1: CAREER ══════════ -->
+<section id="scr-survey-career" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back-to="survey"><i></i> Back to surveys</button></div>
+  <div class="panel">
+    <h2>Career Plan Survey</h2>
+    <p class="lede">Your homeroom teacher uses this before your next meeting.
+      You can change your answers until 2026-09-20.</p>
+    <div class="qhead">
+      <span class="track"><span class="fill" data-fill style="width:0%"></span></span>
+      <span class="cnt"><span data-done>0</span> / <span data-total>4</span></span>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">What do you want to do after graduation?</div>
+      <div class="qs">Choose one. You can change it later.</div>
+      <div class="opts">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Vocational school (専門学校)</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>University (大学)</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Work in Japan</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Return to my country</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>I have not decided</button>
+      </div>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">Which field are you interested in?</div>
+      <div class="qs">Choose one.</div>
+      <div class="opts">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>IT / Programming</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Business / Trade</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Hotel / Tourism</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Design / Animation</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Care work (介護)</button>
+      </div>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">Which JLPT level will you take in December?</div>
+      <div class="qs">If you passed a level, the school enters you for the next one.</div>
+      <div class="opts">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>N2</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>N3</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>I will not take it</button>
+      </div>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">How is your life in Japan now?</div>
+      <div class="qs">1 = very hard, 5 = very good.</div>
+      <div class="opts scale">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>1</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>2</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>3</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>4</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>5</button>
+      </div>
+    </div>
+
+    <button class="btn" type="button" data-save>Save my answers</button>
+  </div>
+</section>
+
+<!-- ══════════ SURVEY 2: LIFE ══════════ -->
+<section id="scr-survey-life" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back-to="survey"><i></i> Back to surveys</button></div>
+  <div class="panel">
+    <h2>Life &amp; Housing Survey</h2>
+    <p class="lede">This helps the school find problems early. Answer honestly — it does not
+      affect your grades.</p>
+    <div class="qhead">
+      <span class="track"><span class="fill" data-fill style="width:0%"></span></span>
+      <span class="cnt"><span data-done>0</span> / <span data-total>3</span></span>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">Where do you live now?</div>
+      <div class="qs">Choose one.</div>
+      <div class="opts">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>School dormitory</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Apartment — sharing with friends</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Apartment — living alone</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>With family or relatives</button>
+      </div>
+    </div>
+
+    <div class="q" data-q data-multi>
+      <div class="qt">Is anything difficult right now?</div>
+      <div class="qs">You can choose more than one. Choose nothing if everything is fine.</div>
+      <div class="chips">
+        <button class="chipbtn" type="button" aria-pressed="false">Money</button>
+        <button class="chipbtn" type="button" aria-pressed="false">Health</button>
+        <button class="chipbtn" type="button" aria-pressed="false">Japanese study</button>
+        <button class="chipbtn" type="button" aria-pressed="false">Part-time job</button>
+        <button class="chipbtn" type="button" aria-pressed="false">Neighbours / noise</button>
+        <button class="chipbtn" type="button" aria-pressed="false">Homesick</button>
+        <button class="chipbtn" type="button" aria-pressed="false">Visa / paperwork</button>
+      </div>
+    </div>
+
+    <div class="q" data-q>
+      <div class="qt">Do you want to talk to a teacher about it?</div>
+      <div class="qs">Choose one.</div>
+      <div class="opts">
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Yes, soon</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>Yes, but it is not urgent</button>
+        <button class="opt" type="button" aria-pressed="false"><span class="mk"></span>No, thank you</button>
+      </div>
+    </div>
+
+    <button class="btn" type="button" data-save>Save my answers</button>
+  </div>
+</section>
+
+<!-- ══════════ NEWS ══════════ -->
+<section id="scr-news" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
+  <div class="sechead"><span>News from school</span><span class="upd">Updated 2026-09-03</span></div>
+  <div class="list">
+    <div class="item unread">
+      <div class="top"><span class="date">2026-09-02</span><span class="pill ng">Important</span></div>
+      <div class="ttl">JLPT December application closes 2026-09-19</div>
+      <div class="bd">The school applies for you. Bring 3,500 yen and one photo to the office
+        by Friday 19 September. If you miss this, you cannot take the December test.</div>
+    </div>
+    <div class="item unread">
+      <div class="top"><span class="date">2026-09-01</span><span class="pill ng">Visa</span></div>
+      <div class="ttl">Residence card renewal — start 3 months early</div>
+      <div class="bd">If your card expires before March 2027, come to the office this month.
+        Immigration looks at your attendance, so check your number on the Grades page first.</div>
+    </div>
+    <div class="item unread">
+      <div class="top"><span class="date">2026-08-30</span><span class="pill warn">Schedule</span></div>
+      <div class="ttl">Term exam: 8–10 October</div>
+      <div class="bd">Class A-1 takes the exam in the morning (odd-numbered classes are morning).
+        Come 10 minutes early. Bring a pencil and your student card.</div>
+    </div>
+    <div class="item">
+      <div class="top"><span class="date">2026-08-28</span><span class="pill flat">Event</span></div>
+      <div class="ttl">Open campus bus — 12 October, 9:00</div>
+      <div class="bd">Free bus to three vocational schools in Osaka. 20 seats.
+        Put your name on the list outside the staff room by 5 October.</div>
+    </div>
+    <div class="item">
+      <div class="top"><span class="date">2026-08-22</span><span class="pill flat">Holiday</span></div>
+      <div class="ttl">School closed 21–25 September</div>
+      <div class="bd">Autumn break. The office is closed too. If you need a certificate for
+        your part-time job, ask before 19 September.</div>
+    </div>
+    <div class="item">
+      <div class="top"><span class="date">2026-08-18</span><span class="pill warn">Health</span></div>
+      <div class="ttl">Free health check — 30 September</div>
+      <div class="bd">All students must attend. It takes about 30 minutes.
+        Do not eat for 2 hours before your time. Your time is on the noticeboard.</div>
+    </div>
+    <div class="item">
+      <div class="top"><span class="date">2026-08-10</span><span class="pill flat">Life</span></div>
+      <div class="ttl">Tell us when you move house</div>
+      <div class="bd">If you change your address, you must tell the city office within 14 days,
+        and tell the school as well. Immigration uses the address on your residence card.</div>
+    </div>
+    <div class="item">
+      <div class="top"><span class="date">2026-08-04</span><span class="pill flat">Life</span></div>
+      <div class="ttl">Rubbish rules changed in this ward</div>
+      <div class="bd">Burnable rubbish is now Tuesday and Friday. Plastic is Wednesday.
+        A picture guide in six languages is on the noticeboard by the entrance.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ JOBS ══════════ -->
+<section id="scr-jobs" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
+
+  <div class="panel">
+    <h2>Before you apply</h2>
+    <p class="lede">These rules come from immigration, not from the school.</p>
+    <div class="note">You may work <b>28 hours per week</b> at most. During long school holidays
+      the limit is 8 hours per day. You need a <b>work permit</b> (資格外活動許可) on your residence card.
+      Some jobs are not allowed at all — bars, pachinko, and similar places.</div>
+    <div class="note" style="margin-top:9px"><b>Ask the office first.</b> Bring the job advertisement.
+      A teacher will check the hours and the type of work with you before you apply. It takes 5 minutes
+      and it has saved students their visa.</div>
+  </div>
+
+  <div class="sechead"><span>Openings</span><span class="upd">Updated 2026-08-28</span></div>
+  <div class="list">
+    <div class="item">
+      <div class="top"><span class="pill ok">Accepting</span><span class="date">Posted 2026-08-28</span></div>
+      <div class="ttl">Convenience store — morning shift</div>
+      <dl class="kv">
+        <dt>Pay</dt><dd>1,150 yen / hour</dd>
+        <dt>Hours</dt><dd>06:00–09:00, 3–4 days a week</dd>
+        <dt>Place</dt><dd>8 minutes walk from school</dd>
+        <dt>Japanese</dt><dd>N4 or above</dd>
+        <dt>Note</dt><dd>Good for morning classes — you finish before school starts</dd>
+      </dl>
+    </div>
+    <div class="item">
+      <div class="top"><span class="pill ok">Accepting</span><span class="date">Posted 2026-08-26</span></div>
+      <div class="ttl">Supermarket — shelf stocking</div>
+      <dl class="kv">
+        <dt>Pay</dt><dd>1,180 yen / hour</dd>
+        <dt>Hours</dt><dd>18:00–21:00, 4 days a week</dd>
+        <dt>Place</dt><dd>12 minutes by bicycle</dd>
+        <dt>Japanese</dt><dd>N5 or above</dd>
+        <dt>Note</dt><dd>Little conversation with customers</dd>
+      </dl>
+    </div>
+    <div class="item">
+      <div class="top"><span class="pill ok">Accepting</span><span class="date">Posted 2026-08-20</span></div>
+      <div class="ttl">Hotel — room cleaning</div>
+      <dl class="kv">
+        <dt>Pay</dt><dd>1,220 yen / hour</dd>
+        <dt>Hours</dt><dd>10:00–15:00, weekends</dd>
+        <dt>Place</dt><dd>Kyoto Station area</dd>
+        <dt>Japanese</dt><dd>N5 or above</dd>
+        <dt>Note</dt><dd>Weekend only — easy to stay under 28 hours</dd>
+      </dl>
+    </div>
+    <div class="item">
+      <div class="top"><span class="pill warn">2 places left</span><span class="date">Posted 2026-08-14</span></div>
+      <div class="ttl">Restaurant — kitchen help</div>
+      <dl class="kv">
+        <dt>Pay</dt><dd>1,100 yen / hour (＋ meal)</dd>
+        <dt>Hours</dt><dd>17:30–21:30, 3 days a week</dd>
+        <dt>Place</dt><dd>15 minutes on foot</dd>
+        <dt>Japanese</dt><dd>N4 or above</dd>
+        <dt>Note</dt><dd>Washing up and preparation. No serving.</dd>
+      </dl>
+    </div>
+    <div class="item">
+      <div class="top"><span class="pill warn">2 places left</span><span class="date">Posted 2026-08-08</span></div>
+      <div class="ttl">Warehouse — parcel sorting</div>
+      <dl class="kv">
+        <dt>Pay</dt><dd>1,300 yen / hour</dd>
+        <dt>Hours</dt><dd>09:00–14:00, Saturday and Sunday</dd>
+        <dt>Place</dt><dd>25 minutes by train</dd>
+        <dt>Japanese</dt><dd>Not required</dd>
+        <dt>Note</dt><dd>Physical work. Safety shoes are lent to you.</dd>
+      </dl>
+    </div>
+    <div class="item">
+      <div class="top"><span class="pill flat">Closed</span><span class="date">Posted 2026-07-30</span></div>
+      <div class="ttl">Bento factory — evening shift</div>
+      <dl class="kv">
+        <dt>Pay</dt><dd>1,100 yen / hour</dd>
+        <dt>Hours</dt><dd>17:00–21:00</dd>
+        <dt>Place</dt><dd>20 minutes by bus</dd>
+        <dt>Japanese</dt><dd>Not required</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ SCHOOLS ══════════ -->
+<section id="scr-schools" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
+  <div class="panel">
+    <h2>Schools &amp; Courses</h2>
+    <p class="lede">Schools that took students from here in the last three years.
+      Each card shows when the application closes — the date, not "soon".</p>
+    <div class="note">A red dot means the deadline is within 6 weeks.
+      Always check the school's own website too — this page is updated by hand.</div>
+  </div>
+
+  <div class="sechead"><span>Vocational schools</span><span class="upd">Updated 2026-08-25</span></div>
+  <div class="list">
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">IT</span>
+        <span>
+          <span class="sc-nm">Osaka Institute of Information Technology</span>
+          <span class="sc-me">Osaka · 2 years · 3 students went here in 2026</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N2 required</span><span class="tag">Dormitory</span>
+        <span class="tag">Scholarship</span><span class="tag">1,180,000 yen / year</span></div>
+      <div class="deadline"><span class="dot"></span>Applications close 2026-10-15 · Open campus 2026-09-28</div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">HT</span>
+        <span>
+          <span class="sc-nm">Kyoto Hotel &amp; Tourism College</span>
+          <span class="sc-me">Kyoto · 2 years · 5 students went here in 2026</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N3 required</span><span class="tag">Internship</span>
+        <span class="tag">Uniform</span><span class="tag">1,050,000 yen / year</span></div>
+      <div class="deadline"><span class="dot"></span>Applications close 2026-10-31 · Open campus 2026-10-05</div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">CA</span>
+        <span>
+          <span class="sc-nm">Kansai College of Care Work</span>
+          <span class="sc-me">Osaka · 2 years · 2 students went here in 2026</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N3 required</span><span class="tag">Job after graduation</span>
+        <span class="tag">Fee reduction</span><span class="tag">980,000 yen / year</span></div>
+      <div class="deadline"><span class="dot"></span>Applications close 2026-10-20 · Open campus 2026-09-21</div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">DA</span>
+        <span>
+          <span class="sc-nm">Kobe Design &amp; Animation School</span>
+          <span class="sc-me">Kobe · 3 years · 1 student went here in 2025</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N2 required</span><span class="tag">Portfolio needed</span>
+        <span class="tag">1,320,000 yen / year</span></div>
+      <div class="deadline far"><span class="dot"></span>Applications close 2026-12-05 · Open campus 2026-11-09</div>
+    </div>
+  </div>
+
+  <div class="sechead"><span>Universities</span><span class="upd">Updated 2026-08-25</span></div>
+  <div class="list">
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">UA</span>
+        <span>
+          <span class="sc-nm">Kansai International University — Faculty of Business</span>
+          <span class="sc-me">Osaka · 4 years · 1 student went here in 2026</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N2 required</span><span class="tag">EJU needed</span>
+        <span class="tag">Interview in Japanese</span><span class="tag">1,240,000 yen / year</span></div>
+      <div class="deadline far"><span class="dot"></span>Applications close 2026-11-28 · EJU November test</div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-top">
+        <span class="sc-logo">UB</span>
+        <span>
+          <span class="sc-nm">Kyoto Bunka University — Faculty of Global Studies</span>
+          <span class="sc-me">Kyoto · 4 years · no students yet</span>
+        </span>
+      </div>
+      <div class="sc-tags"><span class="tag">N2 required</span><span class="tag">EJU needed</span>
+        <span class="tag">Essay</span><span class="tag">1,380,000 yen / year</span></div>
+      <div class="deadline far"><span class="dot"></span>Applications close 2026-12-12</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ SENIOR VOICES ══════════ -->
+<section id="scr-voices" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
+  <div class="panel">
+    <h2>Senior Voices</h2>
+    <p class="lede">Graduates answer the same six questions, so you can compare schools fairly.
+      These are people who sat in your classroom one or two years ago.</p>
+  </div>
+  <div class="sechead"><span>Interviews</span><span class="upd">Updated 2026-07-15</span></div>
+  <div class="list">
+    <div class="voice">
+      <div class="who">
+        <span class="ini">A</span>
+        <span><span class="nmv">Graduate A</span><span class="sch">IT vocational school, Osaka — 2nd year</span></span>
+      </div>
+      <dl>
+        <dt>What surprised you</dt>
+        <dd>Almost every class is group work. I thought I would just listen and take notes,
+          but I have to speak Japanese every day.</dd>
+        <dt>Money outside tuition</dt>
+        <dd>About 40,000 yen for a laptop and textbooks in the first month.</dd>
+        <dt>Japanese you really need</dt>
+        <dd>N2 is written in the requirements, but N3 level conversation is enough for the first term.
+          Reading the textbooks is the hard part.</dd>
+        <dt>What I should have done first</dt>
+        <dd>Learned to touch-type in Japanese. Everyone else was faster than me for six months.</dd>
+      </dl>
+    </div>
+    <div class="voice">
+      <div class="who">
+        <span class="ini">B</span>
+        <span><span class="nmv">Graduate B</span><span class="sch">Hotel &amp; tourism school, Kyoto — 1st year</span></span>
+      </div>
+      <dl>
+        <dt>What surprised you</dt>
+        <dd>There is a uniform and a hair rule. Nobody told me before I applied.</dd>
+        <dt>A day in my life</dt>
+        <dd>08:40 school, 15:30 finish, 17:00–21:00 part-time job. Wednesday is free.</dd>
+        <dt>Part-time work</dt>
+        <dd>Possible, but not in the internship month. Save money before that month.</dd>
+        <dt>What I should have done first</dt>
+        <dd>Practising keigo. I only learned it two weeks before the interview.</dd>
+      </dl>
+    </div>
+    <div class="voice">
+      <div class="who">
+        <span class="ini">C</span>
+        <span><span class="nmv">Graduate C</span><span class="sch">Care work college, Osaka — 2nd year</span></span>
+      </div>
+      <dl>
+        <dt>What surprised you</dt>
+        <dd>The school found my job for me in the first year. I did not have to look.</dd>
+        <dt>Money outside tuition</dt>
+        <dd>Almost nothing. Uniform 12,000 yen, and the practice shoes.</dd>
+        <dt>Japanese you really need</dt>
+        <dd>Listening matters most. Old people speak quietly and use dialect.
+          Reading is easier than I feared.</dd>
+        <dt>What I should have done first</dt>
+        <dd>Visited a care home once before deciding. It is a job you should see first.</dd>
+      </dl>
+    </div>
+    <div class="voice">
+      <div class="who">
+        <span class="ini">D</span>
+        <span><span class="nmv">Graduate D</span><span class="sch">University, Faculty of Business — 1st year</span></span>
+      </div>
+      <dl>
+        <dt>What surprised you</dt>
+        <dd>Nobody checks if you come. You can fail without anyone telling you.</dd>
+        <dt>A day in my life</dt>
+        <dd>Three or four classes a day, and long gaps between them. I use the gaps in the library.</dd>
+        <dt>Japanese you really need</dt>
+        <dd>Writing. Every class ends with a report of 800–1,200 characters.</dd>
+        <dt>What I should have done first</dt>
+        <dd>The EJU practice, much earlier. I started three months before and that was late.</dd>
+      </dl>
+    </div>
+    <div class="voice">
+      <div class="who">
+        <span class="ini">E</span>
+        <span><span class="nmv">Graduate E</span><span class="sch">Working — food company, Osaka — 2nd year</span></span>
+      </div>
+      <dl>
+        <dt>What surprised you</dt>
+        <dd>The interview was not about Japanese. They asked why I chose Japan and what I want in 5 years.</dd>
+        <dt>Japanese you really need</dt>
+        <dd>N2 was the line to apply. At work, the hard part is the telephone.</dd>
+        <dt>Money</dt>
+        <dd>First salary 195,000 yen before tax. Rent 58,000 yen. It is enough, but not much.</dd>
+        <dt>What I should have done first</dt>
+        <dd>Started looking one year before graduation. Companies close applications very early.</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ TESTS & DRILLS ══════════ -->
+<section id="scr-study" hidden>
+  <div class="backrow"><button class="backbtn" type="button" data-back><i></i> Back</button></div>
+  <div class="sechead"><span>Tests from your teacher</span></div>
+  <div class="list">
+    <button class="row" style="--c:#d64545" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Open now</span><span class="nm">Review Test 1</span>
+        <span class="ds">10 questions · about 5 minutes · marked straight away</span></span>
+      <span class="tail">Open</span>
+      <span class="go"></span>
+    </button>
+    <button class="row" style="--c:#7b8794" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Finished 2026-08-19</span><span class="nm">Kanji Check — Lesson 12–16</span>
+        <span class="ds">You scored 8 / 10 · see which ones you missed</span></span>
+      <span class="tail">8/10</span>
+      <span class="go"></span>
+    </button>
+  </div>
+  <div class="sechead"><span>Practise as much as you like</span><span class="upd">Score not recorded</span></div>
+  <div class="list">
+    <button class="row" style="--c:#7b5cd6" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Drill</span><span class="nm">JLPT N2 Vocabulary</span>
+        <span class="ds">640 words · repeat until you remember</span></span>
+      <span class="go"></span>
+    </button>
+    <button class="row" style="--c:#0f9b8e" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Drill</span><span class="nm">Verb Conjugation</span>
+        <span class="ds">Form practice only · meaning is explained in class</span></span>
+      <span class="go"></span>
+    </button>
+    <button class="row" style="--c:#1769aa" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Drill</span><span class="nm">Keigo — sonkeigo &amp; kenjougo</span>
+        <span class="ds">20 questions · useful before interviews and part-time work</span></span>
+      <span class="go"></span>
+    </button>
+    <button class="row" style="--c:#c77700" data-soon>
+      <span class="bar"></span>
+      <span class="txt"><span class="sb">Drill</span><span class="nm">Reading — short passages</span>
+        <span class="ds">Your weakest part this term · 5 passages</span></span>
+      <span class="tail">Suggested</span>
+      <span class="go"></span>
+    </button>
+  </div>
+</section>
+
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var toastEl = document.getElementById("toast"), toastTimer = null;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("on"); }, 2200);
+  }
+
+  /* ── 画面切替。モックなので履歴は持たせず、戻るは常にホーム ── */
+  var screens = ["home", "grades", "survey", "survey-career", "survey-life",
+                 "news", "jobs", "schools", "voices", "study"];
+  function show(name) {
+    screens.forEach(function (s) {
+      var el = document.getElementById("scr-" + s);
+      if (el) el.hidden = (s !== name);
+    });
+    window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+  }
+  document.querySelectorAll("[data-go]").forEach(function (b) {
+    b.addEventListener("click", function () { show(b.getAttribute("data-go")); });
+  });
+  document.querySelectorAll("[data-back]").forEach(function (b) {
+    b.addEventListener("click", function () { show("home"); });
+  });
+  /* アンケートの詳細からは一覧へ戻る（ホームまで飛ばさない） */
+  document.querySelectorAll("[data-back-to]").forEach(function (b) {
+    b.addEventListener("click", function () { show(b.getAttribute("data-back-to")); });
+  });
+  document.querySelectorAll("[data-soon]").forEach(function (b) {
+    b.addEventListener("click", function () { toast("Mock-up only — this opens the real test."); });
+  });
+
+  /* ── 言語切替。英語版だけ実装、他は選べることだけ見せる ── */
+  document.querySelectorAll(".lang").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (b.getAttribute("data-lang") === "en") return;
+      document.querySelectorAll(".lang").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
+      b.setAttribute("aria-pressed", "true");
+      toast(b.textContent.trim() + " — translation is not written yet.");
+      setTimeout(function () {
+        document.querySelectorAll(".lang").forEach(function (x) {
+          x.setAttribute("aria-pressed", x.getAttribute("data-lang") === "en" ? "true" : "false");
+        });
+      }, 2200);
+    });
+  });
+
+  /* ── アンケート：選ぶ動きと進捗だけ。送信先は無い ──
+     単一選択（.opt）と複数選択（[data-multi] の .chipbtn）の2種類を同じ関数で数える。 */
+  function countAnswered(form) {
+    var n = 0;
+    form.querySelectorAll("[data-q]").forEach(function (q) {
+      var sel = q.hasAttribute("data-multi") ? '.chipbtn[aria-pressed="true"]' : '.opt[aria-pressed="true"]';
+      if (q.querySelector(sel)) n++;
+    });
+    return n;
+  }
+  function refresh(form) {
+    var qs = form.querySelectorAll("[data-q]"), n = countAnswered(form);
+    form.querySelector("[data-done]").textContent = n;
+    form.querySelector("[data-fill]").style.width = (n / qs.length * 100) + "%";
+    return { n: n, total: qs.length };
+  }
+
+  document.querySelectorAll("#scr-survey-career, #scr-survey-life").forEach(function (form) {
+    form.querySelectorAll("[data-q]").forEach(function (q) {
+      if (q.hasAttribute("data-multi")) {
+        /* 複数選択：押すたびに入れ替え */
+        q.querySelectorAll(".chipbtn").forEach(function (c) {
+          c.addEventListener("click", function () {
+            c.setAttribute("aria-pressed", c.getAttribute("aria-pressed") === "true" ? "false" : "true");
+            refresh(form);
+          });
+        });
+      } else {
+        q.querySelectorAll(".opt").forEach(function (o) {
+          o.addEventListener("click", function () {
+            q.querySelectorAll(".opt").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
+            o.setAttribute("aria-pressed", "true");
+            refresh(form);
+          });
+        });
+      }
+    });
+    form.querySelector("[data-save]").addEventListener("click", function () {
+      var r = refresh(form);
+      toast(r.n < r.total ? ("Please answer all questions (" + r.n + " of " + r.total + " done).")
+                          : "Saved. You can change it before the closing date.");
+    });
+    refresh(form);
+  });
+})();
+</script>
+
+</body>
+</html>
