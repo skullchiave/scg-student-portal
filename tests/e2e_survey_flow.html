@@ -6,7 +6,7 @@
 <script>
 /* 回帰テスト（tests/run_e2e_survey.py から起動）。学生画面をそのまま iframe で動かし、ログイン→アンケート一覧→回答→一覧に戻る までを実際に操作する。
    結果は #out に JSON で書く（--dump-dom で回収）。
-   アカウントは負荷試験用 l150。回答は検査専用の定義 test_multi_ui（本番の SURVEYS に無い＝どの画面にも出ない）に出すので、
+   アカウントは負荷試験用 l150。回答は検査専用の定義 test_multi_ui_<時刻>（本番の SURVEYS に無い＝どの画面にも出ない。学生は行を消せないので毎回新キー）に出すので、
    本物の4本の回答数を汚さない。 */
 const out = document.getElementById("out"), log = { steps: [] };
 const step = (name, ok, detail) => log.steps.push({ name, ok: !!ok, detail: detail === undefined ? "" : String(detail).slice(0, 220) });
@@ -20,7 +20,7 @@ function rows(d) { return [...d.querySelectorAll("#survey-list .row")].map(r => 
   try { w.localStorage.clear(); } catch (e) {}
   const $ = id => d.getElementById(id);
   // 検査専用のアンケートを5本目として差し込む（がくひと同じ「select 3問」の形）
-  w.eval("SURVEYS").push({ key: "test_multi_ui", sb: "Test", color: "#888888", title: "じどうけんさの アンケート", desc: "e2e", intro: "e2e",
+  w.eval("SURVEYS").push({ key: "test_multi_ui_" + Date.now(), sb: "Test", color: "#888888", title: "じどうけんさの アンケート", desc: "e2e", intro: "e2e",
     q: [{ k: "a", t: "select", l: "A", sl: "A", o: ["1", "2"] }, { k: "b", t: "select", l: "B", sl: "B", o: ["1", "2"] }, { k: "c", t: "select", l: "C", sl: "C", o: ["1", "2"] }] });
   await until(() => !$("scr-login").hidden, 8000);
   step("login screen shown", !$("scr-login").hidden);
