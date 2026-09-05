@@ -34,3 +34,6 @@ logs/
 .env.*
 !.env.example
 !data/sample/**
+
+# 実データ・受け渡しの置き場（絶対に追跡しない）
+_scratch/
