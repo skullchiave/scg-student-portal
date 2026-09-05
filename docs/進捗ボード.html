@@ -56,6 +56,15 @@ h1{margin:0;font-size:1.18rem;font-weight:700;letter-spacing:.02em}
   border-radius:11px;padding:12px 15px;font-size:.88rem;box-shadow:var(--shadow);margin-top:24px}
 .summary h3{margin:0 0 6px;font-size:.9rem;color:var(--brand-d)}
 .updated{color:var(--sub);font-size:.78rem;margin-top:16px;padding:0 2px}
+.dl{background:var(--surface);border:1px solid var(--line);border-left:5px solid #c62828;
+  border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 18px;margin-bottom:16px}
+.dl h2{margin:0 0 8px;font-size:.95rem;color:#c62828}
+.dl table{width:100%;border-collapse:collapse;font-size:.85rem}
+.dl td{padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.dl tr:last-child td{border-bottom:none}
+.dl td.d{white-space:nowrap;font-weight:700;width:8.5em}
+.dl .hot{color:#c62828;font-weight:700}
+@media (prefers-color-scheme:dark){ .dl h2,.dl .hot{color:#ef9a9a} }
 @media (prefers-color-scheme:dark){
   :root{--ink:#f0f3f6;--sub:#aeb8c2;--line:#3a414b;--bg:#15181d;--surface:#1f242b;
     --brand-l:#262c34;--shadow:0 1px 2px rgba(0,0,0,.5),0 6px 20px rgba(0,0,0,.35)}
@@ -67,79 +76,94 @@ h1{margin:0;font-size:1.18rem;font-weight:700;letter-spacing:.02em}
 <body>
 <div class="topbar">
   <h1>🎓 SCG 学生ポータル — 進捗ボード</h1>
-  <div class="sub">学生が自分のスマホでログインする学校の入口（第一弾: 小テスト）</div>
+  <div class="sub">学生が自分のスマホでログインする学校の入口。<b>2027年4月から、ここで小テストを実施する</b></div>
 </div>
 <div class="wrap">
 
 <div class="goal">
   <h2>🎯 ゴール</h2>
-  <p>ヨリソル（年額200〜300万のSaaS）を「年5万＋人件費」の内製で置き換えられることを、動くもので示す。<br>
-  第一関門: <b>2026-09-04（金）夕方MTGでのライブデモ</b>。その後、進路系で年内実戦→小テスト本格移行。</p>
-  <div class="why">なぜ: SaaSはUIが複雑で日本語学校カリキュラムに特化できない。内製なら特化し放題＋圧倒的低コスト。</div>
+  <p><b>2027年4月の新年度から、全学生の小テストをこのポータルで実施する。</b><br>
+  ヨリソル（年額200〜300万のSaaS）の契約は 2027年2月で終了が決定。<b>代わりが無い</b>ので、間に合わなければ小テストという授業の一部が無くなる。</p>
+  <div class="why">2026-09-04 のMTGでポータルは全面採用。同時にヨリソルの打ち切りも決まり、<b>「作れたら嬉しい」から「落ちたら授業が止まる」へ性質が変わった</b>。
+  以後の判断軸は「4月に間に合うか」と「佐々木が不在でも回るか」の2つ。</div>
+</div>
+
+<div class="dl">
+  <h2>⏳ 締切は3段（混ぜると両方落とす）</h2>
+  <table>
+    <tr><td class="d">年内</td><td>政治的な期日。<b>動くデモがあればよい</b>。完成品である必要はない</td></tr>
+    <tr><td class="d hot">2027年2月</td><td class="hot">ヨリソル契約終了。中のデータは以後取り出せない ← 取り返しがつかないのはここだけ</td></tr>
+    <tr><td class="d">2027年4月</td><td>実運用開始。学生が実際に使える状態</td></tr>
+  </table>
 </div>
 
 <div class="overall">
-  <div class="lab"><span>全体進捗（段階1: MTGデモまで）</span><b>94%</b></div>
-  <div class="bar"><i style="width:94%"></i></div>
+  <div class="lab"><span>段階1（MTGデモ）— 完了</span><b>100%</b></div>
+  <div class="bar"><i style="width:100%"></i></div>
 </div>
 
 <div class="stage">
-  <div class="stage-head">段階1 — 金曜MTGデモ <span class="cnt">14/15 完了</span></div>
-  <div class="step done"><div class="title"><span class="bdg">完了</span>裏方構築（Supabase 東京・無料枠）</div>
-    <div class="desc">ログイン認証・小テストDB・行単位アクセス制御(RLS)・サーバー側採点RPC</div></div>
-  <div class="step done"><div class="title"><span class="bdg">完了</span>セキュリティ回帰テスト 12項目 PASS</div>
-    <div class="out">正解データは学生に届かない／他人の解答は見えない／満点偽造は拒否される — 全部機械検証</div></div>
-  <div class="step done"><div class="title"><span class="bdg">完了</span>学生画面（ログイン→マイページ→10問→即時採点）</div>
-    <div class="desc">依存ライブラリゼロ・自動再送つき・やさしい日本語。つなぐL6〜L10の2択10問を収録。マイページ（成基太郎1〜20・A①クラス）から「テストを うける」「アンケートに こたえる」へ分岐</div></div>
-  <div class="step done"><div class="title"><span class="bdg">完了</span>進路アンケート（しごと・ぶんや・まち）</div>
-    <div class="desc">進路指導部 資料2の「1年目12月初旬 進路アンケート」を実装。提出済みバッジ・再提出（上書き）対応。本人しか出せない/読めないをDB層で強制（回帰テスト17項目に拡張）</div></div>
-  <div class="step done"><div class="title"><span class="bdg">完了</span>教師モニター（ライブ集計＋QR表示）</div>
-    <div class="desc">提出数・平均点・設問別正答率が2秒ごとに自動更新。会議室のプロジェクタに映す画面</div></div>
-  <div class="step done"><div class="title"><span class="bdg">完了</span>公開（GitHub Pages）</div>
-    <div class="out">学生: https://skullchiave.github.io/scg-student-portal/　教師: 同 /teacher.html</div></div>
-  <div class="step done"><div class="title"><span class="bdg">完了</span>実ブラウザ一気通貫テスト PASS</div></div>
-  <div class="step done"><div class="title"><span class="bdg">完了</span>150名同時の負荷テスト 合格</div>
-    <div class="out">150名が同一瞬間に送信 → 成功率100%・平均応答1.2秒・再送ゼロ。出題取得も150/150成功。ログインAPIのみ回数制限あり→「事前ログイン持続」方式で回避済み</div></div>
-  <div class="step done"><div class="title"><span class="bdg">完了</span>MTG用A4資料＋デモ用アカウントカード（印刷用）</div>
-    <div class="out">ドライブ 0.2 claude-work\【学生ポータル】 Student Portal\ に2点。実測値も焼き込み済み</div></div>
-  <div class="step done"><div class="title"><span class="bdg">完了</span>画面イメージ5本を本番と同居（成績・お知らせ・アルバイト・進学先・先輩の声）</div>
-    <div class="desc">9/3 会社: 構想メモの画面を日本語/英語の2ツリーで起こし、動く画面と同じ index.html に統合（Supabase非接続・DEMOダミー）。マイページは「いま動きます」「これから作る画面（イメージ）」の2節で本物と区別</div></div>
-  <div class="step done"><div class="title"><span class="bdg">完了</span>重複の解消 — テストとアンケートは本物だけに</div>
-    <div class="out">9/3 夜（家）: イメージ側にあった「アンケート一覧・進路/生活アンケート・テスト・ドリル」4画面×2言語を削除し、1機能=1入口にした。言語バーは日本語/English のみ実装（他5言語は「まだ」表示）。動く画面のコードは無改変</div></div>
-  <div class="step done"><div class="title"><span class="bdg">完了</span>アンケートを4本に（一覧画面・答えたものは「ていしゅつ済み」で下へ沈む）</div>
-    <div class="out">9/3 夜（家）: しんろ／すまい／アルバイトとけんこう／がくひ。定義は assets/surveys.js の1か所（追加は配列に1件足すだけ・DB変更不要）。再提出は上書き。教師モニターはアンケートを選んで回答一覧を見る。定義検査＋DB往復テスト tests/test_surveys.py</div></div>
-  <div class="step done"><div class="title"><span class="bdg">完了</span>言語切替を作り替え（🌐メニュー・選んだ言語を記憶・文言を外部ファイル化）</div>
-    <div class="out">9/4 未明（家）: 白地に白文字で見えなかった言語バーを撤去し、ヘッダー右上の「🌐 日本語 ▾」から選ぶ形に。選択は端末に保存され次回もその言語。文言は assets/i18n.js（日本語/English）に集約、アンケート定義も {ja,en} 化して回答は言語に依らない値で保存。他5言語はメニューに「じゅんびちゅう」で並ぶ（翻訳確認スタッフの確認後に有効化）</div></div>
-  <div class="step done"><div class="title"><span class="bdg">完了</span>管理画面（PC・先生用）— 本物2＋イメージ5をひとつの導線に</div>
-    <div class="out">9/4 未明（家）: teacher.html を左メニュー式の管理画面に。いま動く=小テストのライブ集計／アンケート回答一覧／学生用QR。イメージ=問題の登録・解放／アンケートの作成／学生アカウント／お知らせ配信／点検・バックアップ（ダミー値・「まだ動きません」を明示）</div></div>
-  <div class="step now"><div class="title"><span class="bdg">今ここ</span>きあの実機確認（木曜夜）→ 金曜MTG本番</div>
-    <div class="desc">自分のスマホで s001/sakura24 ログイン→受験→アンケート、別画面で t001 の教師モニター確認。言語バー（English）と画面イメージ5本も一度タップして見ておく。資料を印刷</div></div>
+  <div class="stage-head">段階1 — 金曜MTGデモ <span class="cnt">15/15 完了・2026-09-04</span></div>
+  <div class="step done"><div class="title"><span class="bdg">完了</span>裏方・学生画面・教師画面・公開・多言語・アンケート4本</div>
+    <div class="desc">150名同時100%（平均1.2秒）／セキュリティ回帰PASS／診断ERROR 0件。デモは一晩で立て、以後4日で本番の顔まで仕上げた</div></div>
+  <div class="step done"><div class="title"><span class="bdg">完了</span>MTG本番 — <b>全面採用が決定</b></div>
+    <div class="desc">同時にヨリソルの契約打ち切りも決まった。想定より1年早い移行になる</div></div>
 </div>
 
 <div class="stage">
-  <div class="stage-head">段階2 — 進路系で年内実戦 <span class="cnt">予定</span></div>
-  <div class="step hold"><div class="title"><span class="bdg">予定</span>学校アカウントでSupabase本番環境を作り直し（Pro・$25/月）</div></div>
-  <div class="step hold"><div class="title"><span class="bdg">予定</span>実学生アカウント発行フロー（初期PW・変更強制）＋同意書との連動</div></div>
-  <div class="step hold"><div class="title"><span class="bdg">予定</span>学生アンケート機能（進路指導部の立ち上げ用）</div></div>
-  <div class="step hold"><div class="title"><span class="bdg">予定</span>志望校提出・ポートフォリオ閲覧</div></div>
+  <div class="stage-head">段階2 — ヨリソルから引き継ぐ <span class="cnt">2027年2月まで・最優先</span></div>
+  <div class="step done"><div class="title"><span class="bdg">完了</span>設問の変換スクリプト（<span class="desc" style="display:inline">scripts/import_yorisol.py</span>）</div>
+    <div class="desc">ヨリソル側は単一選択・2択・正解1つ＝こちらの questions / question_answers と1対1で対応する。作り直しは要らない。
+      サンプル10問で通過、回帰テスト18項目。DBには接続せずSQLを書き出すだけ（流すのは人）</div>
+    <div class="out">設問文のHTMLは &lt;br&gt;→改行・他タグは除去（空欄の赤字は失われる）。改行を活かすため .prompt に white-space:pre-line</div></div>
+  <div class="step now"><div class="title"><span class="bdg">今ここ</span>担当への確認 — 権限とデータ</div>
+    <div class="desc">2026-09-05 に確認事項の1枚を送付し返信待ち。権限（書き出しができるように）／<b>受験履歴を書き出せるか</b>／契約終了後にいつまで取れるか／小テスト以外の使われ方／契約の正確な日程</div>
+    <div class="out">★設問は最悪こちらで作り直せるが、<b>受験履歴は消えたら二度と作れない</b>。ここが2月の本命</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>設問の全量を受け取って変換</div>
+    <div class="desc">手元の10問は1カテゴリ分で、全量ではない可能性が高い（カテゴリがパス形式＝他の枝がある）</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>受験履歴の受け皿を作って取り込む</div>
+    <div class="desc">書き出しの形式が分かり次第。中身は後からでよいので、器を先に用意する</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>小テスト以外の機能の棚卸し</div>
+    <div class="desc">契約を切ると全機能が消える。4月に「できなくなった」を出さないため、今のうちに数え切る</div></div>
 </div>
 
 <div class="stage">
-  <div class="stage-head">段階3 — 小テスト本格移行（来年度・ヨリソル置換） <span class="cnt">予定</span></div>
-  <div class="step hold"><div class="title"><span class="bdg">予定</span>運用担当者用の問題登録・解放スケジュール画面</div>
-    <div class="desc">運用は任せる人がノーコードで回せる形に。きあは点検と承認だけ</div></div>
-  <div class="step hold"><div class="title"><span class="bdg">予定</span>障害時の運用ルール（紙の予備・告知文テンプレ）</div></div>
-  <div class="step hold"><div class="title"><span class="bdg">予定</span>月次点検の型（自動セキュリティ診断→日本語報告→きあ承認）</div></div>
+  <div class="stage-head">段階3 — 本番の土台 <span class="cnt">年内〜3月</span></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>学校アカウントで Supabase を作り直し＋Pro化</div>
+    <div class="desc">今は佐々木の個人アカウントの無料枠（放置すると休眠する）。<b>目録の承認が下りたので費用の話を進められる</b>。デモ用アカウントは全削除</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>同意の整理（学生本人＋学校として）</div>
+    <div class="desc">画面のチェックと、入学時の同意書は別物。2027年度の同意書に外部サーバーを織り込む必要がある。
+      ★<b>ヨリソルで学校がどう整理していたかを引き継ぐのが最短</b>（前例が必ずある）</div>
+    <div class="out">顔写真は一旦入れない（きあ判断）。ただし成績を学籍番号に紐づける時点で個人情報なので、同意の要否は変わらない</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>学生アカウントの発行と初回パスワード設定</div>
+    <div class="desc">初期パスワード＝学生番号。学生が自分で設定し直す。<b>初回設定はクラス単位に割る</b>（サインインの経路に同一IPのレート制限があるため。受験そのものは一斉でよい）。
+      リセット後の「未設定の窓」は運用ルールで塞ぐ＝本人が目の前にいる時だけ押す</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>先生が問題を登録する画面</div>
+    <div class="desc">teacher.html の「問題の登録・解放」はまだ画面イメージ。
+      ★<b>配信の前に「配信するものを作る」工程がある</b>。ここが無いと全部の出題が佐々木に集中する（ヨリソルの設問も作成者は1人だった）</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>職員の閲覧権限を決める（上長判断）</div>
+    <div class="desc">誰がどこまで見るか。テーブル設計の前に要るのでリードタイムを見て早めに聞く</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>回答の途中保存（1問ごと・復帰・二重送信に強く）</div>
+    <div class="desc">校内Wi-Fiは落ちる前提。<b>解いたのに消えたは、サーバーが落ちるより取り返しがつかない</b>。後付けしにくいので最初から</div></div>
+</div>
+
+<div class="stage">
+  <div class="stage-head">段階4 — 実運用 <span class="cnt">2027年4月〜</span></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>段階を踏んだ本番投入（1人→1クラス→1学年→全体）</div>
+    <div class="desc">規模の実態は<b>午前午後で150名ずつ</b>（今は1年生300名）。来年から2学年とも同じ形で最大250名。全校500名が同時に受ける場面は無い（定期試験は紙）。
+      ★<b>実測済みの150名がそのまま今の本番規模</b>。測り直しが要るのは250名だけ</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>障害時の運用ルール（紙の予備・中止の判断者・告知文）</div></div>
+  <div class="step hold"><div class="title"><span class="bdg">予定</span>月次点検の型と、佐々木が不在でも回る手順書</div></div>
 </div>
 
 <div class="summary">
   <h3>💬 今のひとこと</h3>
-  本番URL1本に「動く画面（ログイン→小テスト→採点／アンケート4本）」と「これから作る画面のイメージ5本」が同居し、🌐メニューで日本語/English を切り替えて記憶する。PC用の管理画面も本物2＋イメージ5で揃い、
-  テストとアンケートの二重入口も消えた。<b>150名同時100%・回帰17項目PASS・診断ERROR 0件</b>は維持。
-  残るはきあの実機確認と資料印刷。金曜は「説得せず、見せる」。
+  MTGは通り、ポータルは全面採用になった。<b>ただし同時にヨリソルの契約打ち切りも決まったので、フォールバックが消えた</b>。
+  今いちばん急ぐのはコードではなく、<b>2月までにヨリソルからデータを取り出すこと</b>と、<b>同意と権限という人と紙の話</b>。
+  設問の変換はもう用意したので、全量が届けば流すだけ。技術で残っている本物の課題は、問題を登録する画面と、途中保存の作りの2つ。
 </div>
 
-<div class="updated">最終更新: 2026-09-04 未明（Claude Code・家）</div>
+<div class="updated">最終更新: 2026-09-05（Claude Code・家）／前回 2026-09-04 未明</div>
 </div>
 </body>
 </html>
