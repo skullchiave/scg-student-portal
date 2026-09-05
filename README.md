@@ -49,7 +49,18 @@ python tests/test_surveys.py --live # アンケート定義の検査＋DB往復�
 python tests/run_e2e_survey.py      # ブラウザ実操作: ログイン→アンケート一覧→回答→提出済みが下へ沈む（Chrome必要）
 python scripts/loadtest.py tokens   # 負荷テスト準備: 150名分のログイン（低速・30分）
 python scripts/loadtest.py burst    # 負荷テスト本番: ログイン済み150名の一斉受験
+python -m unittest discover -s tests -p "test_import_yorisol.py"   # ヨリソル設問の変換（DB不要・18項目）
 ```
+
+### ヨリソルの設問を取り込む
+
+```
+python scripts/import_yorisol.py --questions 設問.csv --answers 回答.csv --out-sql tmp/q.sql
+```
+
+DBには接続しない。SQL を書き出すだけなので、中身を見てから Supabase の SQL エディタで流す。
+取り込みは `is_open=false`（学生には見えない）で作られるので、確認してから教師画面で公開する。
+契約終了は 2027年2月。**設問と受験履歴はそれまでにしか書き出せない。**
 
 負荷テストが2段なのは実運用と同じ形だから: サインインAPIには同一IPからの回数制限が
 あるため、学生のログインは「事前に各自1回」（アプリが保持し続ける）。小テスト当日に
