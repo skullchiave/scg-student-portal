@@ -220,3 +220,35 @@ footer{text-align:center;color:var(--sub);font-size:.72rem;padding:10px 16px 30p
 .langmenu button[disabled]{color:var(--sub);cursor:default;opacity:.7;}
 .langmenu button[disabled]:hover{background:none;}
 .langmenu .en{font-size:.74rem;color:var(--sub);white-space:nowrap;}
+
+/* ── しけんの ひ（ログイン前に見せる／教室の投影は #exam）──
+   .row と形は似ているが押せない表示専用。cursor もタップの差し色も出さない。 */
+.exam{display:flex;align-items:center;gap:16px;padding:15px 22px;border-top:1px solid var(--line);}
+.exam:first-child{border-top:0;}
+.exam .bar{flex:0 0 auto;width:3px;align-self:stretch;min-height:40px;border-radius:99px;
+  background:var(--c,var(--blue));}
+.exam .etxt{display:flex;flex-direction:column;min-width:0;flex:1;gap:3px;}
+.exam .enm{font-size:.7rem;font-weight:800;letter-spacing:.17em;line-height:1.4;
+  color:var(--c,var(--blue));}
+.exam .edt{font-size:1.18rem;font-weight:700;line-height:1.3;}
+.exam .eds{font-size:.8rem;color:var(--sub);line-height:1.55;}
+.exam .eright{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:5px;}
+.exam .ecd{font-size:1.05rem;font-weight:800;color:var(--c,var(--blue));white-space:nowrap;}
+.exam .egs{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;}
+.exam .eg{font-size:.7rem;font-weight:700;color:var(--sub);background:var(--bg);
+  border:1px solid var(--line);border-radius:99px;padding:2px 9px;white-space:nowrap;}
+.exam-none{padding:20px 22px;color:var(--sub);font-size:.9rem;line-height:1.6;}
+
+/* 教室の投影（#exam）。教室のうしろの席から読めるところまで大きくする */
+body.projector header{border-radius:0;padding-bottom:18px;}
+body.projector main{padding-top:14px;}
+body.projector .sechead{font-size:.8rem;}
+body.projector .exam{padding:clamp(18px,3.4vh,34px) 22px;gap:22px;}
+body.projector .exam .bar{width:6px;}
+body.projector .exam .enm{font-size:clamp(.85rem,1.7vw,1.15rem);}
+body.projector .exam .edt{font-size:clamp(1.6rem,4.2vw,3rem);}
+body.projector .exam .eds{font-size:clamp(.9rem,1.5vw,1.25rem);}
+body.projector .exam .ecd{font-size:clamp(1.7rem,4.6vw,3.4rem);}
+body.projector .exam .eg{font-size:clamp(.85rem,1.5vw,1.2rem);padding:4px 14px;}
+body.projector .exam-none{font-size:clamp(1.1rem,2.4vw,1.8rem);padding:40px 22px;}
+@media (min-width:900px){ body.projector main{max-width:1100px;} }

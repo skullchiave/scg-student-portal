@@ -165,17 +165,23 @@ if "--live" in sys.argv:
         qs = sets[0]["id"] if st == 200 and sets else None
         check("公開中の回がある", bool(qs), str(st))
         if qs:
-            st, r = req("/rest/v1/rpc/record_away", tokA,
-                        {"p_quiz_set_id": qs, "p_away_count": 3, "p_away_ms": 9000})
-            check("記録できる", st == 200 and r and r.get("away_count") == 3, f"{st} {r}")
+            # ★記録は減らない作りなので、前回の実行ぶんが残っている。
+            #   決め打ちの数で比べると2回目から落ちる（実際に落ちた）ので、今ある値を土台にする。
+            st, cur = req(f"/rest/v1/attempt_focus?select=away_count,away_ms&quiz_set_id=eq.{qs}", tokA)
+            base = cur[0]["away_count"] if cur else 0
+            basems = cur[0]["away_ms"] if cur else 0
 
             st, r = req("/rest/v1/rpc/record_away", tokA,
-                        {"p_quiz_set_id": qs, "p_away_count": 1, "p_away_ms": 100})
-            check("★小さい数が遅れて届いても減らない", bool(r) and r.get("away_count") == 3, str(r))
+                        {"p_quiz_set_id": qs, "p_away_count": base + 3, "p_away_ms": basems + 9000})
+            check("記録できる", st == 200 and r and r.get("away_count") == base + 3, f"{st} {r}")
 
             st, r = req("/rest/v1/rpc/record_away", tokA,
-                        {"p_quiz_set_id": qs, "p_away_count": 5, "p_away_ms": 12000})
-            check("増える方向には動く", bool(r) and r.get("away_count") == 5, str(r))
+                        {"p_quiz_set_id": qs, "p_away_count": base + 1, "p_away_ms": basems + 100})
+            check("★小さい数が遅れて届いても減らない", bool(r) and r.get("away_count") == base + 3, str(r))
+
+            st, r = req("/rest/v1/rpc/record_away", tokA,
+                        {"p_quiz_set_id": qs, "p_away_count": base + 5, "p_away_ms": basems + 12000})
+            check("増える方向には動く", bool(r) and r.get("away_count") == base + 5, str(r))
 
             st, _ = req("/rest/v1/rpc/record_away", tokA,
                         {"p_quiz_set_id": qs, "p_away_count": -1, "p_away_ms": 0})

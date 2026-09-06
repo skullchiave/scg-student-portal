@@ -48,6 +48,14 @@ const I18N = {
     "sv.choose": "えらんで ください", "sv.min1": "1つ以上 こたえてください",
     "sv.prev": "ていしゅつ済みです。なおして もういちど そうしん できます。", "sv.resubmit": "なおして そうしん",
     "sv.received": "「{title}」を うけとりました。ありがとうございます！",
+    /* しけんの ひ（ログインしなくても見える）。日付は {M}月{D}日（{W}）の形で組む */
+    "ex.title": "つぎの しけん", "ex.date": "{M}月{D}日（{W}）",
+    "ex.wd": "日,月,火,水,木,金,土", "ex.mn": "1,2,3,4,5,6,7,8,9,10,11,12",
+    "ex.days": "あと {n}にち", "ex.today": "きょう です", "ex.tomorrow": "あした です",
+    "ex.result": "けっかは {d} に でます", "ex.result.lag": "けっかは あとで でます",
+    "ex.inschool": "がっこうで うけます",
+    "ex.none": "つぎの しけんは まだ きまっていません",
+    "ex.g.1年生": "1ねんせい", "ex.g.2年生": "2ねんせい",
   },
   en: {
     "app.title": "Student Portal", "app.for": "for students", "app.footer": "SCG Student Portal (demo)",
@@ -80,6 +88,14 @@ const I18N = {
     "sv.choose": "Please choose", "sv.min1": "Please answer at least one question.",
     "sv.prev": "Already submitted. You can edit and send again.", "sv.resubmit": "Update & submit",
     "sv.received": "Received “{title}”. Thank you!",
+    "ex.title": "Next exams", "ex.date": "{W}, {M} {D}",
+    "ex.wd": "Sun,Mon,Tue,Wed,Thu,Fri,Sat",
+    "ex.mn": "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec",
+    "ex.days": "{n} days left", "ex.today": "Today", "ex.tomorrow": "Tomorrow",
+    "ex.result": "Results on {d}", "ex.result.lag": "Results come later",
+    "ex.inschool": "Held at school",
+    "ex.none": "The next exam date has not been decided yet.",
+    "ex.g.1年生": "Year 1", "ex.g.2年生": "Year 2",
   },
 };
 

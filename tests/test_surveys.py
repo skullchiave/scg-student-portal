@@ -74,6 +74,10 @@ for code in [l["code"] for l in L if l.get("ready")]:
     check(f"{code}: 日本語と同じキーが全部ある", not missing, ",".join(missing[:8]))
 html = open(INDEX, encoding="utf-8").read()
 used = set(re.findall(r'data-i18n(?:-ph)?="([^"]+)"', html)) | set(re.findall(r'\bt\("([a-z0-9_.]+)"', html))
+# t("ex.g." + g) のようにキーを動的に組み立てている箇所は、前半だけが取れて必ず "." で終わる。
+# 実キー（ex.g.1年生 など）は i18n.js 側にあり、そちらは上の「ja/en で同じキーが全部ある」検査が見る。
+# ここで弾かないと、実在するキーを「未定義」と誤検知して落ちる（2026-09-06）。
+used = {k for k in used if not k.endswith(".")}
 unknown = sorted(used - ja_keys)
 check(f"index.html が使うキー {len(used)} 個がすべて定義済み", not unknown, ",".join(unknown[:8]))
 check("旧・言語バー（白地に白文字）が残っていない", 'class="langbar"' not in html and 'class="lang"' not in html)
