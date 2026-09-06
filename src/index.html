@@ -117,6 +117,8 @@
       <button class="choice" id="ch-a"><span class="mark">A</span><span id="ch-a-txt"></span></button>
       <button class="choice" id="ch-b"><span class="mark">B</span><span id="ch-b-txt"></span></button>
       <button class="btn" id="btn-next" disabled style="margin-top:6px;">つぎへ</button>
+      <!-- 下書きの保存ぐあい。「保存済み」と「提出」は別物なので、ここでは提出とは言わない -->
+      <div class="savest" id="savest" hidden></div>
       <div class="msg" id="quiz-msg"></div>
     </div>
   </section>
@@ -1146,7 +1148,7 @@ $("btn-login").onclick = async () => {
   finally{ $("btn-login").disabled=false; $("btn-login").textContent=t("login.btn"); }
 };
 $("in-pw").addEventListener("keydown", e=>{ if(e.key==="Enter") $("btn-login").click(); });
-$("btn-logout").onclick = () => { api.logout(); show("scr-login"); };
+$("btn-logout").onclick = () => { draftClearAll(); api.logout(); show("scr-login"); };
 document.querySelectorAll("[data-back]").forEach(b=>b.onclick=goMyPage);
 
 /* ---- マイページ ---- */
@@ -1180,12 +1182,114 @@ $("btn-gotest").onclick = async ()=>{
 };
 
 /* ---- 出題 ---- */
+/* ===== 途中保存（下書き）=====================================================
+   なぜ: 校内Wi-Fiは落ちる前提。1問ごとに ①端末に書く ②サーバーへ送る の順で残す。
+        送れなかった分は「未送信」として持ち続け、あとで自動で送る。
+        ★端末の保存は補助。端末が壊れたり閲覧データを消すと消える。だから両方やる。
+   二重送信に強い: サーバー側は (学生, 回, 設問) が主キーの upsert なので何度届いても上書き。
+   順序: seq は端末側の連番。遅れて届いた古い回答で新しい回答を消さないための番号。 */
+let draft = { key:"", seq:0, saved:{}, pending:new Set(), flushing:false, everFailed:false };
+
+function draftKey(setId){
+  const me = (api.profile && api.profile.id) || "anon";   // 共用端末で他人の下書きを拾わない
+  return "sp_dr_" + me + "_" + setId;
+}
+function draftLoadLocal(setId){
+  try{ return JSON.parse(localStorage.getItem(draftKey(setId)) || "null") || null; }catch(e){ return null; }
+}
+function draftWriteLocal(){
+  try{ localStorage.setItem(draft.key, JSON.stringify({ seq:draft.seq, a:answers, s:draft.saved })); }catch(e){}
+}
+function draftClearLocal(setId){
+  try{ localStorage.removeItem(draftKey(setId)); }catch(e){}
+}
+/* ログアウト時に自分の下書きを全部消す（共用端末で次の学生に残さない） */
+function draftClearAll(){
+  try{
+    const del=[];
+    for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("sp_dr_")===0) del.push(k); }
+    del.forEach(k=>localStorage.removeItem(k));
+  }catch(e){}
+}
+function draftShow(state, n){
+  const el=$("savest"); if(!el) return;
+  el.className = "savest " + state;
+  if(state==="saving")     el.textContent = t("q.sv.saving");
+  else if(state==="pend")  el.textContent = t("q.sv.pend",{n:n});
+  else if(state==="ok")    el.textContent = t("q.sv.saved");
+  else { el.hidden = true; return; }
+  el.hidden = false;
+}
+/* 溜まっている分を順に送る。失敗したら残したまま抜ける（次の機会に再挑戦） */
+async function draftFlush(){
+  if(draft.flushing || !quizSet) return;
+  draft.flushing = true;
+  try{
+    while(draft.pending.size){
+      const qid = draft.pending.values().next().value;
+      const chosen = answers[qid];
+      if(chosen === undefined){ draft.pending.delete(qid); continue; }
+      draftShow("saving");
+      try{
+        await api.rpc("save_draft", {
+          p_quiz_set_id: quizSet.id, p_question_id: qid,
+          p_chosen: chosen, p_client_seq: draft.seq,
+        });
+        draft.pending.delete(qid);
+        draft.saved[qid] = chosen;
+        draftWriteLocal();
+      }catch(e){
+        draft.everFailed = true;
+        draftShow("pend", draft.pending.size);
+        return;                       // 通信が戻ったらまた呼ばれる
+      }
+    }
+    draftShow("ok");
+  } finally { draft.flushing = false; }
+}
+function draftRecord(qid, choice){
+  answers[qid] = choice;
+  draft.seq += 1;
+  draft.pending.add(qid);
+  draftWriteLocal();                  // ★先に端末へ。送信はそのあと
+  draftFlush();                       // 待たない（画面を止めない）
+}
+window.addEventListener("online", ()=>{ draftFlush(); });
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) draftFlush(); });
+
 async function startQuiz(s){
   quizSet=s; answers={}; cur=0; startedAt=Date.now();
+  draft = { key:draftKey(s.id), seq:0, saved:{}, pending:new Set(), flushing:false, everFailed:false };
+  $("savest").hidden = true;
   try{
     questions = await api.get("/rest/v1/questions?select=id,seq,prompt,choice_a,choice_b&quiz_set_id=eq."+s.id+"&order=seq");
     if(!questions.length){ err("list-msg",t("q.noq")); return; }
+
+    // --- 続きから: サーバーの下書きと端末の下書きを合わせる（新しい方＝seq の大きい方を採る）---
+    let srv = [];
+    try{
+      srv = await api.get("/rest/v1/attempt_drafts?select=question_id,chosen,client_seq&quiz_set_id=eq."+s.id);
+    }catch(e){ srv = []; }            // 下書きが読めなくても受験は始められる
+    srv.forEach(r=>{ answers[r.question_id]=r.chosen; draft.saved[r.question_id]=r.chosen;
+                     if(r.client_seq>draft.seq) draft.seq=r.client_seq; });
+    const loc = draftLoadLocal(s.id);
+    if(loc && loc.a){
+      if((loc.seq||0) >= draft.seq){  // 端末側の方が新しい＝まだ送れていない分がある
+        Object.keys(loc.a).forEach(qid=>{
+          if(answers[qid] !== loc.a[qid]){ answers[qid]=loc.a[qid]; draft.pending.add(qid); }
+        });
+        draft.seq = Math.max(draft.seq, loc.seq||0);
+      }
+    }
+    const done = Object.keys(answers).length;
+    if(done){
+      const firstBlank = questions.findIndex(q=>answers[q.id]===undefined);
+      cur = firstBlank === -1 ? questions.length-1 : firstBlank;
+    }
     show("scr-quiz"); render();
+    // ★render() が quiz-msg を消すので、知らせるのはそのあと（前の画面に出しても見えない）
+    if(done) info("quiz-msg", t("q.sv.resumed",{n:done}));
+    if(draft.pending.size) draftFlush();
   }catch(e){ err("list-msg", e.message); }
 }
 function render(){
@@ -1203,16 +1307,22 @@ function render(){
   $("btn-next").disabled = !chosen;
   $("btn-next").textContent = (cur===questions.length-1) ? t("q.submit") : t("q.next");
 }
-$("ch-a").onclick=()=>{ answers[questions[cur].id]="a"; render(); };
-$("ch-b").onclick=()=>{ answers[questions[cur].id]="b"; render(); };
+$("ch-a").onclick=()=>{ draftRecord(questions[cur].id,"a"); render(); };
+$("ch-b").onclick=()=>{ draftRecord(questions[cur].id,"b"); render(); };
 $("btn-next").onclick = async ()=>{
   if(cur < questions.length-1){ cur++; render(); return; }
   $("btn-next").disabled=true; $("btn-next").textContent=t("q.sending");
   try{
+    // 提出の前に、未送信の下書きを送り切る（送れなくても提出そのものは進める）
+    await draftFlush();
     const r = await api.rpc("submit_attempt",{
       p_quiz_set_id: quizSet.id, p_answers: answers,
       p_duration_ms: Date.now()-startedAt,
     });
+    // 提出できたので下書きは捨てる。失敗しても提出は成立しているので握りつぶす
+    draftClearLocal(quizSet.id);
+    try{ await api.rpc("discard_drafts",{ p_quiz_set_id: quizSet.id }); }catch(e){}
+    $("savest").hidden = true;
     showResult(r);
   }catch(e){
     err("quiz-msg",t("q.fail",{msg:e.message}));

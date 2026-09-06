@@ -80,6 +80,11 @@ main{max-width:640px;margin:0 auto;padding:22px 0 52px;}
 .inpanel{padding:0 22px;}
 @media (min-width:560px){.inpanel{padding:0 44px;}}
 
+/* 下書きの保存ぐあい。控えめに出す（提出ボタンより目立たせない） */
+.savest{font-size:.82rem;font-weight:700;margin-top:10px;text-align:center;color:var(--sub);}
+.savest.ok{color:var(--ok);}
+.savest.wait{color:var(--sub);}
+.savest.pend{color:var(--ng);}
 .msg{font-size:.88rem;font-weight:700;border-radius:12px;padding:12px 14px;margin-top:12px;display:none;}
 .msg.err{display:block;background:#fdefef;color:var(--ng);border:1px solid #f3cdcd;}
 .msg.info{display:block;background:#eef5fb;color:var(--blue-d);border:1px solid #d3e5f2;}
