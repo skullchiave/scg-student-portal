@@ -48,6 +48,10 @@
   .chk{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:.92rem;}
   .chk input{margin-top:4px;}
   .note{font-size:.82rem;color:var(--sub);line-height:1.7;margin-top:8px;}
+  /* 画面を離れた記録の注記。★警告色にしない＝赤くすると「不正の告発」に読める（方針で否定した使い方） */
+  .focusnote{margin-top:12px;padding:10px 12px;border-radius:8px;background:#f4f6f9;
+    border:1px solid var(--line);font-size:.82rem;line-height:1.65;}
+  .focusnote .sub{color:var(--sub);font-size:.76rem;}
   @media (max-width:900px){
     .adm{grid-template-columns:1fr;}
     .side{position:static;}
@@ -118,6 +122,9 @@
         <div class="panel">
           <h2>設問別 正答率</h2>
           <div id="qrates"><div style="color:var(--sub)">提出待ち…</div></div>
+          <!-- ★個人別は出さない。小テストは成績に反映しない＝罰の材料にしないため（方針 2026-09-06）。
+               出すのはクラス全体の合計だけで、意味は「この回の数字をどれくらい信用するか」。 -->
+          <div id="focus-note" class="focusnote" hidden></div>
         </div>
         <div class="panel">
           <h2>提出フィード</h2>
@@ -355,6 +362,18 @@ async function tickQuiz(){
         "<div class='track'><div class='fill "+cls+"' style='width:"+pct+"%'></div></div>"+
         "<span class='pct'>"+pct+"%</span></div>";
     }).join("");
+  }
+  /* 画面を離れた記録。★誰が、は出さない（そういう使い方をしないと決めた）。
+     読み方は「不正が◯件」ではなく「この回の数字は、その分だけ割り引いて見る」。 */
+  const f = s.focus;
+  if(f && f.students > 0){
+    $("focus-note").hidden = false;
+    $("focus-note").innerHTML =
+      "<b>受験中に画面を離れた学生 " + f.students + "人</b>（のべ " + f.events + "回）<br>" +
+      "<span class='sub'>通知や画面が消えただけでも数に入ります。<b>不正の証拠ではありません。</b>" +
+      "この回の到達度がうまく測れていない可能性を示す目安として見てください。個人別は出していません。</span>";
+  }else{
+    $("focus-note").hidden = true;
   }
   if(n){
     $("feed").innerHTML = s.attempts.slice(0,60).map((a,i)=>{
