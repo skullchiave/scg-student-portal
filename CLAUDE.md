@@ -88,8 +88,11 @@
 
 - 🔴 **実在の学生情報（氏名・番号・写真等のPII）をこのリポにも Supabase デモ環境にも入れない**。今のデータは全部ダミー
 - 🔴 **このリポは public**。ヨリソルから落とした設問データも絶対に入れない（`tmp/` は .gitignore 済み。出力先を変えない）
-- 🔴 **正解データを学生に送る実装にしない**。出題は `questions_public` ビュー、採点は RPC `submit_attempt`（サーバー側）。
-  「クライアントで採点」への変更は禁止
+- 🔴 **正解データを学生に送る実装にしない**。出題は `questions` 表（**正解列を持たない**。公開中の回だけ見える
+  RLS「read questions of open quiz」で絞る）、正解は別表 `question_answers`（教師のみ）、採点は RPC
+  `submit_attempt`（サーバー側）。「クライアントで採点」への変更は禁止
+  ※ ここは以前「出題は `questions_public` ビュー」と書いてあったが、**そのビューは実在しない**
+  （2026-09-06 に `db/0000_baseline.sql` を書き出して判明）。守る中身は変わらない＝直したのは記述だけ
 - 🔴 スキーマ・RLS を変えたら `python tests/test_security.py` を必ず実行。FAIL がある状態でデプロイしない
 - 🔴 月次点検 = Supabase 自動セキュリティ診断（get_advisors）。**合格基準: ERROR 0件・WARN 6件以下**。
   既知の許容WARN（これ以外が出たら要対応）:
