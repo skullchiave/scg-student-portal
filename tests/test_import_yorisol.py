@@ -75,27 +75,46 @@ class BuildTest(unittest.TestCase):
         self.assertEqual(warn, [])
         self.assertEqual(len(items), 1)
         it = items[0]
-        self.assertEqual(it["choice_a"], "まちがい")
-        self.assertEqual(it["choice_b"], "せいかい")
-        self.assertEqual(it["correct"], "b", "2番目が正解なら b")
+        self.assertEqual(it["choices"], ["まちがい", "せいかい"])
+        self.assertEqual(it["correct_idx"], 2, "2番目が正解なら 2")
         self.assertEqual(it["seq"], 1)
 
-    def test_first_choice_correct_is_a(self):
+    def test_first_choice_correct_is_1(self):
         items, _ = self.build([qrow("1", "文")],
                               [arow("1", "1", "せいかい"), arow("1", "0", "まちがい")])
-        self.assertEqual(items[0]["correct"], "a")
+        self.assertEqual(items[0]["correct_idx"], 1)
 
     def test_display_order_is_honoured(self):
         items, _ = self.build([qrow("1", "文")],
                               [arow("1", "1", "あと", "2"), arow("1", "0", "さき", "1")])
-        self.assertEqual(items[0]["choice_a"], "さき")
-        self.assertEqual(items[0]["correct"], "b", "並べ替えた後の位置で正解を決めること")
+        self.assertEqual(items[0]["choices"][0], "さき")
+        self.assertEqual(items[0]["correct_idx"], 2, "並べ替えた後の位置で正解を決めること")
 
-    def test_three_choices_is_rejected(self):
+    def test_three_choices_are_accepted(self):
+        """★2026-09-06 まで「3択は入れられない」としていた。実データは3〜4択が主なので受ける。"""
         items, warn = self.build([qrow("1", "文")],
-                                 [arow("1", "1", "A"), arow("1", "0", "B"), arow("1", "0", "C")])
-        self.assertEqual(items, [], "2択でないものを黙って通さない")
-        self.assertTrue(any("選択肢が 3" in w for w in warn))
+                                 [arow("1", "0", "A"), arow("1", "1", "B"), arow("1", "0", "C")])
+        self.assertEqual(warn, [])
+        self.assertEqual(items[0]["choices"], ["A", "B", "C"])
+        self.assertEqual(items[0]["correct_idx"], 2)
+
+    def test_four_choices_are_accepted(self):
+        items, warn = self.build([qrow("1", "文")],
+                                 [arow("1", "0", "A"), arow("1", "0", "B"),
+                                  arow("1", "0", "C"), arow("1", "1", "D")])
+        self.assertEqual(warn, [])
+        self.assertEqual(items[0]["correct_idx"], 4)
+
+    def test_one_choice_is_rejected(self):
+        items, warn = self.build([qrow("1", "文")], [arow("1", "1", "A")])
+        self.assertEqual(items, [], "選択肢1個では出題できない")
+        self.assertTrue(any("選択肢が 1" in w for w in warn))
+
+    def test_too_many_choices_is_rejected(self):
+        rows = [arow("1", "1" if i == 0 else "0", f"C{i}") for i in range(iy.MAX_CHOICES + 1)]
+        items, warn = self.build([qrow("1", "文")], rows)
+        self.assertEqual(items, [], "上限を超えたら黙って通さない")
+        self.assertTrue(any("上限" in w for w in warn))
 
     def test_no_correct_is_rejected(self):
         items, warn = self.build([qrow("1", "文")], [arow("1", "0", "A"), arow("1", "0", "B")])
@@ -107,10 +126,12 @@ class BuildTest(unittest.TestCase):
         self.assertEqual(items, [])
         self.assertTrue(any("正解が 2" in w for w in warn))
 
-    def test_unknown_format_warns_but_keeps(self):
+    def test_unknown_format_is_rejected(self):
+        """単一選択でない形式（複数選択など）はポータルが持っていないので入れない。
+        ★以前は警告だけ出して通していたが、通すと正解が1つという前提が崩れる。"""
         items, warn = self.build([qrow("1", "文", fmt="複数選択")],
                                  [arow("1", "1", "A"), arow("1", "0", "B")])
-        self.assertEqual(len(items), 1, "警告は出すが変換自体は残す（人が判断する）")
+        self.assertEqual(items, [])
         self.assertTrue(any("複数選択" in w for w in warn))
 
     def test_missing_choices_are_reported(self):
@@ -121,15 +142,15 @@ class BuildTest(unittest.TestCase):
 
 class SqlTest(unittest.TestCase):
     def test_single_quote_is_escaped(self):
-        items = [{"seq": 1, "prompt": "It's ok", "choice_a": "a'b", "choice_b": "B", "correct": "a"}]
-        sql = iy.to_sql(items, "タイトル'つき", "", "correct")
+        items = [{"seq": 1, "prompt": "It's ok", "choices": ["a'b", "B"], "correct_idx": 1}]
+        sql = iy.to_sql(items, "タイトル'つき", "", "correct_idx")
         self.assertIn("It''s ok", sql)
         self.assertIn("a''b", sql)
         self.assertIn("タイトル''つき", sql)
 
     def test_is_open_false_and_transaction(self):
-        items = [{"seq": 1, "prompt": "p", "choice_a": "A", "choice_b": "B", "correct": "b"}]
-        sql = iy.to_sql(items, "T", "L", "correct")
+        items = [{"seq": 1, "prompt": "p", "choices": ["A", "B"], "correct_idx": 2}]
+        sql = iy.to_sql(items, "T", "L", "correct_idx")
         self.assertIn("is_open", sql)
         self.assertIn("false", sql, "取り込んだ直後に学生へ見せない")
         self.assertTrue(sql.strip().startswith("--"))
@@ -137,9 +158,25 @@ class SqlTest(unittest.TestCase):
         self.assertIn("commit;", sql)
 
     def test_answer_column_is_configurable(self):
-        items = [{"seq": 1, "prompt": "p", "choice_a": "A", "choice_b": "B", "correct": "a"}]
+        items = [{"seq": 1, "prompt": "p", "choices": ["A", "B"], "correct_idx": 1}]
         self.assertIn("question_answers(question_id, answer)",
                       iy.to_sql(items, "T", "", "answer"))
+
+    def test_choices_are_written_with_index(self):
+        items = [{"seq": 1, "prompt": "p", "choices": ["A", "B", "C"], "correct_idx": 3}]
+        sql = iy.to_sql(items, "T", "", "correct_idx")
+        self.assertIn("insert into question_choices(question_id, idx, label)", sql)
+        self.assertIn("(v_q, 1, 'A')", sql)
+        self.assertIn("(v_q, 3, 'C')", sql)
+        self.assertIn("values (v_q, 3)", sql, "正解は番号で入る")
+        self.assertLess(sql.index("question_choices"), sql.index("question_answers"),
+                        "★正解は選択肢のあと（外部キーが選択肢を指しているため）")
+
+    def test_questions_has_no_choice_columns(self):
+        items = [{"seq": 1, "prompt": "p", "choices": ["A", "B"], "correct_idx": 1}]
+        sql = iy.to_sql(items, "T", "", "correct_idx")
+        self.assertNotIn("choice_a", sql)
+        self.assertNotIn("choice_b", sql)
 
 
 class EndToEndTest(unittest.TestCase):

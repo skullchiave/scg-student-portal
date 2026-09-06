@@ -71,11 +71,17 @@ check("学生は quiz_stats を呼べない(forbidden)", isinstance(body, dict) 
 st, body = req("/rest/v1/rpc/quiz_stats", ttok, {"p_quiz_set_id": QUIZ_SET})
 check("教師は quiz_stats を呼べる", isinstance(body, dict) and "attempts" in body)
 
-# 4. 採点の正しさ（正解はa/b半々=全問aなら5/10）
+# 4. 採点の正しさ（正解は1番目/2番目が半々＝全問「1番目」なら5/10）
+#    ★2026-09-06 に選択肢が2個固定でなくなり、答えは 'a'/'b' から「何番目か」へ変わった
 st, qs = req(f"/rest/v1/questions?select=id&quiz_set_id=eq.{QUIZ_SET}", stok)
 st, r = req("/rest/v1/rpc/submit_attempt", stok,
-            {"p_quiz_set_id": QUIZ_SET, "p_answers": {q["id"]: "a" for q in qs}})
-check("採点が正しい（全問a提出=5/10）", isinstance(r, dict) and r.get("score") == 5 and r.get("total") == 10)
+            {"p_quiz_set_id": QUIZ_SET, "p_answers": {q["id"]: 1 for q in qs}})
+check("採点が正しい（全問「1番目」提出=5/10）", isinstance(r, dict) and r.get("score") == 5 and r.get("total") == 10)
+# 範囲外の番号は「未回答」扱いにする（1問の壊れた値で提出全体を落とさない）
+st, r2 = req("/rest/v1/rpc/submit_attempt", stok,
+             {"p_quiz_set_id": QUIZ_SET, "p_answers": {q["id"]: 99 for q in qs}})
+check("範囲外の番号は未回答あつかい（提出そのものは通る）",
+      isinstance(r2, dict) and r2.get("score") == 0 and r2.get("total") == 10, str(r2)[:80])
 
 # 5. 他人の解答は見えない
 st, mine = req("/rest/v1/attempts?select=student_id", stok)

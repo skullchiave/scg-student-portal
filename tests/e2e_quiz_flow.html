@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>e2e quiz flow</title></head>
+<body>
+<iframe id="f" src="../src/index.html" width="420" height="900"></iframe>
+<pre id="out">RUNNING</pre>
+<script>
+/* 小テスト画面の回帰テスト（tests/run_e2e_quiz.py から起動）。学生画面を iframe でそのまま動かし、
+   ログイン → 小テスト → 選択肢を押す → つぎへ → 提出 → 結果 までを実際に操作する。
+   ★2026-09-06 に選択肢が2個固定でなくなり、ボタンを動的に描くようになった。
+     DOM の検査だけでは「押せるか」「選んだ印が付くか」が見えないので、本当に押して確かめる。
+   アカウントは負荷試験用 l149（学生画面の一覧には出ない）。 */
+const out = document.getElementById("out"), log = { steps: [] };
+const step = (name, ok, detail) => log.steps.push({ name, ok: !!ok, detail: detail === undefined ? "" : String(detail).slice(0, 220) });
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function until(fn, ms = 20000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (fn()) return true; } catch (e) {} await sleep(150); } return false; }
+
+(async () => {
+  const f = document.getElementById("f");
+  await until(() => f.contentDocument && f.contentDocument.getElementById("btn-login"));
+  const w = f.contentWindow, d = f.contentDocument;
+  try { w.localStorage.clear(); } catch (e) {}
+  const $ = id => d.getElementById(id);
+  const btns = () => [...d.querySelectorAll("#choices .choice")];
+
+  $("in-no").value = "l149"; $("in-pw").value = "sakura24"; $("btn-login").click();
+  step("ログインできる", await until(() => !$("scr-mypage").hidden), $("login-msg").textContent);
+
+  $("btn-gotest").click();
+  step("小テストの一覧が出る", await until(() => !$("scr-quizlist").hidden), $("list-msg").textContent);
+
+  const first = await until(() => d.querySelector("#quiz-list .row"));
+  step("受けられる回がある", first, $("list-msg").textContent);
+  d.querySelector("#quiz-list .row").click();
+  step("受験の画面に入る", await until(() => !$("scr-quiz").hidden), $("list-msg").textContent);
+
+  // ---- 選択肢のボタンが動的に描けているか ----
+  await until(() => btns().length > 0);
+  const n = btns().length;
+  step("選択肢のボタンが描けている（2個以上）", n >= 2, "n=" + n);
+  step("旧・固定2ボタンが残っていない", !$("ch-a") && !$("ch-b"));
+  step("記号が A から順に付く", btns().map(b => b.querySelector(".mark").textContent).join("") === "ABCDEFGHIJKL".slice(0, n),
+       btns().map(b => b.querySelector(".mark").textContent).join(""));
+  step("どのボタンにも文字が入っている",
+       btns().every(b => b.textContent.replace(/^.\s*/, "").trim().length > 0));
+  step("元の番号を持っている（保存する値）",
+       btns().every(b => /^\d+$/.test(b.getAttribute("data-idx"))),
+       btns().map(b => b.getAttribute("data-idx")).join(","));
+
+  // ---- 押す → 印が付く → つぎへが押せる ----
+  step("押す前は「つぎへ」が押せない", $("btn-next").disabled);
+  const pickIdx = btns()[n - 1].getAttribute("data-idx");   // わざと最後のものを選ぶ
+  btns()[n - 1].click();
+  await sleep(300);
+  step("押すと選んだ印が付く", btns().some(b => b.classList.contains("sel")));
+  step("★印が付くのは押したものだけ",
+       btns().filter(b => b.classList.contains("sel")).length === 1);
+  step("★印が付くのは元の番号が一致するもの（並べ替えても取り違えない）",
+       btns().find(b => b.classList.contains("sel")).getAttribute("data-idx") === pickIdx);
+  step("押すと「つぎへ」が押せるようになる", !$("btn-next").disabled);
+  step("保存の表示が出る（提出とは別の言葉）", !$("savest").hidden, $("savest").textContent);
+
+  // ---- 最後まで答えて提出 ----
+  const total = Number(($("qnum").textContent.split("/")[1] || "0").trim());
+  step("問題数が読める", total > 0, $("qnum").textContent);
+  for (let i = 0; i < total; i++) {
+    await until(() => btns().length > 0);
+    btns()[0].click();                       // 以降は先頭を選ぶ
+    await sleep(180);
+    $("btn-next").click();
+    await sleep(220);
+  }
+  step("提出して結果が出る", await until(() => !$("scr-result").hidden, 25000), $("quiz-msg").textContent);
+  step("点数が出ている", /^\d+$/.test($("r-score").textContent), $("r-score").textContent);
+  const rrows = [...d.querySelectorAll("#r-list .rrow")];
+  step("答えの確認が問題数ぶん出る", rrows.length === total, rrows.length + "/" + total);
+  step("★正解の文字が空でない（番号から引けている）",
+       rrows.every(r => (r.querySelector(".ans") || {}).textContent && r.querySelector(".ans").textContent.trim().length > 0),
+       (rrows[0] && rrows[0].textContent || "").slice(0, 60));
+  step("もんだい本来の番号が出ている（1. から）", /^1\./.test(rrows[0].querySelector(".rbody").textContent.trim()),
+       rrows[0].querySelector(".rbody").textContent.trim().slice(0, 20));
+
+  log.done = true;
+  out.textContent = "E2E_RESULT " + JSON.stringify(log);
+})().catch(e => { log.error = (e && e.message) || String(e); out.textContent = "E2E_RESULT " + JSON.stringify(log); });
+</script>
+</body></html>

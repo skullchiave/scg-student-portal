@@ -63,7 +63,7 @@
         <span class="txt">
           <span class="sb">Quiz</span>
           <span class="nm" data-i18n="my.quiz">テストを うける</span>
-          <span class="ds" data-i18n="my.quiz.ds">2つから えらぶ もんだい。すぐに てんすうが でます</span>
+          <span class="ds" data-i18n="my.quiz.ds">せんたくしから えらぶ もんだい。すぐに てんすうが でます</span>
         </span>
         <span class="go"></span>
       </button>
@@ -121,8 +121,8 @@
         <div class="track"><div class="fill" id="qfill" style="width:0%"></div></div>
       </div>
       <div class="prompt" id="qprompt"></div>
-      <button class="choice" id="ch-a"><span class="mark">A</span><span id="ch-a-txt"></span></button>
-      <button class="choice" id="ch-b"><span class="mark">B</span><span id="ch-b-txt"></span></button>
+      <!-- 選択肢は設問ごとに数が変わる（実データは3〜4択が多い）ので、ここに描き込む -->
+      <div id="choices"></div>
       <button class="btn" id="btn-next" disabled style="margin-top:6px;">つぎへ</button>
       <!-- 下書きの保存ぐあい。「保存済み」と「提出」は別物なので、ここでは提出とは言わない -->
       <div class="savest" id="savest" hidden></div>
@@ -1379,7 +1379,15 @@ async function startQuiz(s){
   draft = { key:draftKey(s.id), seq:0, saved:{}, pending:new Set(), flushing:false, everFailed:false };
   $("savest").hidden = true;
   try{
-    questions = await api.get("/rest/v1/questions?select=id,seq,prompt,choice_a,choice_b&quiz_set_id=eq."+s.id+"&order=seq");
+    // 選択肢は別表（数が設問ごとに違う）。1回の問い合わせでまとめて取る
+    questions = await api.get("/rest/v1/questions?select=id,seq,prompt,question_choices(idx,label)"
+                              + "&quiz_set_id=eq."+s.id+"&order=seq");
+    if(!questions.length){ err("list-msg",t("q.noq")); return; }
+    questions.forEach(q=>{
+      q.choices = (q.question_choices||[]).slice().sort((x,y)=>x.idx-y.idx);
+    });
+    // 選択肢が無い設問は出さない（出しても答えられない）
+    questions = questions.filter(q=>q.choices.length >= 2);
     if(!questions.length){ err("list-msg",t("q.noq")); return; }
     questions = shuffleForStudent(questions, s.id);   // 学生ごとに出題順を変える（seq は各設問が持ったまま）
     away = { n:0, ms:0, since:0 };
@@ -1411,23 +1419,50 @@ async function startQuiz(s){
     if(draft.pending.size) draftFlush();
   }catch(e){ err("list-msg", e.message); }
 }
+const MARKS = "ABCDEFGHIJKL";           // 画面に出す記号。位置を表すだけで、保存する番号とは別
+
+/* 選択肢の並び順を学生ごとに変える。★返すのは「表示する順に並べた元の番号」。
+   出題順と同じ考え方で、種は「学生 + 設問」。同じ人が開き直すと同じ並びになるので、
+   途中保存から戻ったときに選んだものが動かない。 */
+function choiceOrder(q){
+  const idxs = q.choices.map(c=>c.idx);
+  const me = (api.profile && api.profile.id) || "";
+  if(!me || idxs.length < 2) return idxs;
+  const rnd = rngFrom(seedFrom(me + "#" + q.id));
+  const a = idxs.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(rnd() * (i+1));
+    const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
 function render(){
   clearMsg("quiz-msg");
   const q=questions[cur];
   $("qnum").textContent = (cur+1)+" / "+questions.length;
   $("qfill").style.width = (cur/questions.length*100)+"%";
   $("qprompt").textContent = t("q.prompt") + q.prompt;
-  $("ch-a-txt").textContent = q.choice_a;
-  $("ch-b-txt").textContent = q.choice_b;
-  ["ch-a","ch-b"].forEach(id=>$(id).classList.remove("sel"));
-  const chosen = answers[q.id];
-  if(chosen==="a")$("ch-a").classList.add("sel");
-  if(chosen==="b")$("ch-b").classList.add("sel");
-  $("btn-next").disabled = !chosen;
+
+  const chosen = answers[q.id];                 // ★元の番号。画面の位置ではない
+  const box = $("choices");
+  box.innerHTML = "";
+  choiceOrder(q).forEach((idx, pos)=>{
+    const c = q.choices.find(x=>x.idx===idx);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "choice" + (chosen===idx ? " sel" : "");
+    b.setAttribute("data-idx", idx);
+    const m = document.createElement("span"); m.className = "mark"; m.textContent = MARKS[pos] || (pos+1);
+    const s = document.createElement("span"); s.textContent = c ? c.label : "";
+    b.appendChild(m); b.appendChild(s);
+    b.onclick = ()=>{ draftRecord(q.id, idx); render(); };
+    box.appendChild(b);
+  });
+
+  $("btn-next").disabled = (chosen === undefined);
   $("btn-next").textContent = (cur===questions.length-1) ? t("q.submit") : t("q.next");
 }
-$("ch-a").onclick=()=>{ draftRecord(questions[cur].id,"a"); render(); };
-$("ch-b").onclick=()=>{ draftRecord(questions[cur].id,"b"); render(); };
 $("btn-next").onclick = async ()=>{
   if(cur < questions.length-1){ cur++; render(); return; }
   $("btn-next").disabled=true; $("btn-next").textContent=t("q.sending");
@@ -1455,8 +1490,10 @@ function showResult(r){
   const list=$("r-list"); list.innerHTML="";
   r.results.forEach(item=>{
     const q = questions.find(x=>x.seq===item.seq);
+    if(!q) return;                                   // 出題しなかった設問は結果にも出さない
     const row=document.createElement("div"); row.className="rrow";
-    const correctTxt = item.correct==="a" ? q.choice_a : q.choice_b;
+    const hit = q.choices.find(c=>c.idx===item.correct);
+    const correctTxt = hit ? hit.label : "";
     row.innerHTML =
       "<span class='rmark "+(item.is_correct?"ok'>○":"ng'>✕")+"</span>"+
       "<div class='rbody'>"+item.seq+". "+q.prompt+"<br>"+t("r.ans")+"<span class='ans'>"+correctTxt+"</span></div>";

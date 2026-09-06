@@ -18,8 +18,13 @@ r"""import_yorisol.py — ヨリソルの設問バンク CSV を、学生ポー�
 
 出力（ポータルのスキーマ）:
   quiz_sets(title, lesson, is_open)          … 1件。**is_open は false** で作る（誤って学生に見せない）
-  questions(quiz_set_id, seq, prompt, choice_a, choice_b)
-  question_answers(question_id, <正解列>)    … 値は "a" / "b"
+  questions(quiz_set_id, seq, prompt)
+  question_choices(question_id, idx, label)  … 選択肢は1問につき2〜12個（★2択固定ではない）
+  question_answers(question_id, <正解列>)    … 値は「何番目が正解か」（1始まりの番号）
+
+★選択肢の数について（2026-09-06 に判明）
+  実データを書き出したら 3個=142問 / 4個=84問 / 2個=21問 で、**2択は少数派**だった。
+  公開中の設問はすべて4択。2択専用のままでは1問も移せなかったので、いくつでも入る形に変えた。
 
 ★設問文の HTML について
   ヨリソルの設問文には <br /> と <span style="color:..."> が入っている。
@@ -30,6 +35,7 @@ r"""import_yorisol.py — ヨリソルの設問バンク CSV を、学生ポー�
 from __future__ import annotations
 
 import argparse
+import collections
 import csv
 import html
 import io
@@ -40,7 +46,10 @@ from pathlib import Path
 
 ENCODINGS = ("cp932", "utf-8-sig", "utf-8")
 # question_answers の正解列名。ライブのスキーマと違ったらここだけ直す（--answer-col でも指定可）
-DEFAULT_ANSWER_COL = "correct"
+# ★2026-09-06 に 'correct'（a/b）から correct_idx（何番目か）へ変わった
+DEFAULT_ANSWER_COL = "correct_idx"
+# 1設問あたりの選択肢の上限。question_choices の check (idx between 1 and 12) と合わせること
+MAX_CHOICES = 12
 
 
 # ---------------------------------------------------------------- 読み込み
@@ -103,25 +112,30 @@ def build(qrows: list[dict], arows: list[dict]) -> tuple[list[dict], list[str]]:
         cat = (r.get("カテゴリ名") or "").strip()
 
         if fmt and fmt != "単一選択":
-            warn.append(f"[{sid}] 形式が「{fmt}」＝ポータルは単一選択2択しか持っていない。手当てが要る")
+            warn.append(f"[{sid}] 形式が「{fmt}」＝ポータルは単一選択しか持っていない。手当てが要る")
+            continue
         if not prompt:
             warn.append(f"[{sid}] 設問文が空")
         if "<" in prompt or "&" in prompt:
             warn.append(f"[{sid}] 変換後にまだ < か & が残っている（タグの取りこぼし）")
 
+        # ★選択肢は2個固定ではない（実データは3〜4択が多い）。2〜MAX_CHOICES 個まで受ける。
         ch = by_q.get(sid, [])
-        if len(ch) != 2:
-            warn.append(f"[{sid}] 選択肢が {len(ch)} 個（2個でないと入れられない）")
+        if len(ch) < 2:
+            warn.append(f"[{sid}] 選択肢が {len(ch)} 個（2個以上ないと出題できない）")
+            continue
+        if len(ch) > MAX_CHOICES:
+            warn.append(f"[{sid}] 選択肢が {len(ch)} 個（上限 {MAX_CHOICES} 個）")
             continue
         order_key = "選択肢表示順"
         if all((c.get(order_key) or "").strip().isdigit() for c in ch):
             ch.sort(key=lambda c: int(c[order_key]))
         labels = [html_to_text(need(c, "選択肢/ラベル", "選択肢", "ラベル"))[0] for c in ch]
         flags = [(c.get("正解") or "").strip() for c in ch]
-        correct_idx = [i for i, f in enumerate(flags) if f in ("1", "○", "TRUE", "true", "はい", "Y")]
+        hits = [i for i, f in enumerate(flags) if f in ("1", "○", "TRUE", "true", "はい", "Y")]
 
-        if len(correct_idx) != 1:
-            warn.append(f"[{sid}] 正解が {len(correct_idx)} 個（ちょうど1個であること）")
+        if len(hits) != 1:
+            warn.append(f"[{sid}] 正解が {len(hits)} 個（ちょうど1個であること）")
             continue
         if not all(labels):
             warn.append(f"[{sid}] 空の選択肢がある")
@@ -133,9 +147,8 @@ def build(qrows: list[dict], arows: list[dict]) -> tuple[list[dict], list[str]]:
             "category": cat,
             "seq": seq,
             "prompt": prompt,
-            "choice_a": labels[0],
-            "choice_b": labels[1],
-            "correct": "a" if correct_idx[0] == 0 else "b",
+            "choices": labels,            # 表示順そのまま。番号は 1 から
+            "correct_idx": hits[0] + 1,   # ★何番目が正解か（1始まり）
             "_dropped_styles": dropped,
         })
     return out, warn
@@ -160,10 +173,13 @@ def to_sql(items: list[dict], title: str, lesson: str, answer_col: str) -> str:
     ]
     for it in items:
         L.append(
-            "  insert into questions(quiz_set_id, seq, prompt, choice_a, choice_b) values "
-            f"(v_set, {it['seq']}, {sq(it['prompt'])}, {sq(it['choice_a'])}, {sq(it['choice_b'])}) returning id into v_q;"
+            "  insert into questions(quiz_set_id, seq, prompt) values "
+            f"(v_set, {it['seq']}, {sq(it['prompt'])}) returning id into v_q;"
         )
-        L.append(f"  insert into question_answers(question_id, {answer_col}) values (v_q, {sq(it['correct'])});")
+        vals = ", ".join(f"(v_q, {i}, {sq(lab)})" for i, lab in enumerate(it["choices"], start=1))
+        L.append(f"  insert into question_choices(question_id, idx, label) values {vals};")
+        # ★正解は選択肢を入れたあと（外部キーが選択肢を指しているため）
+        L.append(f"  insert into question_answers(question_id, {answer_col}) values (v_q, {it['correct_idx']});")
     L += ["end $$;", "commit;", ""]
     return "\n".join(L)
 
@@ -196,12 +212,15 @@ def main(argv=None) -> int:
     nl = sum(1 for i in items if "\n" in i["prompt"])
     if nl:
         print(f"改行を含む設問: {nl} 件 — .prompt の white-space:pre-line が要る（対応済み）")
+    if items:
+        dist = collections.Counter(len(i["choices"]) for i in items)
+        print("選択肢の数: " + " / ".join(f"{k}個={v}問" for k, v in sorted(dist.items())))
     if warn:
         print(f"\n⚠ 手当てが要るもの {len(warn)} 件:")
         for w in warn:
             print("   " + w)
     else:
-        print("\n検査: 問題なし（全問 2択・正解1つ・タグの取りこぼしなし）")
+        print("\n検査: 問題なし（全問 単一選択・正解1つ・タグの取りこぼしなし）")
 
     if a.out_json:
         a.out_json.parent.mkdir(parents=True, exist_ok=True)

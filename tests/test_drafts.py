@@ -61,8 +61,10 @@ rec = re.search(r"function draftRecord\(.*?\n\}", idx, re.S)
 rec = rec.group(0) if rec else ""
 check("★端末へ書くのが先、送信はあと（通信が死んでいても消えない）",
       rec.find("draftWriteLocal") != -1 and rec.find("draftWriteLocal") < rec.find("draftFlush"))
-check("答えを選ぶと下書きに入る（旧: answers[...] へ直接代入 ではない）",
-      'draftRecord(questions[cur].id,"a")' in idx and "answers[questions[cur].id]=\"a\"" not in idx)
+check("答えを選ぶと下書きに入る（選択肢ボタンから draftRecord を呼ぶ）",
+      re.search(r"b\.onclick\s*=\s*\(\)=>\{\s*draftRecord\(q\.id,\s*idx\)", idx) is not None)
+check("★保存するのは元の番号で、画面の並び順ではない",
+      "// ★元の番号。画面の位置ではない" in idx and "data-idx" in idx)
 check("下書きの鍵に学生の id が入る（共用端末で他人の分を拾わない）",
       re.search(r"function draftKey[\s\S]{0,240}profile[\s\S]{0,80}id", idx) is not None)
 check("ログアウトで下書きを消す", "draftClearAll(); api.logout()" in idx)
@@ -123,26 +125,26 @@ if "--live" in sys.argv:
             req("/rest/v1/rpc/discard_drafts", tokB, {"p_quiz_set_id": qs})
 
             st, r = req("/rest/v1/rpc/save_draft", tokA,
-                        {"p_quiz_set_id": qs, "p_question_id": qids[0], "p_chosen": "a", "p_client_seq": 1})
+                        {"p_quiz_set_id": qs, "p_question_id": qids[0], "p_chosen": 1, "p_client_seq": 1})
             check("1問ぶん保存できる", st == 200 and r and r.get("ok") is True, f"{st} {r}")
 
             st, back = req(f"/rest/v1/attempt_drafts?select=question_id,chosen,client_seq&quiz_set_id=eq.{qs}", tokA)
-            check("自分の下書きを読み戻せる", st == 200 and len(back or []) == 1 and back[0]["chosen"] == "a", str(back))
+            check("自分の下書きを読み戻せる", st == 200 and len(back or []) == 1 and back[0]["chosen"] == 1, str(back))
 
             # 二重送信: 同じものを2回
             req("/rest/v1/rpc/save_draft", tokA,
-                {"p_quiz_set_id": qs, "p_question_id": qids[0], "p_chosen": "a", "p_client_seq": 1})
+                {"p_quiz_set_id": qs, "p_question_id": qids[0], "p_chosen": 1, "p_client_seq": 1})
             st, back = req(f"/rest/v1/attempt_drafts?select=question_id&quiz_set_id=eq.{qs}", tokA)
             check("★同じ回答が二度届いても行が増えない", len(back or []) == 1, str(len(back or [])))
 
             # 新しい回答 → そのあと古い回答が遅れて届く
             req("/rest/v1/rpc/save_draft", tokA,
-                {"p_quiz_set_id": qs, "p_question_id": qids[0], "p_chosen": "b", "p_client_seq": 5})
+                {"p_quiz_set_id": qs, "p_question_id": qids[0], "p_chosen": 2, "p_client_seq": 5})
             req("/rest/v1/rpc/save_draft", tokA,
-                {"p_quiz_set_id": qs, "p_question_id": qids[0], "p_chosen": "a", "p_client_seq": 2})
+                {"p_quiz_set_id": qs, "p_question_id": qids[0], "p_chosen": 1, "p_client_seq": 2})
             st, back = req(f"/rest/v1/attempt_drafts?select=chosen,client_seq&quiz_set_id=eq.{qs}", tokA)
             check("★遅れて届いた古い回答で新しい回答が消えない",
-                  back and back[0]["chosen"] == "b" and back[0]["client_seq"] == 5, str(back))
+                  back and back[0]["chosen"] == 2 and back[0]["client_seq"] == 5, str(back))
 
             # 他人の下書きは見えない
             st, seen = req(f"/rest/v1/attempt_drafts?select=question_id&quiz_set_id=eq.{qs}", tokB)
@@ -150,21 +152,21 @@ if "--live" in sys.argv:
 
             # テーブルへ直接書けない
             st, _ = req("/rest/v1/attempt_drafts", tokA,
-                        {"quiz_set_id": qs, "question_id": qids[1], "chosen": "a"})
+                        {"quiz_set_id": qs, "question_id": qids[1], "chosen": 1})
             check("★学生はテーブルへ直接 insert できない", st in (401, 403), str(st))
 
             # 別の回の設問を混ぜられない
             st, other = req(f"/rest/v1/questions?select=id&quiz_set_id=neq.{qs}&limit=1", tokA)
             if other:
                 st, _ = req("/rest/v1/rpc/save_draft", tokA,
-                            {"p_quiz_set_id": qs, "p_question_id": other[0]["id"], "p_chosen": "a", "p_client_seq": 1})
+                            {"p_quiz_set_id": qs, "p_question_id": other[0]["id"], "p_chosen": 1, "p_client_seq": 1})
                 check("★別の回の設問は保存できない", st >= 400, str(st))
             else:
                 print("  －  別の回が無いので「混ぜられない」検査は飛ばした")
 
             # 未ログインでは呼べない
             st, _ = req("/rest/v1/rpc/save_draft", None,
-                        {"p_quiz_set_id": qs, "p_question_id": qids[0], "p_chosen": "a", "p_client_seq": 1})
+                        {"p_quiz_set_id": qs, "p_question_id": qids[0], "p_chosen": 1, "p_client_seq": 1})
             check("★未ログイン(anon)では保存できない", st in (401, 403, 404), str(st))
             st, _ = req("/rest/v1/rpc/discard_drafts", None, {"p_quiz_set_id": qs})
             check("★未ログイン(anon)では下書きを消せない", st in (401, 403, 404), str(st))
