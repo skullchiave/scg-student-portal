@@ -49,8 +49,12 @@ python tests/test_surveys.py --live # アンケート定義の検査＋DB往復�
 python tests/run_e2e_survey.py      # ブラウザ実操作: ログイン→アンケート一覧→回答→提出済みが下へ沈む（Chrome必要）
 python scripts/loadtest.py tokens   # 負荷テスト準備: 150名分のログイン（低速・30分）
 python scripts/loadtest.py burst    # 負荷テスト本番: ログイン済み150名の一斉受験
-python -m unittest discover -s tests -p "test_import_yorisol.py"   # ヨリソル設問の変換（DB不要・18項目）
+python -m unittest discover -s tests -p "test_import_yorisol.py"   # ヨリソル設問の変換（DB不要・23項目）
+python -m unittest discover -s tests -p "test_import_fmt_xlsx.py"  # 課題登録FMT(Excel)の変換（DB不要・45項目）
 ```
+
+※ `discover` は**パターンを1ファイル名指しで**使うこと。`-p "test_*.py"` でまとめて走らせると、
+`test_security.py` のように「読み込んだ時点で `sys.exit()` する」書き方のファイルが混ざるため通らない。
 
 ### ヨリソルの設問を取り込む
 
