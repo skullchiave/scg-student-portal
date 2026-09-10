@@ -33,8 +33,16 @@ r"""import_fmt_xlsx.py — 「課題登録FMT」の Excel を、学生ポータ�
   設問には「添付ファイル名」列があり、実データでも 200問中2問で使われている
   （7-9-⑮ゴミ出し.png など）。**今のポータルは画像を出さない**。
   ただし **データは捨てない**＝JSON には image_name を必ず書き出す。
-  こうしておけば、後から画面と列を足すだけで済む（作り直しにならない）。
-  SQL には出さない（今のスキーマに列が無いため。--with-image で出せる）。
+  ★画像そのものは Supabase に入れない。持つのはファイル名だけで、出すときは
+    学校の Google ドライブ側の配信口を使う（顔写真を入れないと決めたのと同じ考え方）。
+
+■ 足りなかった4つ（2026-09-10 に列を足した）
+  画像・カテゴリ・配点・解説は、以前は JSON にだけ残して SQL には出していなかった
+  ＝**DBに入れた時点で消えていた**。db/2026-09-10_question_columns.sql で列を足したので、
+  既定（--schema 2026-09-10）ではこの4つも SQL に書く。
+  🔴 **解説だけ入れ先が違う**＝questions ではなく question_answers（教師のみ読める表）。
+     questions は「公開中の回なら学生が読める」ので、置くと受験前に解説＝正解が漏れる。
+  列を足していない相手へ書き出すときは --schema 2026-09-06（★その4つは捨てられる）。
 
 ■ 使い方
   py -X utf8 scripts\import_fmt_xlsx.py --xlsx "...\★ヨリソル_まとめテストⅠ（作成用）.xlsx"
@@ -44,11 +52,14 @@ r"""import_fmt_xlsx.py — 「課題登録FMT」の Excel を、学生ポータ�
       --sheet "①1-3 （新）" --title-prefix "つなぐ日本語初級 まとめテスト" ^
       --out-json tmp\q.json --out-sql tmp\q.sql
 
-■ 出力（ポータルのスキーマ）
-  quiz_sets(title, lesson, is_open)          … 1シートにつき1件。**is_open は false**
-  questions(quiz_set_id, seq, prompt)        … 問題文1と問題文2を改行でつなぐ
-  question_choices(question_id, idx, label)  … 空でない選択肢を1から詰める
-  question_answers(question_id, <正解列>)    … 値は「何番目が正解か」（1始まり）
+■ 出力（ポータルのスキーマ・既定 --schema 2026-09-10）
+  quiz_sets(title, lesson, is_open)                    … 1シートにつき1件。**is_open は false**
+  questions(quiz_set_id, seq, prompt,
+            image_name, category, points)              … 問題文1と問題文2を改行でつなぐ
+  question_choices(question_id, idx, label)            … 空でない選択肢を1から詰める
+  question_answers(question_id, <正解列>, explanation) … 値は「何番目が正解か」（1始まり）
+  ⓘ quiz_set_questions（②と①をつなぐ表）への登録は書かない。
+    db/2026-09-10_four_layers.sql のトリガ questions_sync_set_link が自動で入れる。
 """
 from __future__ import annotations
 
@@ -78,6 +89,10 @@ EXPECTED_HEADERS = {
 
 # question_answers の正解列名。ライブのスキーマと違ったらここだけ直す（--answer-col でも指定可）
 DEFAULT_ANSWER_COL = "correct_idx"
+# 出力するスキーマの世代。★2026-09-10 に questions へ image_name / category / points、
+# question_answers へ explanation を足した（db/2026-09-10_question_columns.sql）。
+# その SQL をまだ流していない相手へ書き出すときだけ 2026-09-06 を指定する。
+SCHEMA_NEW, SCHEMA_OLD = "2026-09-10", "2026-09-06"
 # 1設問あたりの選択肢の上限。question_choices の check (idx between 1 and 12) と合わせること
 MAX_CHOICES = 12
 # テンプレート本体とみなすシート名の目印
@@ -410,18 +425,35 @@ def sq(s: str) -> str:
     return "'" + s.replace("'", "''") + "'"
 
 
-def to_sql(sets: list[dict], answer_col: str, with_image: bool) -> str:
+def nq(v) -> str:
+    """null 許容の値を SQL に。空・None は null。"""
+    if v is None or v == "":
+        return "null"
+    return str(v) if isinstance(v, int) else sq(str(v))
+
+
+def to_sql(sets: list[dict], answer_col: str, schema: str = SCHEMA_NEW) -> str:
     # ★設問が1件も無い回は作らない（空の回が学生の一覧に並んでしまうため）
     sets = [s for s in sets if s["questions"]]
     n = sum(len(s["questions"]) for s in sets)
+    new = schema == SCHEMA_NEW
     L = [
         "-- 課題登録FMT の Excel → 学生ポータル（scripts/import_fmt_xlsx.py が生成）",
-        f"-- 回 {len(sets)} 件 / 設問 {n} 件 / 正解列 = {answer_col}",
+        f"-- 回 {len(sets)} 件 / 設問 {n} 件 / 正解列 = {answer_col} / スキーマ = {schema}",
         "-- ★ is_open = false で作る。中身を確かめてから教師画面で公開すること",
         "-- ★ 流す前に: 正解列の名前が実際のスキーマと合っているかだけ確認（--answer-col で変えられる）",
     ]
-    if with_image:
-        L.append("-- ⚠ --with-image 付き: questions.image_name に書き込む。**先に列を足しておくこと**")
+    if new:
+        L += [
+            "-- ★ db/2026-09-10_question_columns.sql を先に流しておくこと",
+            "--    （image_name / category / points / explanation の4列を使う）",
+            "-- ⚠ 解説は questions ではなく question_answers に入れる＝**学生から読めない表**。",
+            "--    questions に置くと、公開中の回の解説を受験前に読めてしまう。",
+            "-- ⓘ quiz_set_questions への登録は、db/2026-09-10_four_layers.sql の",
+            "--    トリガ questions_sync_set_link が自動でやる（ここでは書かない）。",
+        ]
+    else:
+        L.append("-- ⚠ --schema 2026-09-06: 画像・カテゴリ・配点・解説は**捨てられる**（列が無いため）")
     L += ["begin;", "do $$", "declare v_set uuid; v_q uuid;", "begin"]
 
     for s in sets:
@@ -430,14 +462,18 @@ def to_sql(sets: list[dict], answer_col: str, with_image: bool) -> str:
                  f"({sq(s['title'])}, {sq(s['lesson'])}, false) returning id into v_set;")
         for it in s["questions"]:
             cols, vals = "quiz_set_id, seq, prompt", f"v_set, {it['seq']}, {sq(it['prompt'])}"
-            if with_image:
-                cols += ", image_name"
-                vals += f", {sq(it['image_name']) if it['image_name'] else 'null'}"
+            if new:
+                cols += ", image_name, category, points"
+                vals += f", {nq(it['image_name'])}, {nq(it['category'])}, {nq(it['points'])}"
             L.append(f"  insert into questions({cols}) values ({vals}) returning id into v_q;")
             ch = ", ".join(f"(v_q, {i}, {sq(lab)})" for i, lab in enumerate(it["choices"], start=1))
             L.append(f"  insert into question_choices(question_id, idx, label) values {ch};")
             # ★正解は選択肢を入れたあと（外部キーが選択肢を指しているため）
-            L.append(f"  insert into question_answers(question_id, {answer_col}) values (v_q, {it['correct_idx']});")
+            acols, avals = f"question_id, {answer_col}", f"v_q, {it['correct_idx']}"
+            if new:
+                acols += ", explanation"
+                avals += f", {nq(it['explanation'])}"
+            L.append(f"  insert into question_answers({acols}) values ({avals});")
 
     L += ["end $$;", "commit;", ""]
     return "\n".join(L)
@@ -457,8 +493,10 @@ def main(argv=None) -> int:
     ap.add_argument("--answer-col", default=DEFAULT_ANSWER_COL)
     ap.add_argument("--ruby", choices=("keep", "strip", "html"), default="keep",
                     help="ルビ ${漢字}(よみ) の扱い。keep=そのまま（既定）／strip=消す／html=<ruby>タグ")
-    ap.add_argument("--with-image", action="store_true",
-                    help="questions.image_name にも書き出す（★先に列を足しておくこと）")
+    ap.add_argument("--schema", choices=(SCHEMA_NEW, SCHEMA_OLD), default=SCHEMA_NEW,
+                    help="出力するスキーマの世代。既定 2026-09-10＝画像・カテゴリ・配点・解説も書く"
+                         "（db/2026-09-10_question_columns.sql を先に流しておくこと）。"
+                         "2026-09-06＝それらの列が無い相手向け（★その4つは捨てられる）")
     ap.add_argument("--allow-duplicate-lesson", action="store_true",
                     help="同じ課の範囲のシートが複数あっても SQL を書く（既定は書かない）")
     ap.add_argument("--out-json", type=Path)
@@ -506,8 +544,10 @@ def main(argv=None) -> int:
                   "\n   --sheet でどれか1枚を選ぶか、それでよければ --allow-duplicate-lesson を付けてください。")
             return 1
         a.out_sql.parent.mkdir(parents=True, exist_ok=True)
-        a.out_sql.write_text(to_sql(sets, a.answer_col, a.with_image), encoding="utf-8")
-        print(f"SQL を書いた: {a.out_sql}")
+        a.out_sql.write_text(to_sql(sets, a.answer_col, a.schema), encoding="utf-8")
+        print(f"SQL を書いた: {a.out_sql}（スキーマ {a.schema}）")
+        if a.schema == SCHEMA_OLD:
+            print("   ⚠ 画像・カテゴリ・配点・解説は SQL に出していません（この世代には列が無いため）")
 
     if not a.out_json and not a.out_sql:
         print("\n（--out-json / --out-sql を付けるとファイルに書きます）")

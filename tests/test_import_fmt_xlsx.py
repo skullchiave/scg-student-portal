@@ -210,7 +210,7 @@ class DroppedTest(Tmp):
     def test_empty_set_makes_no_quiz_set_in_sql(self):
         """…ただし SQL には出さない。空の回が学生の一覧に並ぶため。"""
         sets, _ = self.build({"①1-3": [qrow(1, ans="")], "②4-6": [qrow(1)]})
-        s = fx.to_sql(sets, "correct_idx", False)
+        s = fx.to_sql(sets, "correct_idx")
         self.assertEqual(s.count("insert into quiz_sets"), 1)
         self.assertIn("-- 回 1 件", s)
 
@@ -469,15 +469,17 @@ class NamingTest(unittest.TestCase):
 class SqlTest(Tmp):
     def sql(self, sheets, **kw):
         sets, _ = self.build(sheets)
-        return fx.to_sql(sets, kw.get("answer_col", "correct_idx"), kw.get("with_image", False))
+        return fx.to_sql(sets, kw.get("answer_col", "correct_idx"),
+                         kw.get("schema", fx.SCHEMA_NEW))
 
     def test_three_tables_and_is_open_false(self):
         s = self.sql({"①1-3": [qrow(1, choices=("あ", "い", "う"), ans=2)]})
         self.assertIn("insert into quiz_sets(title, lesson, is_open)", s)
         self.assertIn("false", s)
-        self.assertIn("insert into questions(quiz_set_id, seq, prompt)", s)
+        self.assertIn("insert into questions(quiz_set_id, seq, prompt", s)
         self.assertIn("insert into question_choices(question_id, idx, label)", s)
-        self.assertIn("insert into question_answers(question_id, correct_idx) values (v_q, 2)", s)
+        self.assertIn("insert into question_answers(question_id, correct_idx", s)
+        self.assertIn("values (v_q, 2,", s)
 
     def test_choices_are_numbered_from_one(self):
         s = self.sql({"①1-3": [qrow(1, choices=("あ", "い", "う"))]})
@@ -490,21 +492,74 @@ class SqlTest(Tmp):
 
     def test_answer_col_can_be_changed(self):
         s = self.sql({"①1-3": [qrow(1)]}, answer_col="correct")
-        self.assertIn("question_answers(question_id, correct)", s)
+        self.assertIn("question_answers(question_id, correct,", s)
+        self.assertIn("正解列 = correct", s)
 
-    def test_image_not_written_by_default(self):
-        s = self.sql({"③7-9": [qrow(1, image="a.png")]})
-        self.assertNotIn("image_name", s)
+    # ---- 足りなかった4列（2026-09-10 に db/2026-09-10_question_columns.sql で追加） ----
 
-    def test_image_written_with_flag(self):
-        s = self.sql({"③7-9": [qrow(1, image="a.png")]}, with_image=True)
-        self.assertIn("image_name", s)
+    def test_extra_columns_written_by_default(self):
+        """★以前は JSON にしか残らず、DBに入れた時点で消えていた4つ。"""
+        s = self.sql({"③7-9": [qrow(1, image="a.png", cat="文法", points=5, explain="かいせつ")]})
+        self.assertIn("image_name, category, points", s)
         self.assertIn("'a.png'", s)
+        self.assertIn("'文法'", s)
+        self.assertIn("5", s)
+        self.assertIn("'かいせつ'", s)
+
+    def test_explanation_goes_to_answers_not_questions(self):
+        """🔴 解説を questions に置くと、公開中の回の学生が受験前に読める＝正解が漏れる。
+        入れ先は question_answers（教師しか読めない表）でなければならない。"""
+        s = self.sql({"①1-3": [qrow(1, explain="ここが正解の理由")]})
+        q_line = next(l for l in s.splitlines() if "insert into questions(" in l)
+        a_line = next(l for l in s.splitlines() if "insert into question_answers(" in l)
+        self.assertNotIn("explanation", q_line)
+        self.assertNotIn("ここが正解の理由", q_line)
+        self.assertIn("explanation", a_line)
+        self.assertIn("'ここが正解の理由'", a_line)
+
+    def test_missing_extras_become_null(self):
+        """空欄は null。空文字を入れると「書かれていない」と「空と書いた」が混ざる。"""
+        s = self.sql({"①1-3": [qrow(1, image="", cat="", points="", explain="")]})
+        q_line = next(l for l in s.splitlines() if "insert into questions(" in l)
+        a_line = next(l for l in s.splitlines() if "insert into question_answers(" in l)
+        self.assertTrue(q_line.rstrip().endswith("null, null, null) returning id into v_q;"))
+        self.assertIn("null);", a_line)
+
+    def test_points_is_written_as_a_number(self):
+        s = self.sql({"①1-3": [qrow(1, points=3)]})
+        q_line = next(l for l in s.splitlines() if "insert into questions(" in l)
+        self.assertIn(", 3)", q_line)
+        self.assertNotIn("'3'", q_line)
+
+    def test_old_schema_drops_the_four(self):
+        """列を足していない相手向け。★4つは捨てられるので、その旨が SQL に書いてある。"""
+        s = self.sql({"③7-9": [qrow(1, image="a.png", explain="かいせつ")]},
+                     schema=fx.SCHEMA_OLD)
+        self.assertNotIn("image_name", s)
+        self.assertNotIn("category", s)
+        self.assertNotIn("explanation", s)
+        self.assertNotIn("'a.png'", s)
+        self.assertIn("捨てられる", s)
+
+    def test_schema_generation_is_recorded_in_the_sql(self):
+        """どちらの世代で書き出したのかが、ファイルを見れば分かること。"""
+        self.assertIn(f"スキーマ = {fx.SCHEMA_NEW}", self.sql({"①1-3": [qrow(1)]}))
+        self.assertIn(f"スキーマ = {fx.SCHEMA_OLD}",
+                      self.sql({"①1-3": [qrow(1)]}, schema=fx.SCHEMA_OLD))
+
+    def test_quiz_set_questions_is_left_to_the_trigger(self):
+        """②と①をつなぐ表はトリガが埋める。ここで二重に書かない。"""
+        s = self.sql({"①1-3": [qrow(1)]})
+        self.assertNotIn("insert into quiz_set_questions", s)
 
     def test_transaction_wraps_everything(self):
+        """★行番号で数えない（先頭の注意書きが増えるたびに落ちるため）。
+        「最初の中身の行が begin; で、最後が commit;」であることを見る。"""
         s = self.sql({"①1-3": [qrow(1)]})
-        self.assertTrue(s.splitlines()[4].startswith("begin;"))
-        self.assertIn("commit;", s)
+        body = [l for l in s.splitlines() if l.strip() and not l.lstrip().startswith("--")]
+        self.assertEqual(body[0], "begin;")
+        self.assertEqual(body[-1], "commit;")
+        self.assertLess(s.index("begin;"), s.index("insert into"))
 
 
 # ------------------------------------------------------------------ main（入口）
@@ -512,8 +567,9 @@ class MainTest(Tmp):
     def run_main(self, argv) -> tuple[int, str]:
         """★画面出力は受け止めてから返す。
         素のまま呼ぶと、同じ実行で先に走った別のテストが標準出力を閉じていた場合に
-        print で落ちる（このリポの test_*.py にはモジュール読み込み時に sys.exit する
-        書き方のものがあるため）。テストが実行の順番に左右されないようにする。"""
+        print で落ちる。テストが実行の順番に左右されないようにする。
+        ※ その原因（モジュール読み込み時に sys.exit する書き方・stdout の二重ラップ）は
+          2026-09-10 に解消済み。この受け止め自体は無害なので残してある。"""
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             rc = fx.main(argv)
