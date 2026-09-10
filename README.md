@@ -50,7 +50,8 @@ python tests/run_e2e_survey.py      # ブラウザ実操作: ログイン→ア�
 python scripts/loadtest.py tokens   # 負荷テスト準備: 150名分のログイン（低速・30分）
 python scripts/loadtest.py burst    # 負荷テスト本番: ログイン済み150名の一斉受験
 python -m unittest discover -s tests -p "test_import_yorisol.py"   # ヨリソル設問の変換（DB不要・23項目）
-python -m unittest discover -s tests -p "test_import_fmt_xlsx.py"  # 課題登録FMT(Excel)の変換（DB不要・45項目）
+python -m unittest discover -s tests -p "test_import_fmt_xlsx.py"  # 課題登録FMT(Excel)の変換（DB不要・72項目）
+python -m unittest discover -s tests -p "test_ruby.py"             # ルビ表示と innerHTML の見張り（DB不要・17項目）
 ```
 
 ※ `discover` は**パターンを1ファイル名指しで**使うこと。`-p "test_*.py"` でまとめて走らせると、

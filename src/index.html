@@ -1127,6 +1127,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="assets/exam-dates.js"></script>
+<script src="assets/ruby.js"></script>
 <script src="assets/i18n.js"></script>
 <script src="assets/api.js"></script>
 <script src="assets/surveys.js"></script>
@@ -1442,7 +1443,8 @@ function render(){
   const q=questions[cur];
   $("qnum").textContent = (cur+1)+" / "+questions.length;
   $("qfill").style.width = (cur/questions.length*100)+"%";
-  $("qprompt").textContent = t("q.prompt") + q.prompt;
+  // ★設問文は ${漢字}(よみ) を含むので rubyHtml を通す（中でエスケープしてからタグに戻す）
+  $("qprompt").innerHTML = escHtml(t("q.prompt")) + rubyHtml(q.prompt);
 
   const chosen = answers[q.id];                 // ★元の番号。画面の位置ではない
   const box = $("choices");
@@ -1454,7 +1456,7 @@ function render(){
     b.className = "choice" + (chosen===idx ? " sel" : "");
     b.setAttribute("data-idx", idx);
     const m = document.createElement("span"); m.className = "mark"; m.textContent = MARKS[pos] || (pos+1);
-    const s = document.createElement("span"); s.textContent = c ? c.label : "";
+    const s = document.createElement("span"); setRuby(s, c ? c.label : "");   // 選択肢にもルビが入りうる
     b.appendChild(m); b.appendChild(s);
     b.onclick = ()=>{ draftRecord(q.id, idx); render(); };
     box.appendChild(b);
@@ -1494,9 +1496,13 @@ function showResult(r){
     const row=document.createElement("div"); row.className="rrow";
     const hit = q.choices.find(c=>c.idx===item.correct);
     const correctTxt = hit ? hit.label : "";
+    // 🔴 ここは以前、設問文と正解を**素のまま**innerHTML に入れていた（タグがそのまま効く状態）。
+    //    出題画面は textContent で安全だったのに、結果画面だけ穴が開いていた。
+    //    ルビ対応にあわせて、設問文も正解も必ず rubyHtml を通す（中でエスケープしてから戻す）。
     row.innerHTML =
       "<span class='rmark "+(item.is_correct?"ok'>○":"ng'>✕")+"</span>"+
-      "<div class='rbody'>"+item.seq+". "+q.prompt+"<br>"+t("r.ans")+"<span class='ans'>"+correctTxt+"</span></div>";
+      "<div class='rbody'>"+item.seq+". "+rubyHtml(q.prompt)+"<br>"+escHtml(t("r.ans"))+
+      "<span class='ans'>"+rubyHtml(correctTxt)+"</span></div>";
     list.appendChild(row);
   });
   show("scr-result");
