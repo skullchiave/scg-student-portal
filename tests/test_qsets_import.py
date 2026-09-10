@@ -94,6 +94,42 @@ class StructureTest(CheckMixin, unittest.TestCase):
         self.check("★4列が無い場合はその4つを外して insert する分岐がある",
               "cols.questionExtra" in js and "cols.explanation" in js)
 
+    def test_05b_draft_first_and_safe_delete(self):
+        """公開・停止・削除（2026-09-11 きあ決定 b）。
+
+        🔴 ここで見ているのは2つの決めごと:
+          ①取り込みは**下書き**で入る（取り込んだ瞬間に学生へ出る事故を無くす）
+          ②削除は**必ず RPC 経由**（quiz_sets を直接 DELETE すると cascade で受験記録まで消え、
+            しかも cascade は RLS を通らない）
+        """
+        print("\n=== 5b. 下書きで登録・消し方（DB不要）===")
+        js, tea = read(FMTJS), read(TEACHER)
+        self.check("★登録は is_open:false（下書き）で入る", "is_open: false" in js)
+        self.check("★is_open:true で作る書き方が残っていない", "is_open: true" not in js)
+        self.check("公開・停止の切り替えがある（setOpen）", "function setOpen" in js and "setOpen" in tea)
+        self.check("★削除は RPC delete_quiz_set を呼んでいる", "rpc/delete_quiz_set" in js)
+        self.check("★quiz_sets を直接 DELETE する書き方が fmt-import.js に無い",
+              not any('"DELETE"' in l and "quiz_sets" in l for l in js.splitlines()))
+        self.check("押す前に受験記録の件数を数える口がある（attemptCount）", "function attemptCount" in js)
+        self.check("画面が「受験記録があるので消せません」を出す", "消せません" in tea)
+        self.check("公開・削除は押す前に確認する（confirm）", tea.count("confirm(") >= 2)
+        self.check("④の文言が「登録」になっている（公開は一覧で押す）",
+              "登録する（下書き）" in tea)
+
+    def test_05c_delete_rpc_sql_exists(self):
+        """SQL 側の見張り。★受験記録があるときに消さないことが本体。"""
+        print("\n=== 5c. delete_quiz_set の SQL（DB不要）===")
+        sql_path = os.path.join(ROOT, "db", "2026-09-11_delete_quiz_set.sql")
+        self.check("db/2026-09-11_delete_quiz_set.sql がある", os.path.exists(sql_path), sql_path)
+        if not os.path.exists(sql_path):
+            return
+        sql = read(sql_path)
+        self.check("教師だけが呼べる", "app_hidden.is_teacher()" in sql)
+        self.check("★受験記録を数えて、1件でもあれば例外にする",
+              "from public.attempts" in sql and "raise exception" in sql)
+        self.check("anon から revoke している", "from anon" in sql)
+        self.check("巻き戻し手順が書いてある", "巻き戻" in sql)
+
     def test_06_no_db_write_outside_publish(self):
         print("\n=== 6. 公開以外でDBに書き込まない（DB不要）===")
         js = read(FMTJS)

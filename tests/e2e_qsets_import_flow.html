@@ -111,21 +111,60 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
   step("修正していない2問目はそのまま出る（上書きされていない）",
        $("qs-preview-list").textContent.includes("ダミー設問2"));
 
-  // ---- ④公開 ----
+  // ---- ④登録（★下書きで入る。取り込んだ瞬間に学生へ出ないこと） ----
   $("qs-btn-to3").click(); await until(() => !$("qs-step-3").hidden);
   $("qs-btn-to4").click();
-  step("④公開画面に入る", await until(() => !$("qs-step-4").hidden));
-  step("公開対象が1回・2問と出る", $("qs-publish-summary").textContent.includes("2"));
+  step("④登録画面に入る", await until(() => !$("qs-step-4").hidden));
+  step("登録対象が1回・2問と出る", $("qs-publish-summary").textContent.includes("2"));
   $("qs-btn-publish").click();
-  step("公開できる（本物のデモDBに書き込み）",
-       await until(() => $("qs-publish-msg").textContent.includes("公開しました"), 20000),
+  step("登録できる（本物のデモDBに書き込み）",
+       await until(() => $("qs-publish-msg").textContent.includes("登録しました"), 20000),
        $("qs-publish-msg").textContent);
 
   // ---- 一覧に出るか（読み戻し）----
-  step("公開後に一覧へ戻る", await until(() => !$("qs-pane-list").hidden, 5000));
+  step("登録後に一覧へ戻る", await until(() => !$("qs-pane-list").hidden, 5000));
   await until(() => $("qs-list-tbl").textContent.includes(TITLE_PREFIX), 8000);
-  step("★公開した回が一覧に出て「公開中」になっている",
-       $("qs-list-tbl").textContent.includes(TITLE_PREFIX) && $("qs-list-tbl").textContent.includes("公開中"));
+  const rowOf = () => Array.from($("qs-list-tbl").querySelectorAll("tr[data-qsid]"))
+    .filter(tr => tr.textContent.includes(TITLE_PREFIX))[0];
+  step("★取り込んだ直後は「下書き」＝学生にはまだ見えない",
+       !!rowOf() && rowOf().textContent.includes("下書き"),
+       rowOf() ? rowOf().textContent.slice(0, 80) : "行が無い");
+
+  // ---- 公開／停止のトグル ----
+  // ★confirm は自動では押せないので、この間だけ「はい」を返すように差し替える
+  const realConfirm = w.confirm; w.confirm = () => true;
+  try {
+    // ★画面の知らせを合図にする（＝一覧の読み直しが終わったあとに出る）。
+    //   DOM を素で見張ると、--virtual-time-budget の下では読み直しと競合して当てにならない。
+    rowOf().querySelector(".qs-toggle").click();
+    const okPub = await until(() => $("qs-list-msg").textContent.includes("公開しました"), 20000);
+    // ★画面とDBの両方を見る。片方だけだと「DBは変わったのに画面が古い」を見逃す
+    const inDb = await w.__e2e.get("/rest/v1/quiz_sets?select=id,is_open&" +
+      "title=like." + encodeURIComponent(TITLE_PREFIX + "*"));
+    // 🔴 **画面の行数と、一覧が受け取った件数が一致すること。**
+    //   古い行が残っても「新しい行はある」ので、行の中身だけ見ていると気づけない。
+    //   2026-09-11 に、再描画のたびに古い行が1行ずつ生き残る作りを踏んだ（DOM 14行 / DB 4件）。
+    const onScreen = $("qs-list-tbl").querySelectorAll("tr[data-qsid]").length;
+    const received = (w.__e2e.lastSets || []).length;
+    step("★一覧の行数が、受け取った件数とぴったり同じ（古い行が残っていない）",
+         onScreen === received && received > 0, "画面 " + onScreen + "行 / 受け取り " + received + "件");
+    step("★「公開」を押すと、DBも一覧の表示も公開中になる",
+         okPub && !!rowOf() && rowOf().textContent.includes("公開中") &&
+         inDb.length === 1 && inDb[0].is_open === true,
+         "画面=" + (rowOf() ? rowOf().textContent.slice(0, 50) : "無し") +
+         " / DB=" + JSON.stringify(inDb.map(r => r.is_open)) +
+         " / 知らせ=" + $("qs-list-msg").textContent.slice(0, 40));
+
+    rowOf().querySelector(".qs-toggle").click();
+    const okStop = await until(() => $("qs-list-msg").textContent.includes("停止しました"), 20000);
+    const inDb2 = await w.__e2e.get("/rest/v1/quiz_sets?select=id,is_open&" +
+      "title=like." + encodeURIComponent(TITLE_PREFIX + "*"));
+    step("★「停止」を押すと、DBも一覧の表示も下書きに戻る",
+         okStop && !!rowOf() && rowOf().textContent.includes("下書き") &&
+         inDb2.length === 1 && inDb2[0].is_open === false,
+         "画面=" + (rowOf() ? rowOf().textContent.slice(0, 50) : "無し") +
+         " / DB=" + JSON.stringify(inDb2.map(r => r.is_open)));
+  } finally { w.confirm = realConfirm; }
 
   // ---- 片付け（ダミーを消す。消せたことまで確認する）----
   // ★w.api は const 宣言なので iframe外から拾えない。teacher.html が窓口として出している __e2e を使う。
@@ -139,7 +178,9 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
     const rowsFound = await w.__e2e.get("/rest/v1/quiz_sets?select=id,title&" + q);
     foundIds = rowsFound.map(r => r.id);
     for (const id of foundIds) {
-      await w.__e2e.del("/rest/v1/quiz_sets?id=eq." + id);
+      // 🔴 直接 DELETE しない。quiz_sets の cascade は受験記録まで巻き込み、しかも RLS を通らない。
+      //    delete_quiz_set は受験記録が1件でもあれば断る＝**消してよい範囲だけ**に閉じてある。
+      await w.__e2e.delSet(id);
     }
     // ★確認は「消したID」ではなく「ダミーの目印が付いた回が1件も残っていないか」で見る
     const left = await w.__e2e.get("/rest/v1/quiz_sets?select=id&" + q);

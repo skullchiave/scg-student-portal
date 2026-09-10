@@ -50,7 +50,7 @@
 **まとめて回すのはこの1行**（2026-09-10 に1コマンド化）:
 
 ```
-python -m unittest discover -s tests -p "test_*.py"       # 全部（212項目・DB系は既定でskip）
+python -m unittest discover -s tests -p "test_*.py"       # 全部（218項目・DB系は既定でskip）
 SP_LIVE=1 python -m unittest discover -s tests -p "test_*.py"   # 本物のDBへの往復も込みで全部
 ```
 
@@ -88,12 +88,15 @@ python -m unittest discover -s tests -p "test_ruby.py"             # ルビ表�
 
 ## 問題を登録する（先生の画面・Excelから取り込み）
 
-`teacher.html` の「✏️ 問題の登録・解放」から、課題登録FMT の Excel を**直接読み込んで公開**できる。
-**①Excelを選ぶ → ②プレビューで確認 → ③1問ずつ修正 → ④公開** の4段。
-★**アップロードはしない**（ブラウザの中だけで読む）。DBに書き込むのは「④公開」を押したときだけ。
+`teacher.html` の「✏️ 問題の登録・解放」から、課題登録FMT の Excel を**直接読み込んで登録**できる。
+**①Excelを選ぶ → ②プレビューで確認 → ③1問ずつ修正 → ④登録** の4段。
+★**アップロードはしない**（ブラウザの中だけで読む）。DBに書き込むのは「④登録」を押したときだけ。
+
+🔴 **登録した時点では学生に見えない（下書き）。** 見せるのは一覧で「公開」を押したとき。
+取り込んだ瞬間に学生へ出る事故を無くすため（2026-09-11）。
 
 - 入力: 課題登録FMT形式の `.xlsx`（ローカルのファイルを選ぶだけ）
-- 出力: `quiz_sets(is_open=true)` → `questions` → `question_choices` → `question_answers`
+- 出力: `quiz_sets(is_open=false ＝下書き)` → `questions` → `question_choices` → `question_answers`
   （🔴 **解説は `question_answers` 側**＝学生は提出したあとだけ読める）
 - 場所は URL で決まる: `#qsets`（一覧）／`#qsets/import/1〜4`（各段）。戻る・ブックマークが効く
 - 失敗時の見方: ①で**同じ課の範囲のシートを2枚選ぶと「②プレビューへ」が押せない**（理由が画面に出る）。
@@ -101,8 +104,20 @@ python -m unittest discover -s tests -p "test_ruby.py"             # ルビ表�
 - ⓘ 4列の有無を事前に確かめ、無ければその4つを外して insert する
   （列は 2026-09-10 に投入済みだが、列の無い環境でも落ちない）
 
+### 一覧からできること（2026-09-11）
+
+| 操作 | 何が起きるか |
+|---|---|
+| **公開** | その回が学生の画面に出る（`is_open=true`） |
+| **停止** | 学生の画面から引っ込む。記録は残る |
+| **消す** | 🔴 **受験記録が1件も無い回だけ**消せる。設問も一緒に消える |
+
+🔴 **1人でも受けた回は消せません**（「停止」を使う）。`quiz_sets` を直接 DELETE すると
+外部キーの cascade で**受験記録まで消え、しかも cascade は RLS を通りません**。
+画面は RPC `delete_quiz_set` を通し、その中で受験記録を数えて断ります。
+
 ```
-py -X utf8 -m unittest discover -s tests -p "test_qsets_import.py"   # DB不要・構造+Nodeパリティ・60項目
+py -X utf8 -m unittest discover -s tests -p "test_qsets_import.py"   # DB不要・構造+Nodeパリティ
 py -X utf8 tests/run_e2e_qsets_import.py                             # ブラウザ実操作・デモDBへ往復（要Chrome）
 ```
 
@@ -152,9 +167,11 @@ RPC の `revoke execute ... from anon` 忘れ・列の削除・巻き戻し手�
 | `2026-09-06_multi_choice.sql` | 選択肢を2個固定から「いくつでも」へ | 投入済み |
 | `2026-09-10_question_columns.sql` | 画像・カテゴリ・配点・解説の4列 | 投入済み |
 | `2026-09-10_four_layers.sql` | 設問／問題セット／実施回／回答の4層 | 投入済み |
+| `2026-09-11_delete_quiz_set.sql` | 回を消す RPC（受験記録があれば断る） | 投入済み |
 
 2026-09-10 の2本は**クライアント（`src/`）を1行も変えずに**流した（新しい引数はすべて既定値つき）。
-確認＝全テスト212件 OK・ブラウザ実操作3本とも 0 FAIL・`get_advisors` で ERROR 0件／WARN 11件。
+確認＝全テスト218件 OK・ブラウザ実操作3本とも 0 FAIL・`get_advisors` で ERROR 0件／WARN 11件
+（2026-09-11 の `delete_quiz_set` で 12件になる見込み）。
 巻き戻し手順は各 SQL の末尾にある。
 
 🔴 **意図的に止めてある2つ**（どちらも「片方だけ変えると壊れる」ため）:

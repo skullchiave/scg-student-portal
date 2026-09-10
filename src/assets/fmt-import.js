@@ -359,14 +359,20 @@ FmtImport.db = (() => {
 
   function resetProbeCache() { colsProbed = null; }   // テスト・やり直し用
 
-  /* 1セット（1シートぶん）を公開する。quiz_sets(is_open=true) → questions → question_choices → question_answers の順。
-     ★解説は question_answers 側（学生が受験前に読めないように）。 */
+  /* 1セット（1シートぶん）を登録する。quiz_sets → questions → question_choices → question_answers の順。
+     ★解説は question_answers 側（学生が受験前に読めないように）。
+
+     🔴 **is_open = false（下書き）で作る**（2026-09-11 きあ決定）。
+        取り込んだ瞬間に学生へ出てしまう事故を無くすため。学生に見せるのは、
+        一覧で「公開」を押したとき（＝ setOpen）。
+        ★4月からは実施回（quiz_runs）でクラスごとに開く形になるので、
+          そのとき is_open は「臨時で全員に開く」予備の手段に降りる。 */
   async function publishSet(set) {
-    if (!set.questions.length) throw new Error("設問が1件も無いので公開できません");
+    if (!set.questions.length) throw new Error("設問が1件も無いので登録できません");
     const cols = await probeColumns();
 
     const qs = await authedWrite("POST", "/rest/v1/quiz_sets",
-      { title: set.title, lesson: set.lesson, is_open: true });
+      { title: set.title, lesson: set.lesson, is_open: false });
     const quizSetId = qs[0].id;
 
     for (const q of set.questions) {
@@ -387,5 +393,41 @@ FmtImport.db = (() => {
     return { quizSetId, questionCount: set.questions.length };
   }
 
-  return { probeColumns, resetProbeCache, publishSet, authedGet, authedWrite };
+  /* 公開・停止の切り替え（2026-09-11）。
+     ★これは学生に見えるかどうかを変えるだけで、中身には触らない。
+       教師は quiz_sets のポリシー「teacher manage」で更新できるので、RPC は要らない。 */
+  async function setOpen(quizSetId, open) {
+    const rows = await authedWrite(
+      "PATCH", "/rest/v1/quiz_sets?id=eq." + encodeURIComponent(quizSetId) + "&select=id,is_open",
+      { is_open: !!open });
+    // 🔴 **0行しか変わらなくても PostgREST は 200 を返す。**
+    //    そのまま「公開しました」と言うと、画面は成功と表示して中身は変わらない
+    //    ＝2026-09-11 に実際にそう出た。**変わったことを確かめてから成功と言う。**
+    if (!rows || !rows.length) {
+      throw new Error("その回が見つからないか、変える権限がありません（1行も変わりませんでした）");
+    }
+    if (rows[0].is_open !== !!open) {
+      throw new Error("状態が変わりませんでした（いまは " + (rows[0].is_open ? "公開中" : "下書き") + "）");
+    }
+    return rows[0];
+  }
+
+  /* 登録した回を消す（2026-09-11）。
+     🔴 **必ず RPC を通す。** quiz_sets を直接 DELETE すると、外部キーの cascade で
+        その回の受験記録まで一緒に消える（しかも cascade は RLS を通らない）。
+        delete_quiz_set は受験記録が1件でもあれば例外にする＝**消してよい範囲だけに閉じてある**。
+        db/2026-09-11_delete_quiz_set.sql を見よ。 */
+  async function deleteSet(quizSetId) {
+    return await authedWrite("POST", "/rest/v1/rpc/delete_quiz_set", { p_quiz_set_id: quizSetId });
+  }
+
+  /* その回に受験記録が何件あるか（消せるかどうかを押す前に出すため）。 */
+  async function attemptCount(quizSetId) {
+    const rows = await authedGet(
+      "/rest/v1/attempts?select=id&quiz_set_id=eq." + encodeURIComponent(quizSetId) + "&limit=1000");
+    return rows.length;
+  }
+
+  return { probeColumns, resetProbeCache, publishSet, setOpen, deleteSet, attemptCount,
+           authedGet, authedWrite };
 })();

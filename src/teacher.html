@@ -45,21 +45,33 @@
   .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:18px;}
   .kpi .stat{margin:0;}
   .kpi .stat .s{font-size:.74rem;color:var(--sub);margin-top:2px;}
-  .chk{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:.92rem;}
+  /* 🔴 .field の中に置くときは app.css の2行に負けるので、そこまで含めて指定する。
+     app.css:70 .field label{display:block}      → .chk の display:flex が消える
+     app.css:71 .field input{width:100%;padding:13px 14px} → チェックボックスが全幅になり、
+     ラベルが次の行へ落ちる（2026-09-11 に実際にそう表示された）。
+     ★app.css は学生画面と共通なので、直すのは必ずこちら側。 */
+  .chk,.field label.chk{display:flex;align-items:flex-start;gap:10px;padding:8px 0;
+    border-bottom:1px solid var(--line);font-size:.92rem;font-weight:400;color:var(--ink);margin-bottom:0;}
   .chk input{margin-top:4px;}
+  /* app.css の width:100% は「文字を入れる欄」のためのもの。
+     チェックボックスとラジオは元の大きさに戻す（これが無いと押す場所が分からなくなる） */
+  .field input[type=checkbox],.field input[type=radio],
+  .chk input[type=checkbox],.chk input[type=radio]{
+    width:auto;min-width:0;padding:0;flex:none;}
   .note{font-size:.82rem;color:var(--sub);line-height:1.7;margin-top:8px;}
   /* 画面を離れた記録の注記。★警告色にしない＝赤くすると「不正の告発」に読める（方針で否定した使い方） */
   .focusnote{margin-top:12px;padding:10px 12px;border-radius:8px;background:#f4f6f9;
     border:1px solid var(--line);font-size:.82rem;line-height:1.65;}
   .focusnote .sub{color:var(--sub);font-size:.76rem;}
-  /* 問題の登録・解放（①取り込み→②プレビュー→③修正→④公開） */
+  /* 問題の登録・解放（①取り込み→②プレビュー→③修正→④登録） */
   .wizsteps{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
   .wizstep{flex:1;min-width:120px;text-align:center;padding:9px 6px;border-radius:11px;
     border:1px solid var(--line);background:var(--surface);font-size:.82rem;font-weight:700;color:var(--sub);}
   .wizstep .wn{display:inline-block;margin-right:4px;}
   .wizstep.on{background:var(--blue);border-color:var(--blue);color:#fff;}
   .wizstep.done{background:#eaf6ed;border-color:#bfe3c8;color:var(--ok);}
-  .chk{display:flex;align-items:flex-start;gap:10px;padding:6px 0;font-size:.9rem;}
+  /* ⚠ ここに .chk をもう一度書かない。上（本番移行チェックリストと共用）が正。
+     2026-09-11 まで二重に定義されていて、どちらが効いているのか読めなくなっていた。 */
   .qs-q{border-top:1px solid var(--line);padding:10px 0;}
   .qs-q .qno{font-size:.75rem;color:var(--sub);font-weight:700;}
   .qs-q .qp{white-space:pre-line;margin:2px 0 7px;}
@@ -68,6 +80,10 @@
   .qs-choices li{border:1px solid var(--line);border-radius:8px;padding:3px 10px;font-size:.88rem;}
   .qs-choices li.ok{border-color:var(--ok);background:rgba(47,158,68,.1);font-weight:700;}
   .qs-warnbox{font-size:.8rem;color:var(--sub);margin-top:10px;line-height:1.6;}
+  /* 一覧の行に置く操作ボタン。表の行が高くならないように小さくする */
+  .qs-act{white-space:nowrap;}
+  .qs-act .btn{width:auto;padding:5px 12px;font-size:.8rem;margin:0 4px 0 0;}
+  .qs-act .btn:disabled{opacity:.5;}
   @media (max-width:900px){
     .adm{grid-template-columns:1fr;}
     .side{position:static;}
@@ -162,7 +178,7 @@
       </div>
 
       <!-- ══ 問題の登録・解放（動く） ══
-           ①取り込み → ②プレビューで確認 → ③1問ずつ修正 → ④公開 の4段。
+           ①取り込み → ②プレビューで確認 → ③1問ずつ修正 → ④登録 の4段。
            取り込みが主・編集が従＝ゼロから1問ずつ作る画面にはしない（作問はExcelでやる前提）。
            場所はURLで決まる（#qsets・#qsets/import/N）。モーダルの入れ子にしない。 -->
       <div id="view-qsets" data-viewpane hidden>
@@ -173,14 +189,25 @@
           </div>
           <div class="panel">
             <h2>小テスト一覧</h2>
+            <!-- 🔴 thead と tbody を明示する。table に insertAdjacentHTML("beforeend") で <tr> を足すと、
+                 ブラウザが**そのたびに新しい tbody を作る**。すると「先頭以外の行を消す」掃除が
+                 tbody ごとに効いて、**再描画のたびに古い行が1行ずつ生き残る**。
+                 2026-09-11 に実際にそうなった（DOMは14行、DBは4件。しかも古い行が上に残るので、
+                 「公開を押したのに下書きのまま」に見えた）。★行の入れ替えは tbody の innerHTML で行う。 -->
             <div class="tblwrap"><table class="tbl" id="qs-list-tbl">
-              <tr><th>テスト名</th><th>課</th><th>状態</th></tr>
+              <thead><tr><th>テスト名</th><th>課</th><th>状態</th><th>操作</th></tr></thead>
+              <tbody id="qs-list-body"></tbody>
             </table></div>
             <div class="note" id="qs-list-note">読み込み中…</div>
+            <div class="note"><b>公開</b>を押すと、その回が学生の画面に出ます。<b>停止</b>で引っ込みます。<br>
+              <b>消す</b>は<b>受験記録が1件も無い回だけ</b>できます（取り込みを間違えたときの後始末用）。
+              ★<b>1人でも受けた回は消せません。</b>停止にしてください＝
+              <u>受けた記録を消してしまう作りにはしない</u>という決めごとです</div>
+            <div class="msg" id="qs-list-msg"></div>
           </div>
           <div class="note">Excelは「課題登録FMT」の形式だけ読めます（先生が問題を書く1枚もの）。
             アップロードはしません。選んだファイルはブラウザの中だけで読み、そのままDBに送るのは
-            「④公開」を押したときだけです。</div>
+            「④登録」を押したときだけです。★登録しても<b>学生にはまだ見えません（下書き）</b>。見せるときは一覧の「公開」を押します。</div>
         </div>
 
         <div id="qs-pane-wizard" hidden>
@@ -188,7 +215,7 @@
             <div class="wizstep" data-step="1"><span class="wn">①</span>取り込み</div>
             <div class="wizstep" data-step="2"><span class="wn">②</span>プレビュー</div>
             <div class="wizstep" data-step="3"><span class="wn">③</span>1問ずつ修正</div>
-            <div class="wizstep" data-step="4"><span class="wn">④</span>公開</div>
+            <div class="wizstep" data-step="4"><span class="wn">④</span>登録</div>
           </div>
 
           <!-- ① 取り込み -->
@@ -227,19 +254,21 @@
             </div>
             <div class="btnrow" style="margin-top:14px;">
               <button class="btn ghost" id="qs-btn-to2b" type="button">②プレビューへ戻る</button>
-              <button class="btn" id="qs-btn-to4" type="button">④公開へ</button>
+              <button class="btn" id="qs-btn-to4" type="button">④登録へ</button>
             </div>
           </div>
 
           <!-- ④ 公開 -->
           <div class="panel" id="qs-step-4" data-step-pane hidden>
-            <h2>④公開</h2>
+            <h2>④登録</h2>
             <div id="qs-publish-summary"></div>
-            <div class="note">公開すると、その回はすぐに学生画面に表示されます（is_open = true）。
-              取り消せますが、二重に公開しないよう1回だけ押してください。<b>ダミーの設問は入れないこと。</b></div>
+            <div class="note">🔴 <b>登録した時点では、学生にはまだ見えません（下書き）。</b>
+              学生に見せるときは、一覧に戻って<b>「公開」を押します</b>。<br>
+              ★こうしてあるのは、<b>取り込んだ瞬間に学生へ出てしまう事故を無くすため</b>です。
+              二重に登録しないよう1回だけ押してください。<b>ダミーの設問は入れないこと。</b></div>
             <div class="btnrow">
               <button class="btn ghost" id="qs-btn-to3b" type="button">③へ戻る</button>
-              <button class="btn" id="qs-btn-publish" type="button">この内容で公開する</button>
+              <button class="btn" id="qs-btn-publish" type="button">この内容で登録する（下書き）</button>
             </div>
             <div class="msg" id="qs-publish-msg"></div>
           </div>
@@ -436,15 +465,62 @@ async function showQsList(){
     // ★問題数は questions(count) の埋め込み集計に頼らない（環境によるPostgRESTの対応差を避ける）。
     //   一覧は「公開状態が見える」ことが目的なので、件数は無くても用は足りる。
     const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson,is_open&order=created_at.desc&limit=50");
-    const tbl=$("qs-list-tbl");
-    tbl.querySelectorAll("tr:not(:first-child)").forEach(tr=>tr.remove());
-    sets.forEach(s=>{
-      tbl.insertAdjacentHTML("beforeend",
-        "<tr><td>"+esc(s.title)+"</td><td>"+esc(s.lesson||"")+"</td>"+
-        "<td><span class='pill "+(s.is_open?"on":"off")+"'>"+(s.is_open?"公開中":"下書き")+"</span></td></tr>");
-    });
+    if(window.__e2e) window.__e2e.lastSets = sets;   // ブラウザ実操作テストの覗き口（画面の動作には使わない）
+    // ★毎回まるごと入れ替える。1行ずつ足す形だと、古い行が残っていないかを常に気にすることになる
+    //   ・操作は「公開/停止」と「消す」の2つだけ。行に置くのは、一覧を見ながら押せるようにするため
+    //     （ヨリソルは授業→クラス→タブと潜らないと状態を変えられなかった）
+    $("qs-list-body").innerHTML = sets.map(s=>
+      "<tr data-qsid='"+esc(s.id)+"'><td>"+esc(s.title)+"</td><td>"+esc(s.lesson||"")+"</td>"+
+      "<td><span class='pill "+(s.is_open?"on":"off")+"'>"+(s.is_open?"公開中":"下書き")+"</span></td>"+
+      "<td class='qs-act'>"+
+        "<button class='btn ghost qs-toggle' type='button' data-open='"+(s.is_open?"1":"0")+"'>"+
+          (s.is_open?"停止":"公開")+"</button>"+
+        "<button class='btn ghost qs-del' type='button'>消す</button>"+
+      "</td></tr>").join("");
     $("qs-list-note").textContent = sets.length? (sets.length+"件（新しい順・上位50）") : "まだ何も登録されていません。「＋ Excelから取り込む」から始めます。";
+    wireQsListActions(sets);
   }catch(e){ $("qs-list-note").textContent = "読み込みに失敗しました（"+e.message+"）"; }
+}
+
+/* 一覧の「公開/停止」と「消す」。★押した行だけを触り、終わったら一覧を読み直す。 */
+function wireQsListActions(sets){
+  const byId = {}; sets.forEach(s=>byId[s.id]=s);
+  const msg = (text, ng)=>{ const m=$("qs-list-msg"); m.textContent=text; m.className = "msg"+(ng?" ng":" ok"); };
+
+  $("qs-list-tbl").querySelectorAll("tr[data-qsid]").forEach(tr=>{
+    const id = tr.getAttribute("data-qsid"), s = byId[id] || {};
+    const busy = (on)=>tr.querySelectorAll("button").forEach(b=>b.disabled=on);
+
+    tr.querySelector(".qs-toggle").onclick = async ()=>{
+      const open = tr.querySelector(".qs-toggle").getAttribute("data-open")==="1";
+      // ★公開は学生に即見える。押す前に何が起きるかを言ってから確認する
+      const q = open ? ("「"+s.title+"」を停止します。\n学生の画面から消えます（記録は残ります）。")
+                     : ("「"+s.title+"」を公開します。\n★いま学生の画面に出ます。よろしいですか。");
+      if(!confirm(q)) return;
+      busy(true);
+      // ★知らせを出すのは**一覧を読み直したあと**。先に出すと、画面がまだ古いのに
+      //   「公開しました」と言うことになる（押した先生はもう一度押す）。
+      try{ await FmtImport.db.setOpen(id, !open); await showQsList(); msg((open?"停止":"公開")+"しました：" + s.title); }
+      catch(e){ msg("できませんでした（"+e.message+"）", true); busy(false); }
+    };
+
+    tr.querySelector(".qs-del").onclick = async ()=>{
+      busy(true);
+      try{
+        // ★押す前に受験記録を数える。0件でなければ、そもそも確認を出さずに断る
+        //   （最終判断はサーバー側の delete_quiz_set。ここは説明を出すための先読み）
+        const n = await FmtImport.db.attemptCount(id);
+        if(n > 0){
+          msg("「"+s.title+"」は受験記録が "+n+" 件あるので消せません。停止にしてください。", true);
+          busy(false); return;
+        }
+        if(!confirm("「"+s.title+"」を消します。\n設問も一緒に消えます。元に戻せません。")){ busy(false); return; }
+        const r = await FmtImport.db.deleteSet(id);
+        msg("消しました：" + s.title + "（設問 " + (r && r.questions!=null ? r.questions : "?") + "問）");
+        await showQsList();
+      }catch(e){ msg("消せませんでした（"+e.message+"）", true); busy(false); }
+    };
+  });
 }
 
 function showQsWizard(){ $("qs-pane-list").hidden=true; $("qs-pane-wizard").hidden=false; }
@@ -585,7 +661,7 @@ function renderQsEditAt(i){
     "<textarea id='qs-ef-prompt' rows='3'>"+escHtml(q.prompt)+"</textarea></div>"+
     "<div id='qs-ef-choices'>"+q.choices.map((c,idx)=>
       "<div class='field' style='display:flex;gap:10px;align-items:center;'>"+
-      "<input type='radio' name='qs-ef-correct' value='"+(idx+1)+"' "+(idx+1===q.correctIdx?"checked":"")+" style='width:auto;'>"+
+      "<input type='radio' name='qs-ef-correct' value='"+(idx+1)+"' "+(idx+1===q.correctIdx?"checked":"")+">"+
       "<input type='text' class='qs-ef-choice' data-i='"+idx+"' value=\""+escHtml(c)+"\" style='flex:1;font-size:1rem;padding:10px 12px;border:1px solid var(--line);border-radius:10px;'>"+
       "</div>").join("")+"</div>"+
     "<div class='note' style='margin:4px 0 14px;'>ラジオボタンで正解を選びます。選択肢は2〜12個。</div>"+
@@ -659,7 +735,7 @@ let qsPublishing=false;
 $("qs-btn-publish").onclick = async ()=>{
   if(qsPublishing) return;
   qsPublishing=true; $("qs-btn-publish").disabled=true;
-  const msg=$("qs-publish-msg"); msg.className="msg info"; msg.style.display="block"; msg.textContent="公開しています…";
+  const msg=$("qs-publish-msg"); msg.className="msg info"; msg.style.display="block"; msg.textContent="登録しています…";
   const publishable = (wizard.sets||[]).filter(s=>s.questions.length);
   const results=[];
   try{
@@ -668,11 +744,12 @@ $("qs-btn-publish").onclick = async ()=>{
       results.push({title:s.title, ...r});
     }
     msg.className="msg info";
-    msg.textContent = "公開しました： "+results.map(r=>r.title+"（"+r.questionCount+"問）").join("、");
+    msg.textContent = "登録しました（下書き）： "+results.map(r=>r.title+"（"+r.questionCount+"問）").join("、")
+      + " ／ 学生に見せるときは、一覧で「公開」を押してください";
     setTimeout(()=>{ location.hash="#qsets"; }, 900);
   }catch(e){
     msg.className="msg err";
-    msg.textContent = "途中で失敗しました（"+e.message+"）。公開済みの回もあるかもしれません。一覧で確認してください。";
+    msg.textContent = "途中で失敗しました（"+e.message+"）。登録できた回もあるかもしれません。一覧で確認してください。";
     qsPublishing=false; $("qs-btn-publish").disabled=false;
   }
 };
@@ -789,7 +866,15 @@ $("qrclose").onclick = ()=>$("qrov").classList.remove("on");
 /* ★e2eテスト用の窓口だけ。`api`はconst宣言なのでiframe外からは `contentWindow.api` で拾えない
    （varと違いconst/letはwindowのプロパティにならないため）。テスト（run_e2e_qsets_import.py の
    片付け）が本物のデモDBを読み書きしてダミーを消すために、ここだけ window に出しておく。 */
-window.__e2e = { get:(p)=>api.get(p), del:(p)=>api._authed(p,{method:"DELETE"}) };
+/* ブラウザ実操作テストの窓口。★api も FmtImport も const 宣言なので、iframe の外からは拾えない。
+   ここに出したものだけがテストから呼べる。**画面の動作には使わない**（テスト専用）。 */
+window.__e2e = {
+  get:(p)=>api.get(p),
+  del:(p)=>api._authed(p,{method:"DELETE"}),
+  // 🔴 後片付けは必ずこちらを使う。quiz_sets を直接 DELETE すると cascade で受験記録まで消える
+  delSet:(id)=>FmtImport.db.deleteSet(id),
+  attemptCount:(id)=>FmtImport.db.attemptCount(id),
+};
 
 (async ()=>{
   if(api.token && api.profile && api.profile.role==="teacher"){
