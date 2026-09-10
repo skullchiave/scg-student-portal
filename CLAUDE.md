@@ -330,6 +330,19 @@ README.md 参照（s001〜s040 / t001 / l001〜l150、テストと負荷試験�
   最初から開けておく。Mendan Note にはスマホ入力集中モードが既にあるので受け皿はある
 - 🔴 service_role キーを GAS に置く形にはしない（→「絶対に守ること」）
 
+## agent teams で分担するとき（2026-09-10 導入・役割定義は `.claude/agents/`）
+
+- 役割3つ: `implementer`（実装・**担当ファイル限定**）／`reviewer`（読み取り専用・検査を回して file:line で指摘）／
+  `researcher`（調べ役・sonnet・Web可）。「implementer の agent type で teammate を出して」で使う
+- **分け方はファイル単位**。同じファイルを2人に渡さない（ロックが無く、後勝ちで消える）。
+  `src/index.html`／`src/teacher.html`／`scripts/`／`tests/` は別の人に渡せる。`src/assets/app.css` は1人だけ
+- リード（親セッション）がやること: キューを共有タスクにする → 担当ファイルと完了条件をつけて振る →
+  reviewer に差分を見せる → 全テストを**1ファイルずつ**回す → 進捗ボード更新 → commit（きあが頼んだときだけ）
+- teammate にやらせないこと: DB への書き込み／commit・push／進捗ボードの編集（ドライブ側はリードが1人で触る）
+- 向かないもの: 1ファイルで済む小さな直し。1人でやるほうが速い（Playbook 9/2 の推奨も同じ）
+- 制約: `/resume` で teammate は戻らない／1セッション1チーム／teammate は background subagent を持てない／
+  権限は spawn 時にリードのを継承する
+
 ## 未決・保留（技術）
 
 - 🔴 **問題を登録する画面**（teacher.html の「問題の登録・解放」はまだ画面イメージ）。
