@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>e2e qsets import flow</title></head>
+<body>
+<iframe id="f" src="../src/teacher.html" width="1100" height="900"></iframe>
+<pre id="out">RUNNING</pre>
+<script>
+/* 「問題の登録・解放」の回帰テスト（tests/run_e2e_qsets_import.py から起動）。
+   教師画面を iframe でそのまま動かし、
+     ログイン → ②取り込み(シート選択・重複ブロック) → ②プレビュー → ③1問ずつ修正
+     → ④公開（本物のデモDBに書く） → 一覧に出るか確認 → 片付け（消す）
+   まで実際に操作する。手本: e2e_quiz_flow.html（学生画面の小テスト往復）。
+
+   ★<input type=file> へ合成の File を注入することはできないため、実ファイル選択の代わりに
+   iframe内の window.loadWorkbook(workbook, filename) を直接呼ぶ。workbook 自体は iframe が
+   読み込み済みの本物の SheetJS（w.XLSX）で組み立てるので、パース以降は実ファイル選択後と
+   まったく同じコードパスを通る。
+
+   ダミーの設問は test_choices.py --live の慣習に合わせ「ダミー設問」「えらぶN」を使う。
+   タイトルは「🧪E2Eテストダミー」で始める＝取り違え防止と、後片付けの目印。
+   ★このテストは本物のデモDB（Supabase）に書き込み、最後に自分で消す。 */
+const out = document.getElementById("out"), log = { steps: [] };
+const step = (name, ok, detail) => log.steps.push({ name, ok: !!ok, detail: detail === undefined ? "" : String(detail).slice(0, 260) });
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function until(fn, ms = 20000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (fn()) return true; } catch (e) {} await sleep(150); } return false; }
+
+const HEAD = ["問題番号", "問題文1", "問題文2", "添付ファイル名",
+  "選択肢1", "選択肢2", "選択肢3", "選択肢4", "選択肢5", "解説", "解答", "カテゴリ", "配点"];
+function qrow(no, t2, choices, ans) {
+  const ch = choices.concat(Array(5 - choices.length).fill(""));
+  return [no, "", t2, "", ...ch, "", ans, "文法", 1];
+}
+const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
+
+(async () => {
+  const f = document.getElementById("f");
+  await until(() => f.contentDocument && f.contentDocument.getElementById("btn-login"));
+  const w = f.contentWindow, d = f.contentDocument;
+  try { w.localStorage.clear(); } catch (e) {}
+  const $ = id => d.getElementById(id);
+
+  // ---- ログイン ----
+  $("in-no").value = "t001"; $("in-pw").value = "sensei-scg-2026"; $("btn-login").click();
+  step("教師としてログインできる", await until(() => !$("scr-dash").hidden), $("login-msg").textContent);
+
+  // ---- 「問題の登録・解放」タブへ ----
+  d.querySelector('.nav [data-view="qsets"]').click();
+  step("一覧の画面が出る", await until(() => !$("qs-pane-list").hidden));
+  await until(() => $("qs-list-note").textContent !== "読み込み中…", 15000);
+  step("一覧が読み込める（本物のDB・エラーでない）",
+       !$("qs-list-note").textContent.includes("失敗"), $("qs-list-note").textContent);
+
+  // ---- ①取り込み: 同じ課の範囲が2枚だと止まることを確認（重複ブロック）----
+  $("qs-btn-new").click();
+  step("①取り込み画面に入る", await until(() => !$("qs-step-1").hidden));
+  {
+    const wbDup = w.XLSX.utils.book_new();
+    w.XLSX.utils.book_append_sheet(wbDup, w.XLSX.utils.aoa_to_sheet([HEAD, qrow(1, "ダミー設問1", ["えらぶ1", "えらぶ2"], 1)]), "①1-3");
+    w.XLSX.utils.book_append_sheet(wbDup, w.XLSX.utils.aoa_to_sheet([HEAD, qrow(1, "ダミー設問1", ["えらぶ1", "えらぶ2"], 1)]), "①1-3 （新）");
+    w.loadWorkbook(wbDup, "dup.xlsx");
+    await until(() => d.querySelectorAll(".qs-sheet-chk").length === 2);
+    step("重複するシートが2枚とも一覧に出る", d.querySelectorAll(".qs-sheet-chk").length === 2);
+    step("★同じ課の範囲は「②プレビューへ」が押せない", $("qs-btn-to2").disabled, $("qs-step1-msg").textContent);
+    step("止めた理由が画面に出る", $("qs-step1-msg").textContent.includes("同じ課の範囲"));
+    d.querySelectorAll(".qs-sheet-chk")[1].click();   // 「（新）」の方を外す
+    await sleep(100);
+    step("★1枚に絞れば進めるようになる", !$("qs-btn-to2").disabled);
+  }
+
+  // ---- ①取り込み（本番）: ダミー設問2問の1シートを読ませる ----
+  $("qs-file").value = "";
+  const wb = w.XLSX.utils.book_new();
+  const rows = [HEAD,
+    qrow(1, "ダミー設問1", ["えらぶ1", "えらぶ2", "えらぶ3"], 2),
+    qrow(2, "ダミー設問2", ["えらぶA", "えらぶB"], 1)];
+  w.XLSX.utils.book_append_sheet(wb, w.XLSX.utils.aoa_to_sheet(rows), "①1-3");
+  $("qs-prefix").value = TITLE_PREFIX;
+  w.loadWorkbook(wb, "e2e-dummy.xlsx");
+  await until(() => d.querySelectorAll(".qs-sheet-chk").length === 1);
+  step("1シートだけの取り込みでは即座に次へ進める", !$("qs-btn-to2").disabled);
+
+  // ---- ②プレビュー ----
+  $("qs-btn-to2").click();
+  step("②プレビュー画面に入る", await until(() => !$("qs-step-2").hidden));
+  await until(() => $("qs-preview-list").textContent.includes("ダミー設問1"));
+  step("プレビューに2問とも出る",
+       $("qs-preview-list").textContent.includes("ダミー設問1") && $("qs-preview-list").textContent.includes("ダミー設問2"));
+  step("不備0件で取り込める", $("qs-preview-kpi").textContent.includes("2") && !d.querySelector(".qs-q.ng"));
+
+  // ---- ③1問ずつ修正: 1問目の設問文と正解を変える ----
+  $("qs-btn-to3").click();
+  step("③修正画面に入る", await until(() => !$("qs-step-3").hidden));
+  await until(() => $("qs-ef-prompt") && $("qs-ef-prompt").value.includes("ダミー設問1"));
+  $("qs-ef-prompt").value = "ダミー設問1（直した）";
+  const radios = [...d.querySelectorAll("input[name='qs-ef-correct']")];
+  step("正解のラジオボタンが選択肢の数だけある", radios.length === 3, radios.length);
+  radios[2].click();   // 3番目を正解に変える（元は2番目）
+  $("qs-ef-next").click();
+  await sleep(150);
+  step("次の問題（2問目）に進める", $("qs-edit-nav").textContent.includes("2 / 2"));
+  $("qs-ef-prev").click();
+  await sleep(150);
+  step("前の問題（1問目）に戻ると直した設問文が残っている",
+       $("qs-ef-prompt").value === "ダミー設問1（直した）", $("qs-ef-prompt").value);
+
+  // ---- ②プレビューへ戻る: 直したものが反映されているか ----
+  $("qs-btn-to2b").click();
+  await until(() => !$("qs-step-2").hidden);
+  await sleep(150);
+  step("★修正がプレビューに反映される（直した設問文が出る）",
+       $("qs-preview-list").textContent.includes("ダミー設問1（直した）"));
+  step("修正していない2問目はそのまま出る（上書きされていない）",
+       $("qs-preview-list").textContent.includes("ダミー設問2"));
+
+  // ---- ④公開 ----
+  $("qs-btn-to3").click(); await until(() => !$("qs-step-3").hidden);
+  $("qs-btn-to4").click();
+  step("④公開画面に入る", await until(() => !$("qs-step-4").hidden));
+  step("公開対象が1回・2問と出る", $("qs-publish-summary").textContent.includes("2"));
+  $("qs-btn-publish").click();
+  step("公開できる（本物のデモDBに書き込み）",
+       await until(() => $("qs-publish-msg").textContent.includes("公開しました"), 20000),
+       $("qs-publish-msg").textContent);
+
+  // ---- 一覧に出るか（読み戻し）----
+  step("公開後に一覧へ戻る", await until(() => !$("qs-pane-list").hidden, 5000));
+  await until(() => $("qs-list-tbl").textContent.includes(TITLE_PREFIX), 8000);
+  step("★公開した回が一覧に出て「公開中」になっている",
+       $("qs-list-tbl").textContent.includes(TITLE_PREFIX) && $("qs-list-tbl").textContent.includes("公開中"));
+
+  // ---- 片付け（ダミーを消す。消せたことまで確認する）----
+  // ★w.api は const 宣言なので iframe外から拾えない。teacher.html が窓口として出している __e2e を使う。
+  // 🔴 **見つかった全部を消して、残りが0件であることをタイトルで確かめる。**
+  //   以前は rowsFound[0] の1件だけ消し、その1件のIDで確認していた。
+  //   前の実行が残したダミーがあると「古いほうを消して、今回作ったぶんを残す」のに
+  //   検査は通る＝**残骸が1件ずつ積み上がるのに気づけない**（2026-09-11 に実際に発生）。
+  let cleaned = false, foundIds = [];
+  try {
+    const q = "title=like." + encodeURIComponent(TITLE_PREFIX + "*");
+    const rowsFound = await w.__e2e.get("/rest/v1/quiz_sets?select=id,title&" + q);
+    foundIds = rowsFound.map(r => r.id);
+    for (const id of foundIds) {
+      await w.__e2e.del("/rest/v1/quiz_sets?id=eq." + id);
+    }
+    // ★確認は「消したID」ではなく「ダミーの目印が付いた回が1件も残っていないか」で見る
+    const left = await w.__e2e.get("/rest/v1/quiz_sets?select=id&" + q);
+    cleaned = left.length === 0;
+    if (!cleaned) log.cleanupLeft = left.length;
+  } catch (e) { log.cleanupError = (e && e.message) || String(e); }
+  step("★ダミーを消せた（残さない）", cleaned,
+       foundIds.length + "件見つけて全部消した" + (log.cleanupLeft ? " / 残り" + log.cleanupLeft + "件" : ""));
+
+  log.done = true;
+  out.textContent = "E2E_RESULT " + JSON.stringify(log);
+})().catch(e => { log.error = (e && e.message) || String(e); out.textContent = "E2E_RESULT " + JSON.stringify(log); });
+</script>
+</body></html>

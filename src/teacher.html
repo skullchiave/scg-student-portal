@@ -52,6 +52,22 @@
   .focusnote{margin-top:12px;padding:10px 12px;border-radius:8px;background:#f4f6f9;
     border:1px solid var(--line);font-size:.82rem;line-height:1.65;}
   .focusnote .sub{color:var(--sub);font-size:.76rem;}
+  /* 問題の登録・解放（①取り込み→②プレビュー→③修正→④公開） */
+  .wizsteps{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .wizstep{flex:1;min-width:120px;text-align:center;padding:9px 6px;border-radius:11px;
+    border:1px solid var(--line);background:var(--surface);font-size:.82rem;font-weight:700;color:var(--sub);}
+  .wizstep .wn{display:inline-block;margin-right:4px;}
+  .wizstep.on{background:var(--blue);border-color:var(--blue);color:#fff;}
+  .wizstep.done{background:#eaf6ed;border-color:#bfe3c8;color:var(--ok);}
+  .chk{display:flex;align-items:flex-start;gap:10px;padding:6px 0;font-size:.9rem;}
+  .qs-q{border-top:1px solid var(--line);padding:10px 0;}
+  .qs-q .qno{font-size:.75rem;color:var(--sub);font-weight:700;}
+  .qs-q .qp{white-space:pre-line;margin:2px 0 7px;}
+  .qs-q.ng{background:rgba(214,69,69,.06);border-left:3px solid var(--ng);padding-left:10px;}
+  .qs-choices{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px;}
+  .qs-choices li{border:1px solid var(--line);border-radius:8px;padding:3px 10px;font-size:.88rem;}
+  .qs-choices li.ok{border-color:var(--ok);background:rgba(47,158,68,.1);font-weight:700;}
+  .qs-warnbox{font-size:.8rem;color:var(--sub);margin-top:10px;line-height:1.6;}
   @media (max-width:900px){
     .adm{grid-template-columns:1fr;}
     .side{position:static;}
@@ -95,11 +111,11 @@
       <div class="nav">
         <button data-view="quiz" class="on"><span class="ico">📝</span>小テスト ライブ集計</button>
         <button data-view="survey"><span class="ico">📋</span>アンケート 回答一覧</button>
+        <button data-view="qsets"><span class="ico">✏️</span>問題の登録・解放</button>
         <button id="btn-qr"><span class="ico">📱</span>学生用QRを表示</button>
       </div>
       <div class="sechead">これから作る画面（イメージ）</div>
       <div class="nav">
-        <button data-view="qsets"><span class="ico">✏️</span>問題の登録・解放<span class="soon">イメージ</span></button>
         <button data-view="svbuild"><span class="ico">🧩</span>アンケートの作成<span class="soon">イメージ</span></button>
         <button data-view="students"><span class="ico">👥</span>学生アカウント<span class="soon">イメージ</span></button>
         <button data-view="notice"><span class="ico">📣</span>お知らせ配信<span class="soon">イメージ</span></button>
@@ -145,31 +161,88 @@
         </div>
       </div>
 
-      <!-- ══ イメージ: 問題の登録・解放 ══ -->
+      <!-- ══ 問題の登録・解放（動く） ══
+           ①取り込み → ②プレビューで確認 → ③1問ずつ修正 → ④公開 の4段。
+           取り込みが主・編集が従＝ゼロから1問ずつ作る画面にはしない（作問はExcelでやる前提）。
+           場所はURLで決まる（#qsets・#qsets/import/N）。モーダルの入れ子にしない。 -->
       <div id="view-qsets" data-viewpane hidden>
-        <div class="mockflag">🖼 画面イメージ（まだ動きません）— 運用担当者が「問題の登録」と「クラスへの解放」をノーコードで行う画面。数字はダミー</div>
-        <div class="panel">
-          <h2>小テスト一覧</h2>
-          <div class="tblwrap"><table class="tbl">
-            <tr><th>テスト名</th><th>課</th><th class="num">問題数</th><th>対象クラス</th><th>解放期間</th><th>状態</th><th>解放</th></tr>
-            <tr><td>つなぐ L6〜L10 まとめ</td><td>L6-10</td><td class="num">10</td><td>A①</td><td>9/4 〜 9/11</td><td><span class="pill on">公開中</span></td><td><span class="sw on"></span></td></tr>
-            <tr><td>L11 て形</td><td>L11</td><td class="num">10</td><td>A①・A②</td><td>9/12 〜 9/19</td><td><span class="pill off">予約</span></td><td><span class="sw"></span></td></tr>
-            <tr><td>L12 ない形</td><td>L12</td><td class="num">8</td><td>—</td><td>—</td><td><span class="pill warn">下書き</span></td><td><span class="sw"></span></td></tr>
-            <tr><td>JLPT N4 語彙 ①</td><td>語彙</td><td class="num">20</td><td>全クラス</td><td>常時</td><td><span class="pill on">公開中</span></td><td><span class="sw on"></span></td></tr>
-          </table></div>
-        </div>
-        <div class="panel">
-          <h2>新しいテストを作る</h2>
-          <div class="form2">
-            <div class="field"><label>テスト名</label><input type="text" placeholder="れい: L13 可能形"></div>
-            <div class="field"><label>課</label><input type="text" placeholder="L13"></div>
-            <div class="field"><label>対象クラス</label><select><option>A①</option><option>A②</option><option>B①</option><option>全クラス</option></select></div>
-            <div class="field"><label>解放期間</label><input type="text" placeholder="9/20 〜 9/27"></div>
+
+        <div id="qs-pane-list">
+          <div class="dashhead"><span class="t">✏️ 問題の登録・解放</span>
+            <button class="btn" id="qs-btn-new" type="button" style="width:auto;">＋ Excelから取り込む</button>
           </div>
-          <div class="field"><label>問題（Excelから貼り付け: 問題文 ／ A ／ B ／ 正解 の4列）</label>
-            <textarea placeholder="わたしは まいにち コーヒーを（　）。	のみます	たべます	A"></textarea></div>
-          <div class="btnrow"><button class="btn" type="button">下書きとして保存</button><button class="btn ghost" type="button">学生画面でプレビュー</button></div>
-          <div class="note">正解はサーバー側にだけ保存され、学生のスマホには届かない（いまの本番と同じ構造）。</div>
+          <div class="panel">
+            <h2>小テスト一覧</h2>
+            <div class="tblwrap"><table class="tbl" id="qs-list-tbl">
+              <tr><th>テスト名</th><th>課</th><th>状態</th></tr>
+            </table></div>
+            <div class="note" id="qs-list-note">読み込み中…</div>
+          </div>
+          <div class="note">Excelは「課題登録FMT」の形式だけ読めます（先生が問題を書く1枚もの）。
+            アップロードはしません。選んだファイルはブラウザの中だけで読み、そのままDBに送るのは
+            「④公開」を押したときだけです。</div>
+        </div>
+
+        <div id="qs-pane-wizard" hidden>
+          <div class="wizsteps" id="qs-steps">
+            <div class="wizstep" data-step="1"><span class="wn">①</span>取り込み</div>
+            <div class="wizstep" data-step="2"><span class="wn">②</span>プレビュー</div>
+            <div class="wizstep" data-step="3"><span class="wn">③</span>1問ずつ修正</div>
+            <div class="wizstep" data-step="4"><span class="wn">④</span>公開</div>
+          </div>
+
+          <!-- ① 取り込み -->
+          <div class="panel" id="qs-step-1" data-step-pane hidden>
+            <h2>①Excelを選ぶ</h2>
+            <div class="field"><label>Excelファイル（課題登録FMT・.xlsx）</label>
+              <input type="file" id="qs-file" accept=".xlsx"></div>
+            <div class="field"><label>テスト名の頭に付ける文字（省略可）</label>
+              <input type="text" id="qs-prefix" placeholder="れい: つなぐ日本語初級 まとめテスト"></div>
+            <div id="qs-sheetpick"></div>
+            <div class="msg" id="qs-step1-msg"></div>
+            <div class="btnrow"><button class="btn" id="qs-btn-to2" type="button" disabled>②プレビューへ</button>
+              <button class="btn ghost" id="qs-btn-cancel1" type="button">一覧へ戻る</button></div>
+          </div>
+
+          <!-- ② プレビュー -->
+          <div class="panel" id="qs-step-2" data-step-pane hidden>
+            <h2>②プレビュー（読み込んだ内容の確認）</h2>
+            <div class="kpi" id="qs-preview-kpi"></div>
+            <div class="note" id="qs-preview-note" hidden></div>
+            <div id="qs-preview-list"></div>
+            <div class="btnrow">
+              <button class="btn ghost" id="qs-btn-to1" type="button">①へ戻る</button>
+              <button class="btn" id="qs-btn-to3" type="button">③1問ずつ修正へ</button>
+            </div>
+          </div>
+
+          <!-- ③ 1問ずつ修正 -->
+          <div class="panel" id="qs-step-3" data-step-pane hidden>
+            <h2>③1問ずつ修正</h2>
+            <div class="note" id="qs-edit-nav"></div>
+            <div id="qs-edit-form"></div>
+            <div class="btnrow">
+              <button class="btn ghost" id="qs-ef-prev" type="button">◀ 前の問題</button>
+              <button class="btn ghost" id="qs-ef-next" type="button">次の問題 ▶</button>
+            </div>
+            <div class="btnrow" style="margin-top:14px;">
+              <button class="btn ghost" id="qs-btn-to2b" type="button">②プレビューへ戻る</button>
+              <button class="btn" id="qs-btn-to4" type="button">④公開へ</button>
+            </div>
+          </div>
+
+          <!-- ④ 公開 -->
+          <div class="panel" id="qs-step-4" data-step-pane hidden>
+            <h2>④公開</h2>
+            <div id="qs-publish-summary"></div>
+            <div class="note">公開すると、その回はすぐに学生画面に表示されます（is_open = true）。
+              取り消せますが、二重に公開しないよう1回だけ押してください。<b>ダミーの設問は入れないこと。</b></div>
+            <div class="btnrow">
+              <button class="btn ghost" id="qs-btn-to3b" type="button">③へ戻る</button>
+              <button class="btn" id="qs-btn-publish" type="button">この内容で公開する</button>
+            </div>
+            <div class="msg" id="qs-publish-msg"></div>
+          </div>
         </div>
       </div>
 
@@ -300,9 +373,13 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<!-- ★Excel読み取り(SheetJS)は教師画面だけで読む。学生画面(index.html)には絶対に足さない -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="assets/i18n.js"></script>
 <script src="assets/api.js"></script>
 <script src="assets/surveys.js"></script>
+<script src="assets/ruby.js"></script>
+<script src="assets/fmt-import.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 function err(id,t){ const m=$(id); m.className="msg err"; m.textContent=t; }
@@ -329,7 +406,276 @@ function setView(v){
   document.querySelectorAll(".nav [data-view]").forEach(b=>b.classList.toggle("on", b.getAttribute("data-view")===v));
   document.querySelectorAll("[data-viewpane]").forEach(p=>{ p.hidden = (p.id!=="view-"+v); });
   if(v==="quiz"||v==="survey") tick();
+  if(v==="qsets"){
+    // hashが変われば hashchange 経由で routeQsets() が呼ばれる。既に #qsets 系なら変わらないので直接呼ぶ
+    if(location.hash.startsWith("#qsets")) routeQsets(); else location.hash = "#qsets";
+  }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   問題の登録・解放（①取り込み→②プレビュー→③1問ずつ修正→④公開）
+   場所はURLで決まる: #qsets（一覧）／#qsets/import/1〜4（取り込み中の段）。
+   ヘッドレスChromeのe2eテストは loadWorkbook を直接呼んでファイル選択を飛ばす
+   （<input type=file> へ合成のFileを注入することはできないため。手本: run_e2e_quiz.py）。
+   ══════════════════════════════════════════════════════════════════ */
+const wizard = { wb:null, filename:"", sets:null, editFlat:null, editIdx:0 };
+
+window.addEventListener("hashchange", ()=>{ if(activeView==="qsets") routeQsets(); });
+
+function routeQsets(){
+  const parts = location.hash.replace(/^#/,"").split("/");   // "qsets","import","2"
+  const step = parts[1]==="import" ? (Number(parts[2])||1) : 0;
+  if(step){ showQsWizard(); showQsStep(step); }
+  else showQsList();
+}
+
+async function showQsList(){
+  $("qs-pane-list").hidden=false; $("qs-pane-wizard").hidden=true;
+  $("qs-list-note").textContent="読み込み中…";
+  try{
+    // ★問題数は questions(count) の埋め込み集計に頼らない（環境によるPostgRESTの対応差を避ける）。
+    //   一覧は「公開状態が見える」ことが目的なので、件数は無くても用は足りる。
+    const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson,is_open&order=created_at.desc&limit=50");
+    const tbl=$("qs-list-tbl");
+    tbl.querySelectorAll("tr:not(:first-child)").forEach(tr=>tr.remove());
+    sets.forEach(s=>{
+      tbl.insertAdjacentHTML("beforeend",
+        "<tr><td>"+esc(s.title)+"</td><td>"+esc(s.lesson||"")+"</td>"+
+        "<td><span class='pill "+(s.is_open?"on":"off")+"'>"+(s.is_open?"公開中":"下書き")+"</span></td></tr>");
+    });
+    $("qs-list-note").textContent = sets.length? (sets.length+"件（新しい順・上位50）") : "まだ何も登録されていません。「＋ Excelから取り込む」から始めます。";
+  }catch(e){ $("qs-list-note").textContent = "読み込みに失敗しました（"+e.message+"）"; }
+}
+
+function showQsWizard(){ $("qs-pane-list").hidden=true; $("qs-pane-wizard").hidden=false; }
+
+function showQsStep(n){
+  document.querySelectorAll("#qs-steps .wizstep").forEach(el=>{
+    const s = Number(el.getAttribute("data-step"));
+    el.classList.toggle("on", s===n); el.classList.toggle("done", s<n);
+  });
+  document.querySelectorAll("[data-step-pane]").forEach(p=>{ p.hidden = (p.id!=="qs-step-"+n); });
+  if(n===2) renderQsPreview();
+  if(n===3) renderQsEdit();
+  if(n===4) renderQsPublish();
+}
+function goQsStep(n){ location.hash = "#qsets/import/"+n; }
+
+$("qs-btn-new").onclick = ()=>{
+  wizard.wb=null; wizard.filename=""; wizard.sets=null;
+  $("qs-file").value=""; $("qs-sheetpick").innerHTML=""; $("qs-step1-msg").style.display="none";
+  $("qs-btn-to2").disabled=true;
+  goQsStep(1);
+};
+$("qs-btn-cancel1").onclick = ()=>{ location.hash="#qsets"; };
+$("qs-btn-to1").onclick = ()=>goQsStep(1);
+$("qs-btn-to2").onclick = ()=>{
+  const {sets, warn} = FmtImport.build(wizard.wb, {only: qsCheckedSheets(), prefix: $("qs-prefix").value.trim()});
+  wizard.sets = sets; wizard.globalWarn = warn;
+  goQsStep(2);
+};
+$("qs-btn-to2b").onclick = ()=>goQsStep(2);
+$("qs-btn-to3").onclick = ()=>goQsStep(3);
+$("qs-btn-to3b").onclick = ()=>goQsStep(3);
+$("qs-btn-to4").onclick = ()=>goQsStep(4);
+
+/* ---- ①取り込み: ファイル選択 → シート選択 ---- */
+$("qs-file").onchange = async ()=>{
+  const f = $("qs-file").files[0];
+  if(!f) return;
+  try{
+    const buf = await f.arrayBuffer();
+    loadWorkbook(XLSX.read(buf,{type:"array"}), f.name);
+  }catch(e){
+    $("qs-step1-msg").className="msg err"; $("qs-step1-msg").style.display="block";
+    $("qs-step1-msg").textContent = "Excelとして読めませんでした（"+e.message+"）。課題登録FMTの.xlsxか確かめてください。";
+  }
+};
+/* ★e2eテスト用の入口。合成の File を <input type=file> に注入できないので、
+   SheetJSで組み立てたワークブックをここへ直接渡してファイル選択を飛ばす。 */
+function loadWorkbook(wb, filename){
+  wizard.wb = wb; wizard.filename = filename||"";
+  renderQsSheetPicker();
+}
+function renderQsSheetPicker(){
+  const names = FmtImport.listImportableSheets(wizard.wb);
+  $("qs-sheetpick").innerHTML = "<div class='field'><label>取り込むシート（"+names.length+"枚。テンプレート本体は除いてあります）</label>"+
+    names.map(n=>"<label class='chk'><input type='checkbox' class='qs-sheet-chk' value=\""+escHtml(n)+"\" checked> <span>"+escHtml(n)+"</span></label>").join("")+
+    "</div>";
+  document.querySelectorAll(".qs-sheet-chk").forEach(cb=>cb.onchange=validateQsSheetPick);
+  validateQsSheetPick();
+}
+function qsCheckedSheets(){ return [...document.querySelectorAll(".qs-sheet-chk:checked")].map(cb=>cb.value); }
+function validateQsSheetPick(){
+  const chosen = qsCheckedSheets();
+  const msg = $("qs-step1-msg");
+  if(!chosen.length){
+    msg.className="msg info"; msg.style.display="block"; msg.textContent="取り込むシートを1つ以上選んでください。";
+    $("qs-btn-to2").disabled=true; return;
+  }
+  // ★同じ課の範囲のシートが2枚あると二重登録になる（scripts/import_fmt_xlsx.py と同じ判定）
+  const byLesson = {};
+  chosen.forEach(n=>{ const l=FmtImport.lessonOf(n); (byLesson[l]=byLesson[l]||[]).push(n); });
+  const dupGroups = Object.entries(byLesson).filter(([,v])=>v.length>1);
+  if(dupGroups.length){
+    msg.className="msg err"; msg.style.display="block";
+    msg.textContent = "🔴 同じ課の範囲のシートが複数選ばれています（二重登録になるため進めません）。どちらか一方だけ選んでください： "+
+      dupGroups.map(([l,v])=>"「"+l+"課」: "+v.join(" / ")).join("　");
+    $("qs-btn-to2").disabled=true; return;
+  }
+  msg.style.display="none";
+  $("qs-btn-to2").disabled=false;
+}
+
+/* ---- ②プレビュー ---- */
+function renderQsPreview(){
+  const sets = wizard.sets||[];
+  const nSheet=sets.length, nQ=sets.reduce((a,s)=>a+s.questions.length,0),
+        nDropped=sets.reduce((a,s)=>a+s.dropped.length,0), nUnwritten=sets.reduce((a,s)=>a+s.unwritten.length,0);
+  $("qs-preview-kpi").innerHTML =
+    "<div class='stat'><div class='v'>"+nSheet+"</div><div class='l'>シート（回）</div></div>"+
+    "<div class='stat'><div class='v'>"+nQ+"</div><div class='l'>取り込める設問</div></div>"+
+    "<div class='stat'><div class='v' style='color:"+(nDropped?"var(--ng)":"inherit")+"'>"+nDropped+"</div><div class='l'>不備で取り込めない</div></div>"+
+    "<div class='stat'><div class='v'>"+nUnwritten+"</div><div class='l'>まだ書かれていない</div></div>";
+
+  const gw = (wizard.globalWarn||[]).filter(w=>w.startsWith("★"));
+  const note = $("qs-preview-note");
+  if(gw.length){ note.hidden=false; note.innerHTML = gw.map(w=>escHtml(w)).join("<br>"); }
+  else note.hidden=true;
+
+  $("qs-preview-list").innerHTML = sets.map(s=>{
+    const head = "<div class='dashhead' style='margin:14px 0 6px;'><span class='t' style='font-size:.95rem;'>"+
+      esc(s.title)+"　<span style='color:var(--sub);font-weight:400;font-size:.8rem;'>（"+esc(s.sheet)+"）</span></span>"+
+      (s.error? "<span class='pill warn'>"+esc(s.error)+"</span>" :
+        "<span class='pill "+(s.dropped.length?"warn":"on")+"'>"+s.questions.length+"問"+(s.dropped.length?"／🔴"+s.dropped.length+"件":"")+"</span>")+
+      "</div>";
+    const dropped = s.dropped.map(d=>
+      "<div class='qs-q ng'><div class='qno'>問"+d.seq+"（Excel "+d.row+"行目）</div>"+
+      "<div class='qp'>🔴 取り込めませんでした — "+esc(d.reason)+"</div></div>").join("");
+    const qs = s.questions.map(q=>{
+      const choices = q.choices.map((c,i)=>"<li"+(i+1===q.correctIdx?" class='ok'":"")+">"+(i+1)+". "+rubyHtml(c)+"</li>").join("");
+      return "<div class='qs-q'><div class='qno'>問"+q.seq+"</div><div class='qp'>"+rubyHtml(q.prompt)+"</div>"+
+        "<ul class='qs-choices'>"+choices+"</ul></div>";
+    }).join("");
+    return "<details style='margin-bottom:10px;'><summary>"+head+"</summary>"+dropped+qs+"</details>";
+  }).join("") || "<div class='note'>選んだシートに取り込める内容がありません。①へ戻ってシートを選び直してください。</div>";
+}
+
+/* ---- ③1問ずつ修正 ---- */
+function qsFlat(){
+  const flat=[];
+  (wizard.sets||[]).forEach((s,si)=>s.questions.forEach((q,qi)=>flat.push({si,qi})));
+  return flat;
+}
+function renderQsEdit(){
+  wizard.editFlat = qsFlat();
+  if(!wizard.editFlat.length){
+    $("qs-edit-nav").textContent="1問ずつ修正できる設問がありません（②プレビューで不備を確認してください）。";
+    $("qs-edit-form").innerHTML=""; return;
+  }
+  if(wizard.editIdx>=wizard.editFlat.length) wizard.editIdx=0;
+  renderQsEditAt(wizard.editIdx);
+}
+function renderQsEditAt(i){
+  const flat = wizard.editFlat, pos = flat[i];
+  const set = wizard.sets[pos.si], q = set.questions[pos.qi];
+  $("qs-edit-nav").innerHTML = esc(set.title)+"（"+esc(set.sheet)+"） — 問"+q.seq+"　["+(i+1)+" / "+flat.length+"問目]";
+  $("qs-edit-form").innerHTML =
+    "<div class='field'><label>設問文（改行そのまま。${漢字}(よみ) と書くとルビになります）</label>"+
+    "<textarea id='qs-ef-prompt' rows='3'>"+escHtml(q.prompt)+"</textarea></div>"+
+    "<div id='qs-ef-choices'>"+q.choices.map((c,idx)=>
+      "<div class='field' style='display:flex;gap:10px;align-items:center;'>"+
+      "<input type='radio' name='qs-ef-correct' value='"+(idx+1)+"' "+(idx+1===q.correctIdx?"checked":"")+" style='width:auto;'>"+
+      "<input type='text' class='qs-ef-choice' data-i='"+idx+"' value=\""+escHtml(c)+"\" style='flex:1;font-size:1rem;padding:10px 12px;border:1px solid var(--line);border-radius:10px;'>"+
+      "</div>").join("")+"</div>"+
+    "<div class='note' style='margin:4px 0 14px;'>ラジオボタンで正解を選びます。選択肢は2〜12個。</div>"+
+    "<div class='btnrow'><button class='btn ghost' type='button' id='qs-ef-addchoice'>＋選択肢を足す</button>"+
+    "<button class='btn ghost' type='button' id='qs-ef-delchoice'>－最後の選択肢を消す</button></div>"+
+    "<div class='form2'>"+
+    "<div class='field'><label>カテゴリ</label><input type='text' id='qs-ef-cat' value=\""+escHtml(q.category||"")+"\"></div>"+
+    "<div class='field'><label>配点</label><input type='text' id='qs-ef-pts' value=\""+(q.points==null?"":q.points)+"\"></div>"+
+    "</div>"+
+    "<div class='field'><label>解説（学生には提出したあとだけ見えます）</label>"+
+    "<textarea id='qs-ef-expl' rows='2'>"+escHtml(q.explanation||"")+"</textarea></div>"+
+    (q.imageName? "<div class='note'>画像: "+esc(q.imageName)+"（いまの画面は画像を出しません）</div>" : "");
+  wireQsEditForm();
+}
+function saveQsEditForm(){
+  if(!wizard.editFlat || !wizard.editFlat.length) return;
+  const pos = wizard.editFlat[wizard.editIdx];
+  const q = wizard.sets[pos.si].questions[pos.qi];
+  q.prompt = $("qs-ef-prompt").value;
+  q.choices = [...document.querySelectorAll(".qs-ef-choice")].map(inp=>inp.value);
+  const picked = document.querySelector("input[name='qs-ef-correct']:checked");
+  q.correctIdx = picked ? Number(picked.value) : 1;
+  q.category = $("qs-ef-cat").value.trim() || null;
+  const pts = $("qs-ef-pts").value.trim();
+  q.points = pts==="" ? null : (Number.isFinite(Number(pts)) ? Number(pts) : q.points);
+  q.explanation = $("qs-ef-expl").value.trim() || null;
+}
+function wireQsEditForm(){
+  $("qs-ef-addchoice").onclick = ()=>{
+    saveQsEditForm();
+    const q = wizard.sets[wizard.editFlat[wizard.editIdx].si].questions[wizard.editFlat[wizard.editIdx].qi];
+    if(q.choices.length<12){ q.choices.push(""); renderQsEditAt(wizard.editIdx); }
+  };
+  $("qs-ef-delchoice").onclick = ()=>{
+    saveQsEditForm();
+    const q = wizard.sets[wizard.editFlat[wizard.editIdx].si].questions[wizard.editFlat[wizard.editIdx].qi];
+    if(q.choices.length>2){
+      q.choices.pop();
+      if(q.correctIdx>q.choices.length) q.correctIdx=q.choices.length;
+      renderQsEditAt(wizard.editIdx);
+    }
+  };
+}
+$("qs-ef-prev").onclick = ()=>{
+  if(!wizard.editFlat || !wizard.editFlat.length) return;
+  saveQsEditForm();
+  wizard.editIdx = (wizard.editIdx - 1 + wizard.editFlat.length) % wizard.editFlat.length;
+  renderQsEditAt(wizard.editIdx);
+};
+$("qs-ef-next").onclick = ()=>{
+  if(!wizard.editFlat || !wizard.editFlat.length) return;
+  saveQsEditForm();
+  wizard.editIdx = (wizard.editIdx + 1) % wizard.editFlat.length;
+  renderQsEditAt(wizard.editIdx);
+};
+
+/* ---- ④公開 ---- */
+function renderQsPublish(){
+  if(wizard.editFlat && wizard.editFlat.length) saveQsEditForm();   // 直前の修正を取りこぼさない
+  const publishable = (wizard.sets||[]).filter(s=>s.questions.length);
+  $("qs-publish-summary").innerHTML = publishable.length ?
+    ("<div class='kpi'><div class='stat'><div class='v'>"+publishable.length+"</div><div class='l'>公開される回</div></div>"+
+     "<div class='stat'><div class='v'>"+publishable.reduce((a,s)=>a+s.questions.length,0)+"</div><div class='l'>設問（合計）</div></div></div>"+
+     "<div class='tblwrap'><table class='tbl'><tr><th>テスト名</th><th>課</th><th class='num'>問題数</th></tr>"+
+     publishable.map(s=>"<tr><td>"+esc(s.title)+"</td><td>"+esc(s.lesson)+"</td><td class='num'>"+s.questions.length+"</td></tr>").join("")+
+     "</table></div>") :
+    "<div class='note'>公開できる回がありません（設問が1件も無い回は公開しません）。②へ戻って確認してください。";
+  $("qs-btn-publish").disabled = !publishable.length;
+}
+let qsPublishing=false;
+$("qs-btn-publish").onclick = async ()=>{
+  if(qsPublishing) return;
+  qsPublishing=true; $("qs-btn-publish").disabled=true;
+  const msg=$("qs-publish-msg"); msg.className="msg info"; msg.style.display="block"; msg.textContent="公開しています…";
+  const publishable = (wizard.sets||[]).filter(s=>s.questions.length);
+  const results=[];
+  try{
+    for(const s of publishable){
+      const r = await FmtImport.db.publishSet(s);
+      results.push({title:s.title, ...r});
+    }
+    msg.className="msg info";
+    msg.textContent = "公開しました： "+results.map(r=>r.title+"（"+r.questionCount+"問）").join("、");
+    setTimeout(()=>{ location.hash="#qsets"; }, 900);
+  }catch(e){
+    msg.className="msg err";
+    msg.textContent = "途中で失敗しました（"+e.message+"）。公開済みの回もあるかもしれません。一覧で確認してください。";
+    qsPublishing=false; $("qs-btn-publish").disabled=false;
+  }
+};
 
 async function start(){
   const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson&order=created_at.desc&limit=1");
@@ -439,6 +785,11 @@ $("btn-qr").onclick = ()=>{
   }
 };
 $("qrclose").onclick = ()=>$("qrov").classList.remove("on");
+
+/* ★e2eテスト用の窓口だけ。`api`はconst宣言なのでiframe外からは `contentWindow.api` で拾えない
+   （varと違いconst/letはwindowのプロパティにならないため）。テスト（run_e2e_qsets_import.py の
+   片付け）が本物のデモDBを読み書きしてダミーを消すために、ここだけ window に出しておく。 */
+window.__e2e = { get:(p)=>api.get(p), del:(p)=>api._authed(p,{method:"DELETE"}) };
 
 (async ()=>{
   if(api.token && api.profile && api.profile.role==="teacher"){
