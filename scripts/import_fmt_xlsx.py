@@ -343,6 +343,20 @@ def build_sheet(ws, sheet_name: str, prefix: str, ruby: str = "keep") -> tuple[d
     if dup:
         warn.append(f"{tag} 問題番号が重複: {sorted(dup)}")
 
+    # ★同じテストの中で配点がそろっていない（2026-09-11 追加）
+    #   実測（2026-09-11・教材331本）: 設問のある667シートのうち **662枚（99.3%）は全問おなじ配点**。
+    #   本当に2種類以上あるのは**5枚だけ**。★空欄は「違う配点」ではなく「書かれていない」なので数に入れない
+    #   （入れると13枚ぶん増えて18枚になり、見てほしい5枚が埋もれる）。
+    #   **採点には使っていない**ので取り込みは止めず、作問側に見てもらうために出すだけ。
+    #   意図的な傾斜配点ならそのままでよい。
+    pts = [i["points"] for i in items if i["points"] is not None]
+    if len(set(pts)) > 1:
+        dist = collections.Counter(pts)
+        rare = min(dist, key=lambda v: (dist[v], v))     # いちばん少ない配点＝打ち間違いの候補
+        detail = "、".join(f"{v}点が{n}問" for v, n in sorted(dist.items()))
+        warn.append(f"{tag} 同じテストの中で配点がそろっていない（{detail}）"
+                    f"＝{rare}点の問だけ違います。打ち間違いでなければそのままで構いません")
+
     return {
         "sheet": sheet_name,
         "title": title_of(sheet_name, prefix),

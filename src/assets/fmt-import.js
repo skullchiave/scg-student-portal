@@ -214,6 +214,24 @@ const FmtImport = (() => {
     const dupSeq = Object.keys(seqCounts).filter(s => seqCounts[s] > 1).map(Number).sort((a, b) => a - b);
     if (dupSeq.length) warn.push(`${tag} 問題番号が重複: ${JSON.stringify(dupSeq)}`);
 
+    // ★同じテストの中で配点がそろっていない（2026-09-11 追加）
+    //   🔴 import_fmt_xlsx.py の同じ検査と対になっている。片方だけ直さないこと。
+    //   実測（2026-09-11）: 設問のある667シートのうち 662枚（99.3%）は全問おなじ配点で、
+    //   本当に2種類以上あるのは5枚だけ。★空欄は数に入れない（入れると18枚に増えて5枚が埋もれる）。
+    //   採点には使っていないので取り込みは止めない。作問側に見てもらうために出すだけ。
+    const ptsList = items.map(i => i.points).filter(v => v !== null && v !== undefined);
+    const ptsCount = {};
+    ptsList.forEach(v => { ptsCount[v] = (ptsCount[v] || 0) + 1; });
+    const ptsKeys = Object.keys(ptsCount).map(Number).sort((a, b) => a - b);
+    if (ptsKeys.length > 1) {
+      // いちばん少ない配点＝打ち間違いの候補（同数なら小さいほう。Python 側と同じ選び方）
+      let rare = ptsKeys[0];
+      ptsKeys.forEach(v => { if (ptsCount[v] < ptsCount[rare]) rare = v; });
+      const detail = ptsKeys.map(v => `${v}点が${ptsCount[v]}問`).join("、");
+      warn.push(`${tag} 同じテストの中で配点がそろっていない（${detail}）` +
+                `＝${rare}点の問だけ違います。打ち間違いでなければそのままで構いません`);
+    }
+
     return {
       sheet: sheetName, title: titleOf(sheetName, prefix), lesson: lessonOf(sheetName),
       questions: items, dropped, unwritten, warn,

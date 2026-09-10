@@ -264,6 +264,29 @@ class KeepTest(Tmp):
         self.assertEqual(sets[0]["questions"][0]["image_name"], "7-9-⑮ゴミ出し.png")
         self.assertTrue(any("画像つきの設問" in w for w in warn))
 
+    # ---- 配点のばらつき（2026-09-11 追加。★JS 側 fmt-import.js と対になっている） ----
+
+    def test_uniform_points_make_no_warning(self):
+        """実測 2026-09-11: 設問のある667シート中 662枚（99.3%）は全問おなじ配点。
+        ここで警告を出すとほぼ全部が警告になり、本当に見てほしい5枚が埋もれる。"""
+        _, warn = self.build({"①1-3": [qrow(1, points=5), qrow(2, points=5)]})
+        self.assertFalse(any("配点がそろっていない" in w for w in warn))
+
+    def test_mixed_points_are_warned_but_not_dropped(self):
+        """★採点には配点を使っていないので、取り込みは止めない。作問側に見てもらうだけ。"""
+        sets, warn = self.build(
+            {"①1-3": [qrow(1, points=5), qrow(2, points=5), qrow(3, points=20)]})
+        self.assertEqual(len(sets[0]["questions"]), 3)
+        hit = [w for w in warn if "配点がそろっていない" in w]
+        self.assertEqual(len(hit), 1)
+        self.assertIn("20点の問だけ", hit[0])   # いちばん少ない配点を名指しする
+        self.assertIn("5点が2問", hit[0])       # 内訳も出す
+
+    def test_blank_points_do_not_count_as_mixed(self):
+        """空欄は「配点が書かれていない」であって「違う配点」ではない。"""
+        _, warn = self.build({"①1-3": [qrow(1, points=5), qrow(2, points="")]})
+        self.assertFalse(any("配点がそろっていない" in w for w in warn))
+
     def test_meta_columns_are_kept(self):
         sets, _ = self.build({"①1-3": [qrow(1, cat="文法読解", points=3, explain="かいせつ")]})
         q = sets[0]["questions"][0]

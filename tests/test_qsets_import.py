@@ -232,6 +232,25 @@ const R = {};
   R.dup_seq = warn.some(w => w.includes("問題番号が重複"));
 }
 {
+  // 配点がそろっているシートでは警告を出さない
+  const { warn } = FmtImport.build(book({ "①1-3": [qrow(1, { points: 5 }), qrow(2, { points: 5 })] }));
+  R.points_uniform = warn.some(w => w.includes("配点がそろっていない"));
+}
+{
+  // 1問だけ配点が違う＝打ち間違いの候補として出す。取り込みは止めない
+  const { sets, warn } = FmtImport.build(book({
+    "①1-3": [qrow(1, { points: 5 }), qrow(2, { points: 5 }), qrow(3, { points: 20 })] }));
+  const w = warn.filter(x => x.includes("配点がそろっていない"))[0] || "";
+  R.points_mixed = { n: sets[0].questions.length, warned: !!w,
+                     saysRare: w.includes("20点の問だけ"), detail: w.includes("5点が2問") };
+}
+{
+  // 配点が空欄の問は数に入れない（空欄だけを理由に「そろっていない」と言わない）
+  const { warn } = FmtImport.build(book({
+    "①1-3": [qrow(1, { points: 5 }), qrow(2, { points: "" })] }));
+  R.points_blank_ignored = warn.some(w => w.includes("配点がそろっていない"));
+}
+{
   const { sets, warn } = FmtImport.build(book({ "⑩28-30": [qrow(1, { choices: ["あ", "い", "い"], ans: 1 })] }));
   R.dup_choice_outside = { n: sets[0].questions.length, warned: warn.some(w => w.includes("選択肢が重複している")) };
 }
@@ -441,6 +460,19 @@ class NodeParityTest(CheckMixin, unittest.TestCase):
         self.check("重複選択肢・正解が外なら残して警告", r["dup_choice_outside"] == {"n": 1, "warned": True})
         self.check("重複選択肢・正解が中なら落とす",
               r["dup_choice_inside"]["seqs"] == [2] and "正解がその中にある" in r["dup_choice_inside"]["droppedReason"])
+
+    def test_03b_points_parity(self):
+        """★配点のばらつき検出が Python と JS で同じ答えになるか。
+        実測 2026-09-11: 設問のある667シート中 662枚（99.3%）は全問おなじ配点で、
+        本当に2種類以上あるのは5枚だけ。採点には使わないので取り込みは止めない。"""
+        print("\n=== Node: 配点のばらつき ===")
+        r = self.results
+        self.check("そろっていれば警告なし", r["points_uniform"] is False)
+        self.check("1問だけ違えば警告する", r["points_mixed"]["warned"] is True)
+        self.check("★取り込みは止めない（3問とも残る）", r["points_mixed"]["n"] == 3)
+        self.check("いちばん少ない配点を名指しする", r["points_mixed"]["saysRare"] is True)
+        self.check("内訳も出す", r["points_mixed"]["detail"] is True)
+        self.check("空欄は数に入れない", r["points_blank_ignored"] is False)
 
     def test_04_dropped(self):
         print("\n=== Node: 落としたものを残す ===")
