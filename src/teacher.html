@@ -188,7 +188,13 @@
 
       <!-- ══ 小テスト（動く） ══ -->
       <div id="view-quiz" data-viewpane hidden>
-        <div class="dashhead"><span class="t" id="quiz-title"></span></div>
+        <div class="dashhead"><span class="t">📝 小テスト ライブ集計</span></div>
+        <div class="panel">
+          <div class="field" style="max-width:460px;margin-bottom:0;">
+            <label for="quiz-pick">集計するテスト（新しい順）</label>
+            <select id="quiz-pick"></select>
+          </div>
+        </div>
         <div class="stats">
           <div class="stat"><div class="v" id="st-count">0</div><div class="l">提出数</div></div>
           <div class="stat"><div class="v" id="st-avg">–</div><div class="l">平均点 / 10</div></div>
@@ -203,6 +209,24 @@
         <div class="panel">
           <h2>提出フィード</h2>
           <div class="feed" id="feed"><div style="color:var(--sub)">提出待ち…</div></div>
+        </div>
+        <!-- ══ 結果の書き出し（台帳へ流す用・2026-09-11・完成の条件4）══
+             🔴 点数の正本は学生マスタDB（ここには保存しない）。学籍番号つきで書き出し、あちらへ取り込む。
+             🔴 集計（問題ごと）と個票（1行1学生）は別ファイル＝ヨリソルの失敗6番目「同じ表に混ぜない」。
+             🔴 離席の記録（画面を離れた回数）は出さない＝成績に反映しない方針が崩れるため。 -->
+        <div class="panel">
+          <h2>結果の書き出し</h2>
+          <div class="note">学籍番号つきの CSV をブラウザの中だけで作ります（送信しません）。
+            Excel で開けるよう UTF-8（BOM付き）で保存します。<b>個票</b>と<b>問題ごとの集計</b>は別ファイルです。</div>
+          <div class="field" style="max-width:460px;">
+            <label for="csv-run-pick">範囲</label>
+            <select id="csv-run-pick"><option value="">全クラスまとめて（横断）</option></select>
+          </div>
+          <div class="btnrow">
+            <button class="btn ghost" id="csv-btn-student" type="button" style="width:auto;">個票を CSV で書き出す</button>
+            <button class="btn ghost" id="csv-btn-question" type="button" style="width:auto;">問題ごとの集計を CSV で書き出す</button>
+          </div>
+          <div class="msg" id="csv-msg" style="display:none;"></div>
         </div>
       </div>
 
@@ -527,7 +551,7 @@
 const $ = id => document.getElementById(id);
 function err(id,t){ const m=$(id); m.className="msg err"; m.textContent=t; }
 const esc = s => (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;");
-let quizSet=null, timer=null, lastCount=0, activeView="today", studentTotal=null;
+let quizSet=null, quizSets=[], timer=null, lastCount=0, activeView="today", studentTotal=null;
 
 /* 確認ダイアログ（自前の <dialog>・2026-09-11）。confirm() の置き換え。
  * ★部品は1つ。呼ぶ側が {title, body, okText, cancelText, danger} を渡す。
@@ -1139,14 +1163,30 @@ $("qs-btn-publish").onclick = async ()=>{
 };
 
 async function start(){
-  const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson&order=created_at.desc&limit=1");
+  // ★上位50件・新しい順。既定は最新（従来どおり）だが、集計はあとから他のテストにも切り替えられる
+  //   （結果の書き出しは「今日の最新」だけでなく、終わったテストにも要るため）。
+  const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson&order=created_at.desc&limit=50");
   if(!sets.length){ err("login-msg","クイズセットがありません"); return; }
-  quizSet=sets[0];
-  $("quiz-title").textContent = "📝 "+quizSet.title+"（"+(quizSet.lesson||"")+"）";
+  quizSets = sets;
+  quizSet = sets[0];
+  $("quiz-pick").innerHTML = sets.map(s=>
+    "<option value='"+esc(s.id)+"'>"+esc(s.title)+(s.lesson?"（"+esc(s.lesson)+"）":"")+"</option>").join("");
+  $("quiz-pick").value = quizSet.id;
   $("scr-login").hidden=true; $("scr-dash").hidden=false;
   await tick();
   timer=setInterval(tick, 2000);
 }
+$("quiz-pick").onchange = ()=>{
+  const id = $("quiz-pick").value;
+  quizSet = quizSets.find(s=>s.id===id) || quizSet;
+  lastCount = 0;   // フィードの「新着」演出（pulse）をこのテストの最初の描画では出さない
+  $("qrates").innerHTML = "<div style='color:var(--sub)'>読み込み中…</div>";
+  $("feed").innerHTML = "<div style='color:var(--sub)'>読み込み中…</div>";
+  // 範囲（実施回）の選択肢はテストごとに違うので作り直す
+  $("csv-run-pick").innerHTML = "<option value=''>全クラスまとめて（横断）</option>";
+  $("csv-run-pick").dataset.html = "";
+  tickQuiz().catch(()=>{});
+};
 
 async function tick(){
   try{
@@ -1269,6 +1309,7 @@ async function renderTodaySets(){
 async function tickQuiz(){
   const s = await api.rpc("quiz_stats",{p_quiz_set_id:quizSet.id});
   if(s.error) return;
+  updateRunPick(s.runs);   // 結果の書き出しの「範囲」選択肢（実施回ごと／横断）
   const n = s.attempts.length;
   $("st-count").textContent = n;
   $("st-avg").textContent = n ? (s.attempts.reduce((a,x)=>a+x.score,0)/n).toFixed(1) : "–";
@@ -1303,6 +1344,109 @@ async function tickQuiz(){
   }
   lastCount=n;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   結果の書き出し（台帳へ流す用・2026-09-11・完成の条件4「クラスの到達度が分かり、成績の台帳に流れる」）
+   ★点数の正本は学生マスタDB（このアプリには置かない）。学籍番号つきのCSVを書き出し、
+     きあがあちらへ取り込む。サーバーは使わず、ブラウザの中で作ってそのまま保存させる。
+   🔴 個票（1行1学生）と問題ごとの集計（1行1問）は別ファイル＝ヨリソルの失敗6番目「同じ表に混ぜない」。
+   🔴 離席の記録（画面を離れた回数）はどちらにも出さない＝小テストは成績に反映しない方針が崩れるため。
+   ══════════════════════════════════════════════════════════════════ */
+
+/* 「範囲」の選択肢＝quiz_stats が返す runs（その回のセットに立った実施回、新しい順）。
+   ★中身が変わっていなければ作り直さない＝2秒ごとのtickで選択中の範囲が消えないように。 */
+function updateRunPick(runs){
+  const sel = $("csv-run-pick");
+  const cur = sel.value;
+  const html = "<option value=''>全クラスまとめて（横断）</option>" +
+    (runs||[]).map(r=>{
+      const cls = (r.class_names && r.class_names.length) ? r.class_names.join("・") : "全員";
+      const when = new Date(r.opens_at).toLocaleString("ja-JP",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
+      return "<option value=\""+escHtml(r.run_id)+"\">"+escHtml(cls)+"　"+when+(r.is_void?"（取消）":"")+"</option>";
+    }).join("");
+  if(sel.dataset.html === html) return;   // 前回と同じなら触らない（選択中の値を保つ）
+  sel.innerHTML = html;
+  sel.dataset.html = html;
+  if([...sel.options].some(o=>o.value===cur)) sel.value = cur;
+}
+
+/* 学籍番号 → クラス名。quiz_stats の attempts は student_no までしか返さない
+  （どの実施回で受けたかは run_id 経由で分かるが、実施回が無い・複数クラス対象だと引けないため、
+   本人のクラスは profiles から別引きする）。★件数は小さいので毎回取り直してよい（キャッシュしない＝
+   卒業・クラス替えのタイミングを気にしなくて済む）。 */
+async function fetchStudentClassByNo(){
+  const rows = await api.get("/rest/v1/profiles?select=student_no,class_name&role=eq.student");
+  const map = {};
+  rows.forEach(r=>{ map[r.student_no] = r.class_name || ""; });
+  return map;
+}
+
+function csvCell(v){
+  const s = v==null ? "" : String(v);
+  return /[",\r\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+/* 🔴 BOM付きUTF-8。付けないとExcelで日本語が化ける（既定の「UTF-8（BOM無し）」の罠）。
+   改行はCRLF（Excelの既定に合わせる）。ダウンロードはブラウザの中だけ＝送信しない。 */
+function downloadCsv(filename, rows){
+  const text = "\uFEFF" + rows.map(r=>r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+  const blob = new Blob([text], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+}
+function todayCompact(){
+  const d = new Date();
+  return d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");
+}
+/* ファイル名にテスト名と日付を入れる（あとで探せるように）。Windowsで使えない文字は_に置き換える */
+function csvFilename(kind){
+  const safe = (quizSet.title||"小テスト").replace(/[\\/:*?"<>|]/g,"_");
+  return safe+"_"+kind+"_"+todayCompact()+".csv";
+}
+function csvMsg(text, ng){ const m=$("csv-msg"); m.style.display="block"; m.textContent=text; m.className="msg"+(ng?" err":" info"); }
+
+async function exportQuizCsv(kind){
+  const runId = $("csv-run-pick").value || null;
+  $("csv-btn-student").disabled = true; $("csv-btn-question").disabled = true;
+  csvMsg("書き出しています…");
+  try{
+    const s = await api.rpc("quiz_stats", {p_quiz_set_id: quizSet.id, p_run_id: runId});
+    if(s.error) throw new Error(s.error);
+    if(kind==="student"){
+      const clsByNo = await fetchStudentClassByNo();
+      const runByI = {}; (s.runs||[]).forEach(r=>runByI[r.run_id]=r);
+      const rows = [["学籍番号","氏名","クラス","点数","満点","提出日時","実施回"]];
+      s.attempts.forEach(a=>{
+        const r = a.run_id ? runByI[a.run_id] : null;
+        const runLabel = r
+          ? ((r.class_names&&r.class_names.length ? r.class_names.join("・") : "全員")+" "
+             + new Date(r.opens_at).toLocaleString("ja-JP",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
+             + (r.is_void?"（取消）":""))
+          : "（実施回なし・公開中の提出）";
+        rows.push([a.student_no, a.name, clsByNo[a.student_no]||"", a.score, a.total,
+          new Date(a.at).toLocaleString("ja-JP",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}),
+          runLabel]);
+      });
+      downloadCsv(csvFilename("個票"), rows);
+      csvMsg("書き出しました（"+(rows.length-1)+"人ぶん）。ファイルはダウンロード先に保存されています。");
+    }else{
+      const rows = [["問題番号","受けた人数","正解した人数","正答率(%)"]];
+      (s.by_question||[]).forEach(q=>{
+        rows.push([q.seq, q.n, q.ok, q.n ? Math.round(q.ok/q.n*100) : 0]);
+      });
+      downloadCsv(csvFilename("問題ごと"), rows);
+      csvMsg("書き出しました（"+(rows.length-1)+"問ぶん）。ファイルはダウンロード先に保存されています。");
+    }
+  }catch(e){
+    csvMsg("書き出せませんでした（"+e.message+"）", true);
+  }finally{
+    $("csv-btn-student").disabled=false; $("csv-btn-question").disabled=false;
+  }
+}
+$("csv-btn-student").onclick   = ()=>exportQuizCsv("student");
+$("csv-btn-question").onclick  = ()=>exportQuizCsv("question");
 
 /* どのアンケートを見るか（定義は assets/surveys.js・学生画面と共通。先生向けなので日本語の名前で出す） */
 let svKey = SURVEYS[0].key;
