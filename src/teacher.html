@@ -85,6 +85,22 @@
   .qs-act .btn{width:auto;padding:5px 12px;font-size:.8rem;margin:0 4px 0 0;}
   .qs-act .btn:disabled{opacity:.4;cursor:not-allowed;}
   .qs-why{font-size:.72rem;color:var(--sub);white-space:nowrap;}
+  /* 確認ダイアログの自前化（2026-09-11）: ブラウザ標準の confirm() は
+     Chrome が「このページの内容」という見出しを勝手に付け、消せない・変えられない。
+     色も先生のブラウザ／OSの設定なので、先生ごとに見た目が違う＝うちの画面に見えない。
+     HTML標準の <dialog> に置き換える。★ライブラリは足さない（学生画面の依存ゼロと揃える）。
+     中に人数・件数を出せるのが目的の半分（例:「公開すると学生28人に見えます」）。 */
+  dialog.cfmdlg{border:0;border-radius:16px;padding:22px;width:min(420px,92vw);
+    background:var(--surface);color:var(--ink);box-shadow:0 18px 50px rgba(16,21,27,.28);}
+  dialog.cfmdlg::backdrop{background:rgba(16,21,27,.45);}
+  dialog.cfmdlg h3{margin:0 0 10px;font-size:1.05rem;}
+  /* white-space:pre-line で \n がそのまま改行になる（.prompt と同じ考え方）。
+     ★中身は textContent で入れる＝escHtml を通さなくても安全（innerHTMLを使わないため）。 */
+  dialog.cfmdlg .cfm-body{font-size:.92rem;line-height:1.7;color:var(--ink);white-space:pre-line;}
+  dialog.cfmdlg .cfm-actions{margin-top:20px;justify-content:flex-end;}
+  dialog.cfmdlg .cfm-actions .btn{width:auto;padding:10px 20px;}
+  /* 危険な操作（削除）だけ赤系にする。app.css には無い色なのでここで足す */
+  dialog.cfmdlg .btn.danger{background:var(--ng);border-color:var(--ng);color:#fff;}
   @media (max-width:900px){
     .adm{grid-template-columns:1fr;}
     .side{position:static;}
@@ -126,7 +142,10 @@
     <aside class="side">
       <div class="sechead">いま動きます</div>
       <div class="nav">
-        <button data-view="quiz" class="on"><span class="ico">📝</span>小テスト ライブ集計</button>
+        <!-- 🔴 入口は「授業」ではなく「今日やること」（ヨリソルの失敗analysis 1番目）。
+             ログイン直後にまず出るのはここ＝下の activeView 初期値・view-today の hidden 無しと対応。 -->
+        <button data-view="today" class="on"><span class="ico">📅</span>今日</button>
+        <button data-view="quiz"><span class="ico">📝</span>小テスト ライブ集計</button>
         <button data-view="survey"><span class="ico">📋</span>アンケート 回答一覧</button>
         <button data-view="qsets"><span class="ico">✏️</span>問題の登録・解放</button>
         <button id="btn-qr"><span class="ico">📱</span>学生用QRを表示</button>
@@ -145,8 +164,26 @@
 
     <div class="content">
 
+      <!-- ══ 📅今日（動く・入口）══
+           いま開いている実施回（クラス・残り時間・提出／対象）と、今日登録した回だけを見せる。
+           ★個人別は出さない（quiz_stats の focus と同じ思想）。中身が無くても空白にしない。 -->
+      <div id="view-today" data-viewpane>
+        <div class="dashhead"><span class="t">📅 今日</span></div>
+        <div class="panel">
+          <h2>いま開いている実施回</h2>
+          <div id="today-runs"><div style="color:var(--sub)">読み込み中…</div></div>
+          <div class="msg" id="today-runs-msg" style="display:none;"></div>
+          <div class="note">🔴 <b>取り消しても回答は消えません</b>（集計から外れるだけです）。
+            クラスを間違えて開いたときは、取り消してから正しいクラスで開き直してください。</div>
+        </div>
+        <div class="panel">
+          <h2>今日 登録した回</h2>
+          <div id="today-sets"><div style="color:var(--sub)">読み込み中…</div></div>
+        </div>
+      </div>
+
       <!-- ══ 小テスト（動く） ══ -->
-      <div id="view-quiz" data-viewpane>
+      <div id="view-quiz" data-viewpane hidden>
         <div class="dashhead"><span class="t" id="quiz-title"></span></div>
         <div class="stats">
           <div class="stat"><div class="v" id="st-count">0</div><div class="l">提出数</div></div>
@@ -200,7 +237,9 @@
               <tbody id="qs-list-body"></tbody>
             </table></div>
             <div class="note" id="qs-list-note">読み込み中…</div>
-            <div class="note"><b>公開</b>を押すと、その回が学生の画面に出ます。<b>停止</b>で引っ込みます。<br>
+            <div class="note"><b>はじめる</b>はクラスと時間を指定して、その時間だけ学生の画面に出します
+              （授業中の小テストはこちら推奨。「📅 今日」で残り時間・提出数が見られます）。<br>
+              <b>公開</b>を押すと、その回が<u>クラスを問わず</u>ずっと学生の画面に出ます。<b>停止</b>で引っ込みます。<br>
               <b>消す</b>は<b>「受験」が 0 の回だけ</b>できます（取り込みを間違えたときの後始末用）。
               ★<b>1人でも受けた回は「消す」が押せません</b>（「受験ずみ」と出ます）。停止にしてください＝
               <u>受けた記録を消してしまう作りにはしない</u>という決めごとです。<br>
@@ -403,6 +442,40 @@
   </div>
 </div>
 
+<!-- 確認ダイアログ（自前・askDialog() から使う）。部品は1つだけで、呼ぶ側が文言と数字を差し込む。
+     Esc で閉じる／ボタンにフォーカスが当たる（キーボードだけで押せる）のは <dialog> 標準の挙動。 -->
+<dialog class="cfmdlg" id="cfm-dlg">
+  <form method="dialog" class="cfmform">
+    <h3 id="cfm-title"></h3>
+    <div class="cfm-body" id="cfm-body"></div>
+    <div class="btnrow cfm-actions">
+      <button type="button" class="btn ghost" id="cfm-cancel">やめる</button>
+      <button type="submit" class="btn" id="cfm-ok" value="ok">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 実施回を「はじめる」ダイアログ（②2026-09-11）。askDialog とは別物＝入力（クラス・時間）を持つため。
+     🔴 クラスは毎回選ばせる（前回の選択を既定にしない）。選ぶと対象人数がその場に出る＝
+     「1B（28人）で はじめます」を押す前に見える形にしてある。 -->
+<dialog class="cfmdlg" id="run-dlg">
+  <h3 id="run-title"></h3>
+  <div class="field">
+    <label for="run-class">対象クラス（かならず選びます）</label>
+    <select id="run-class"></select>
+  </div>
+  <div class="field">
+    <label for="run-dur">時間（分）</label>
+    <input type="number" id="run-dur" value="20" min="1" max="480">
+  </div>
+  <div class="note" id="run-target">クラスの一覧を読み込んでいます…</div>
+  <div class="msg" id="run-msg" style="display:none;"></div>
+  <div class="btnrow cfm-actions">
+    <button type="button" class="btn ghost" id="run-cancel">やめる</button>
+    <button type="button" class="btn" id="run-start" disabled>はじめる</button>
+  </div>
+</dialog>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★Excel読み取り(SheetJS)は教師画面だけで読む。学生画面(index.html)には絶対に足さない -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -415,7 +488,135 @@
 const $ = id => document.getElementById(id);
 function err(id,t){ const m=$(id); m.className="msg err"; m.textContent=t; }
 const esc = s => (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;");
-let quizSet=null, timer=null, lastCount=0, activeView="quiz", studentTotal=null;
+let quizSet=null, timer=null, lastCount=0, activeView="today", studentTotal=null;
+
+/* 確認ダイアログ（自前の <dialog>・2026-09-11）。confirm() の置き換え。
+ * ★部品は1つ。呼ぶ側が {title, body, okText, cancelText, danger} を渡す。
+ *   body は textContent で入れる（\n はCSSの white-space:pre-line で改行になる）ので、
+ *   ここでは escHtml/rubyHtml を通す必要がない＝innerHTML を使わないため。
+ * ★フォーカスは最初「やめる」に当てる（危険な操作でEnterを連打しても誤って確定しないため）。
+ *   OKボタンは type=submit・value="ok"＝<dialog>標準の挙動で、押すと自動的に
+ *   dialog.returnValue="ok" で閉じる。Esc は返り値を変えずに閉じる＝ここでは「やめる」扱いになる。 */
+function askDialog({ title = "", body = "", okText = "OK", cancelText = "やめる", danger = false } = {}) {
+  return new Promise(resolve => {
+    const dlg = $("cfm-dlg"), ok = $("cfm-ok"), cancel = $("cfm-cancel");
+    $("cfm-title").textContent = title;
+    $("cfm-body").textContent = body;
+    ok.textContent = okText;
+    cancel.textContent = cancelText;
+    ok.classList.toggle("danger", !!danger);
+    dlg.returnValue = "";   // 前回開いたときの値が残らないように
+    let done = false;
+
+    // ★クリックした瞬間に解決する（<dialog>の"close"イベントはキュー投入＝一拍遅れることがあるため、
+    //   OK/やめるを押した側では待たずに自分で閉じて即resolveする）。
+    //   "close" は Esc など、この2つを通らずに閉じた場合だけの受け皿として残す。
+    function finish(v) {
+      if (done) return; done = true;
+      dlg.removeEventListener("close", onClose);
+      dlg.removeEventListener("click", onBackdrop);
+      cancel.removeEventListener("click", onCancel);
+      ok.removeEventListener("click", onOk);
+      resolve(v);
+    }
+    function onCancel() { dlg.close(""); finish(false); }
+    function onOk(e) { e.preventDefault(); dlg.close("ok"); finish(true); }
+    function onBackdrop(e) { if (e.target === dlg) onCancel(); }   // 外側クリック＝やめる
+    function onClose() { finish(dlg.returnValue === "ok"); }        // Esc等の受け皿
+
+    dlg.addEventListener("close", onClose);
+    dlg.addEventListener("click", onBackdrop);
+    cancel.addEventListener("click", onCancel);
+    ok.addEventListener("click", onOk);
+
+    dlg.showModal();
+    cancel.focus();
+  });
+}
+
+/* クラス名の一覧（実施回「はじめる」のクラス選択用）。profiles は自由記述の文字列なので、
+   固定リストではなく実在のクラスから毎回引く。★件数は小さい（ダミーは190名）ので都度取得でよい。 */
+async function fetchClassNames(){
+  const rows = await api.get("/rest/v1/profiles?select=class_name&role=eq.student&class_name=not.is.null");
+  return [...new Set(rows.map(r=>r.class_name).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ja"));
+}
+
+/* 実施回を「はじめる」ダイアログ（②2026-09-11）。
+ * ★askDialog と違って中に入力（クラス・時間）を持つので専用に書く。
+ * 対象人数はクラスを選んだ瞬間にその場で出す＝「1B（28人）で はじめます」を押す前に見える形。
+ * 戻り値: はじめられたら start_quiz_run の返り値、キャンセルなら false。 */
+function openRunDialog(qs){
+  const dlg=$("run-dlg"), sel=$("run-class"), dur=$("run-dur"), tgt=$("run-target"),
+        msg=$("run-msg"), startBtn=$("run-start"), cancelBtn=$("run-cancel");
+  $("run-title").textContent = "「"+qs.title+"」を はじめる";
+  dur.value = 20;
+  msg.style.display = "none";
+  startBtn.disabled = true; cancelBtn.disabled = false;
+  sel.innerHTML = "<option value=''>－ 選んでください －</option>";
+  sel.value = "";
+  tgt.textContent = "クラスの一覧を読み込んでいます…";
+
+  return new Promise(resolve=>{
+    let settled=false;
+    function cleanup(){
+      dlg.removeEventListener("close", onClose);
+      sel.removeEventListener("change", onChange);
+      dur.oninput = null;
+      startBtn.removeEventListener("click", onStart);
+      cancelBtn.removeEventListener("click", onCancel);
+    }
+    function finish(v){ if(settled) return; settled=true; cleanup(); dlg.close(""); resolve(v); }
+    function onCancel(){ finish(false); }
+    function onClose(){ finish(false); }   // Esc・背景相当の受け皿
+
+    async function onChange(){
+      const cls = sel.value;
+      if(!cls){ startBtn.disabled=true; tgt.textContent="クラスを選ぶと対象人数が出ます。"; return; }
+      startBtn.disabled = true;
+      tgt.textContent = "人数を数えています…";
+      const n0 = Number(dur.value)||20;
+      try{
+        const n = await api.rpc("run_target_count", {p_class_names:[cls]});
+        tgt.textContent = "「"+cls+"」を、"+n+"人 を対象に、"+n0+"分間 はじめます。";
+      }catch(e){
+        // ★人数が出せなくても止めない（run_target_count と同じ考え方）。クラス名だけ見て進められるように
+        tgt.textContent = "「"+cls+"」を、"+n0+"分間 はじめます。（対象人数は数えられませんでした）";
+      }
+      startBtn.disabled = false;
+    }
+    dur.oninput = ()=>{ if(sel.value) onChange(); };
+
+    async function onStart(){
+      const cls = sel.value; if(!cls) return;
+      const n = Number(dur.value);
+      if(!Number.isFinite(n) || n<1 || n>480){
+        msg.style.display="block"; msg.className="msg err"; msg.textContent="時間は1〜480分で入れてください。";
+        return;
+      }
+      startBtn.disabled=true; cancelBtn.disabled=true;
+      msg.style.display="block"; msg.className="msg info"; msg.textContent="はじめています…";
+      try{
+        const r = await api.rpc("start_quiz_run", {p_quiz_set_id:qs.id, p_class_names:[cls], p_duration_min:n});
+        cleanup(); settled=true; dlg.close("ok"); resolve(r);
+      }catch(e){
+        msg.className="msg err"; msg.textContent="はじめられませんでした（"+e.message+"）";
+        startBtn.disabled=false; cancelBtn.disabled=false;
+      }
+    }
+
+    dlg.addEventListener("close", onClose);
+    sel.addEventListener("change", onChange);
+    startBtn.addEventListener("click", onStart);
+    cancelBtn.addEventListener("click", onCancel);
+
+    fetchClassNames().then(names=>{
+      names.forEach(n=>{ const o=document.createElement("option"); o.value=n; o.textContent=n; sel.appendChild(o); });
+      tgt.textContent = names.length ? "クラスを選ぶと対象人数が出ます。" : "学生のクラスが見つかりませんでした。";
+    }).catch(e=>{ tgt.textContent = "クラス一覧を読み込めませんでした（"+e.message+"）。"; });
+
+    dlg.showModal();
+  });
+}
 
 $("btn-login").onclick = async () => {
   const no=$("in-no").value.trim(), pw=$("in-pw").value;
@@ -436,7 +637,7 @@ function setView(v){
   activeView=v;
   document.querySelectorAll(".nav [data-view]").forEach(b=>b.classList.toggle("on", b.getAttribute("data-view")===v));
   document.querySelectorAll("[data-viewpane]").forEach(p=>{ p.hidden = (p.id!=="view-"+v); });
-  if(v==="quiz"||v==="survey") tick();
+  if(v==="quiz"||v==="survey"||v==="today") tick();
   if(v==="qsets"){
     // hashが変われば hashchange 経由で routeQsets() が呼ばれる。既に #qsets 系なら変わらないので直接呼ぶ
     if(location.hash.startsWith("#qsets")) routeQsets(); else location.hash = "#qsets";
@@ -468,7 +669,12 @@ async function showQsList(){
     //   （2026-09-11 に実際にそうなった＝押しても何も起きないように見える）。
     //   埋め込み集計 attempts(count) がこのインスタンスで効くことは確認済み（2026-09-11・[{count:N}] が返る）。
     //   ⚠ 返って来ない環境でも落ちないよう、下で「分からなければ数を出さず、止めもしない」形にしてある。
-    const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson,is_open,attempts(count)"
+    // questions(count) は消す確認ダイアログの「設問◯問」に使う（埋め込みなので追加の往復が要らない）。
+    // 🔴 quiz_sets→questions は2026-09-10のquiz_set_questions（設問バンクの器）のせいで経路が2つあり、
+    //   素の questions(count) だと PostgREST が「どちらか選べない」で300を返す（曖昧な埋め込み）。
+    //   FK名を明示してあいまいさを消す（quiz_set_questions は関係ないと伝える）。
+    const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson,is_open,attempts(count),"
+                               + "questions!questions_quiz_set_id_fkey(count)"
                                + "&order=created_at.desc&limit=50");
     if(window.__e2e) window.__e2e.lastSets = sets;   // ブラウザ実操作テストの覗き口（画面の動作には使わない）
     // ★毎回まるごと入れ替える。1行ずつ足す形だと、古い行が残っていないかを常に気にすることになる
@@ -485,6 +691,7 @@ async function showQsList(){
         "<td class='num'>"+(n===null ? "—" : n)+"</td>"+
         "<td><span class='pill "+(s.is_open?"on":"off")+"'>"+(s.is_open?"公開中":"下書き")+"</span></td>"+
         "<td class='qs-act'>"+
+          "<button class='btn ghost qs-start' type='button' title='クラスと時間を指定して、その時間だけ開きます（授業中はこちら推奨）'>はじめる</button>"+
           "<button class='btn ghost qs-toggle' type='button' data-open='"+(s.is_open?"1":"0")+"'>"+
             (s.is_open?"停止":"公開")+"</button>"+
           "<button class='btn ghost qs-del' type='button'"+(locked?" disabled":"")+
@@ -503,17 +710,50 @@ function wireQsListActions(sets){
   const byId = {}; sets.forEach(s=>byId[s.id]=s);
   const msg = (text, ng)=>{ const m=$("qs-list-msg"); m.textContent=text; m.className = "msg"+(ng?" ng":" ok"); };
 
+  // 埋め込み集計 attempts(count) / questions(count) から件数を取り出す。取れなければ null
+  const embedN = (arr)=> (Array.isArray(arr) && arr[0] && typeof arr[0].count==="number") ? arr[0].count : null;
+
   $("qs-list-tbl").querySelectorAll("tr[data-qsid]").forEach(tr=>{
     const id = tr.getAttribute("data-qsid"), s = byId[id] || {};
     const busy = (on)=>tr.querySelectorAll("button").forEach(b=>b.disabled=on);
 
+    // 実施回を「はじめる」（②2026-09-11・4月の本丸）。押す前の対象人数はダイアログの中で出す
+    tr.querySelector(".qs-start").onclick = async ()=>{
+      busy(true);
+      try{
+        const r = await openRunDialog(s);
+        if(!r){ busy(false); return; }   // やめた
+        const cls = (r.class_names && r.class_names[0]) || "";
+        const until = new Date(r.closes_at).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
+        msg("「"+s.title+"」を「"+cls+"」で はじめました"
+          + (r.target_count!=null ? "（"+r.target_count+"人対象・" : "（")+until+"まで）。「📅 今日」で確認できます。");
+      }catch(e){ msg("はじめられませんでした（"+e.message+"）", true); }
+      finally{ busy(false); }
+    };
+
     tr.querySelector(".qs-toggle").onclick = async ()=>{
       const open = tr.querySelector(".qs-toggle").getAttribute("data-open")==="1";
-      // ★公開は学生に即見える。押す前に何が起きるかを言ってから確認する
-      const q = open ? ("「"+s.title+"」を停止します。\n学生の画面から消えます（記録は残ります）。")
-                     : ("「"+s.title+"」を公開します。\n★いま学生の画面に出ます。よろしいですか。");
-      if(!confirm(q)) return;
       busy(true);
+      let ok;
+      if(open){
+        // 停止: 受験記録は残ることを数字つきで言っておく
+        const n = embedN(s.attempts);
+        ok = await askDialog({
+          title: "「"+s.title+"」を停止します",
+          body: "学生の画面からすぐに消えます。\n"+(n!=null ? "受験記録 "+n+"件はそのまま残ります。" : "受験記録は残ります。"),
+          okText: "停止する",
+        });
+      }else{
+        // 公開: 押す前に対象人数を出す＝人数が違えば押す前に気づける（今は is_open が全員対象）
+        let n = null;
+        try{ n = await api.rpc("run_target_count", {}); }catch(e){ /* 出せなくても止めない */ }
+        ok = await askDialog({
+          title: "「"+s.title+"」を公開します",
+          body: (n!=null ? "学生 "+n+"人に、すぐに見えるようになります。" : "学生の画面に、すぐに見えるようになります。"),
+          okText: "公開する",
+        });
+      }
+      if(!ok){ busy(false); return; }
       // ★知らせを出すのは**一覧を読み直したあと**。先に出すと、画面がまだ古いのに
       //   「公開しました」と言うことになる（押した先生はもう一度押す）。
       try{ await FmtImport.db.setOpen(id, !open); await showQsList(); msg((open?"停止":"公開")+"しました：" + s.title); }
@@ -530,7 +770,13 @@ function wireQsListActions(sets){
           msg("「"+s.title+"」は受験記録が "+n+" 件あるので消せません。「停止」を使ってください。", true);
           busy(false); return;
         }
-        if(!confirm("「"+s.title+"」を消します。\n設問も一緒に消えます。元に戻せません。")){ busy(false); return; }
+        const qn = embedN(s.questions);
+        const ok = await askDialog({
+          title: "「"+s.title+"」を消します",
+          body: "設問"+(qn!=null ? " "+qn+"問" : "")+"も一緒に消えます。元に戻せません。",
+          okText: "消す", danger: true,
+        });
+        if(!ok){ busy(false); return; }
         const r = await FmtImport.db.deleteSet(id);
         msg("消しました：" + s.title + "（設問 " + (r && r.questions!=null ? r.questions : "?") + "問）");
         await showQsList();
@@ -782,9 +1028,120 @@ async function start(){
 
 async function tick(){
   try{
-    if(activeView==="quiz") await tickQuiz();
+    if(activeView==="today") await tickToday();
+    else if(activeView==="quiz") await tickQuiz();
     else if(activeView==="survey") await tickSurvey();
   }catch(e){ /* 一時的な失敗は次のtickで回復 */ }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   📅今日（入口・2026-09-11）: いま開いている実施回 と 今日登録した回だけを見せる。
+   ヨリソルの失敗analysis 1番目「入口は授業ではなく今日やること」への実装。
+   ★個人別は出さない。中身が無いときは空白にせず、次にやることへの導線を出す。
+   ══════════════════════════════════════════════════════════════════ */
+const runTargetCache = {};   // run_id → 対象人数（クラス名簿は授業中に変わらない前提。取れるまでは"…"）
+function todayRunsMsg(text, ng){ const m=$("today-runs-msg"); m.style.display="block"; m.textContent=text; m.className="msg"+(ng?" err":" info"); }
+function fmtRemain(closesAt){
+  const ms = new Date(closesAt) - Date.now();
+  if(ms<=0) return "まもなく終了";
+  const m = Math.floor(ms/60000), s = Math.floor((ms%60000)/1000);
+  return m+"分"+String(s).padStart(2,"0")+"秒";
+}
+async function tickToday(){
+  await Promise.all([ renderTodayRuns(), renderTodaySets() ]);
+}
+
+async function renderTodayRuns(){
+  const nowIso = new Date().toISOString();
+  let runs;
+  try{
+    runs = await api.get("/rest/v1/quiz_runs?select=id,quiz_set_id,class_names,student_ids,closes_at,"
+      + "quiz_sets(title,lesson),attempts(count)"
+      + "&is_void=eq.false&opens_at=lte."+nowIso+"&closes_at=gt."+nowIso+"&order=closes_at.asc");
+  }catch(e){
+    $("today-runs").innerHTML = "<div class='msg err' style='display:block;'>読み込みに失敗しました（"+esc(e.message)+"）</div>";
+    return;
+  }
+  if(!runs.length){
+    // ★空のときも空白にしない。次にやること（②で足した「はじめる」）への導線を出す
+    $("today-runs").innerHTML = "<div style='color:var(--sub);'>いま開いている回はありません。"
+      + "「✏️ 問題の登録・解放」の一覧から「はじめる」を押すと、ここに出ます。</div>";
+    return;
+  }
+  // ★対象人数はクラス名簿が授業中に変わらない前提でキャッシュする（毎tickRPCを呼ばない）
+  await Promise.all(runs.filter(r=>runTargetCache[r.id]===undefined).map(async r=>{
+    try{ runTargetCache[r.id] = await api.rpc("run_target_count",
+      {p_class_names:r.class_names||[], p_student_ids:r.student_ids||[]}); }
+    catch(e){ runTargetCache[r.id] = null; }
+  }));
+  $("today-runs").innerHTML =
+    "<div class='tblwrap'><table class='tbl'><thead><tr>"
+    + "<th>テスト名</th><th>クラス</th><th class='num'>残り時間</th><th class='num'>提出</th><th>操作</th>"
+    + "</tr></thead><tbody>"
+    + runs.map(r=>{
+        const title = (r.quiz_sets && r.quiz_sets.title) || "（不明）";
+        const lesson = (r.quiz_sets && r.quiz_sets.lesson) || "";
+        const cls = (r.class_names && r.class_names.length) ? r.class_names.join("・") : "全員";
+        const submitted = (Array.isArray(r.attempts) && r.attempts[0] && typeof r.attempts[0].count==="number") ? r.attempts[0].count : 0;
+        const target = runTargetCache[r.id];
+        return "<tr data-runid='"+esc(r.id)+"'><td>"+esc(title)+(lesson?"　<span style='color:var(--sub);font-size:.8rem;'>（"+esc(lesson)+"）</span>":"")+"</td>"
+          + "<td>"+esc(cls)+"</td>"
+          + "<td class='num'>"+fmtRemain(r.closes_at)+"</td>"
+          + "<td class='num'>"+submitted+" / "+(target==null?"—":target)+"</td>"
+          + "<td class='qs-act'>"
+          +   "<button class='btn ghost run-stop' type='button'>停止</button>"
+          +   "<button class='btn ghost run-void' type='button'>取り消し</button>"
+          + "</td></tr>";
+      }).join("")
+    + "</tbody></table></div>";
+
+  $("today-runs").querySelectorAll("tr[data-runid]").forEach(tr=>{
+    const runId = tr.getAttribute("data-runid");
+    const label = tr.children[0].textContent.trim()+"（"+tr.children[1].textContent.trim()+"）";
+    tr.querySelector(".run-stop").onclick = async ()=>{
+      const ok = await askDialog({
+        title: "「"+label+"」を今すぐ閉じます",
+        body: "残り時間を待たずに、学生の画面からすぐに消えます。\n受験ずみの回答はそのまま残ります。",
+        okText: "閉じる",
+      });
+      if(!ok) return;
+      try{ await api.rpc("close_quiz_run",{p_run_id:runId}); await renderTodayRuns(); }
+      catch(e){ todayRunsMsg("閉じられませんでした（"+e.message+"）", true); }
+    };
+    tr.querySelector(".run-void").onclick = async ()=>{
+      const ok = await askDialog({
+        title: "「"+label+"」を取り消します",
+        body: "学生の画面からすぐに消えます。\n🔴 受験ずみの回答は消えません（集計から外れるだけです）。\nクラスを間違えて開いたときの取り消しに使います。",
+        okText: "取り消す", danger: true,
+      });
+      if(!ok) return;
+      try{ await api.rpc("void_quiz_run",{p_run_id:runId}); delete runTargetCache[runId]; await renderTodayRuns(); }
+      catch(e){ todayRunsMsg("取り消せませんでした（"+e.message+"）", true); }
+    };
+  });
+}
+
+async function renderTodaySets(){
+  let sets;
+  try{
+    sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson,is_open,created_at&order=created_at.desc&limit=50");
+  }catch(e){
+    $("today-sets").innerHTML = "<div class='msg err' style='display:block;'>読み込みに失敗しました（"+esc(e.message)+"）</div>";
+    return;
+  }
+  const todayStr = new Date().toDateString();
+  const todaySets = sets.filter(s=>new Date(s.created_at).toDateString()===todayStr);
+  if(!todaySets.length){
+    $("today-sets").innerHTML = "<div style='color:var(--sub);'>今日はまだ何も登録していません。"
+      + "「✏️ 問題の登録・解放」の「＋ Excelから取り込む」から始めます。</div>";
+    return;
+  }
+  $("today-sets").innerHTML = todaySets.map(s=>{
+    const t = new Date(s.created_at).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
+    return "<div class='frow'><span class='fname'>"+esc(s.title)+(s.lesson?"（"+esc(s.lesson)+"）":"")+"</span>"
+      + "<span class='pill "+(s.is_open?"on":"off")+"'>"+(s.is_open?"公開中":"下書き")+"</span>"
+      + "<span class='ftime'>"+t+"</span></div>";
+  }).join("");
 }
 
 async function tickQuiz(){

@@ -131,12 +131,21 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
        rowOf() ? rowOf().textContent.slice(0, 80) : "行が無い");
 
   // ---- 公開／停止のトグル ----
-  // ★confirm は自動では押せないので、この間だけ「はい」を返すように差し替える
-  const realConfirm = w.confirm; w.confirm = () => true;
+  // ★2026-09-11 から確認は自前の <dialog>（askDialog）。**window.confirm は使っていない**ので、
+  //   差し替えでは通らない。実際に画面に出た OK ボタンを押す。
+  //   ⚠ 押す前に「ダイアログが本当に出たか」も確かめる＝出ないまま次へ進むのを防ぐ。
+  const pressOk = async (what) => {
+    const shown = await until(() => { const d0 = $("cfm-dlg"); return d0 && d0.open; }, 10000);
+    step("★" + what + "の前に確認ダイアログが出る", shown,
+         shown ? $("cfm-dlg").textContent.replace(/\s+/g, " ").slice(0, 70) : "出なかった");
+    if (shown) $("cfm-ok").click();
+    return shown;
+  };
   try {
     // ★画面の知らせを合図にする（＝一覧の読み直しが終わったあとに出る）。
     //   DOM を素で見張ると、--virtual-time-budget の下では読み直しと競合して当てにならない。
     rowOf().querySelector(".qs-toggle").click();
+    await pressOk("公開");
     const okPub = await until(() => $("qs-list-msg").textContent.includes("公開しました"), 20000);
     // ★画面とDBの両方を見る。片方だけだと「DBは変わったのに画面が古い」を見逃す
     const inDb = await w.__e2e.get("/rest/v1/quiz_sets?select=id,is_open&" +
@@ -156,6 +165,7 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
          " / 知らせ=" + $("qs-list-msg").textContent.slice(0, 40));
 
     rowOf().querySelector(".qs-toggle").click();
+    await pressOk("停止");
     const okStop = await until(() => $("qs-list-msg").textContent.includes("停止しました"), 20000);
     const inDb2 = await w.__e2e.get("/rest/v1/quiz_sets?select=id,is_open&" +
       "title=like." + encodeURIComponent(TITLE_PREFIX + "*"));
@@ -164,7 +174,7 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
          inDb2.length === 1 && inDb2[0].is_open === false,
          "画面=" + (rowOf() ? rowOf().textContent.slice(0, 50) : "無し") +
          " / DB=" + JSON.stringify(inDb2.map(r => r.is_open)));
-  } finally { w.confirm = realConfirm; }
+  } finally { /* 差し替えは無いので戻すものも無い */ }
 
   // ---- 片付け（ダミーを消す。消せたことまで確認する）----
   // ★w.api は const 宣言なので iframe外から拾えない。teacher.html が窓口として出している __e2e を使う。

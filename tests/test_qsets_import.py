@@ -112,7 +112,15 @@ class StructureTest(CheckMixin, unittest.TestCase):
               not any('"DELETE"' in l and "quiz_sets" in l for l in js.splitlines()))
         self.check("押す前に受験記録の件数を数える口がある（attemptCount）", "function attemptCount" in js)
         self.check("画面が「受験記録があるので消せません」を出す", "消せません" in tea)
-        self.check("公開・削除は押す前に確認する（confirm）", tea.count("confirm(") >= 2)
+        # ⚠ 「confirm(」を数えてはいけない。2026-09-11 に自前の <dialog> へ置き換えたので
+        #   実際の呼び出しは0件だが、**コメントの中の「confirm()」に当たって、たまたま通る**。
+        #   数えるのは実物の呼び出し（askDialog）。
+        self.check("★押す前の確認は自前のダイアログ（askDialog）で出す",
+              tea.count("askDialog(") >= 4, "askDialog= " + str(tea.count("askDialog(")))
+        self.check("★ブラウザ標準の confirm() を使っていない",
+              " confirm(" not in tea.replace("window.confirm", "") or "await confirm(" not in tea,
+              "「このページの内容」という消せない見出しが出るため")
+        self.check("ダイアログに危険な操作の色分けがある（danger）", "danger" in tea)
         self.check("④の文言が「登録」になっている（公開は一覧で押す）",
               "登録する（下書き）" in tea)
 
