@@ -83,7 +83,8 @@
   /* 一覧の行に置く操作ボタン。表の行が高くならないように小さくする */
   .qs-act{white-space:nowrap;}
   .qs-act .btn{width:auto;padding:5px 12px;font-size:.8rem;margin:0 4px 0 0;}
-  .qs-act .btn:disabled{opacity:.5;}
+  .qs-act .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .qs-why{font-size:.72rem;color:var(--sub);white-space:nowrap;}
   @media (max-width:900px){
     .adm{grid-template-columns:1fr;}
     .side{position:static;}
@@ -195,14 +196,15 @@
                  2026-09-11 に実際にそうなった（DOMは14行、DBは4件。しかも古い行が上に残るので、
                  「公開を押したのに下書きのまま」に見えた）。★行の入れ替えは tbody の innerHTML で行う。 -->
             <div class="tblwrap"><table class="tbl" id="qs-list-tbl">
-              <thead><tr><th>テスト名</th><th>課</th><th>状態</th><th>操作</th></tr></thead>
+              <thead><tr><th>テスト名</th><th>課</th><th class="num">受験</th><th>状態</th><th>操作</th></tr></thead>
               <tbody id="qs-list-body"></tbody>
             </table></div>
             <div class="note" id="qs-list-note">読み込み中…</div>
             <div class="note"><b>公開</b>を押すと、その回が学生の画面に出ます。<b>停止</b>で引っ込みます。<br>
-              <b>消す</b>は<b>受験記録が1件も無い回だけ</b>できます（取り込みを間違えたときの後始末用）。
-              ★<b>1人でも受けた回は消せません。</b>停止にしてください＝
-              <u>受けた記録を消してしまう作りにはしない</u>という決めごとです</div>
+              <b>消す</b>は<b>「受験」が 0 の回だけ</b>できます（取り込みを間違えたときの後始末用）。
+              ★<b>1人でも受けた回は「消す」が押せません</b>（「受験ずみ」と出ます）。停止にしてください＝
+              <u>受けた記録を消してしまう作りにはしない</u>という決めごとです。<br>
+              ⓘ「受験」が <b>—</b> のときは件数が取れなかったという意味です（0 ではありません）</div>
             <div class="msg" id="qs-list-msg"></div>
           </div>
           <div class="note">Excelは「課題登録FMT」の形式だけ読めます（先生が問題を書く1枚もの）。
@@ -462,21 +464,35 @@ async function showQsList(){
   $("qs-pane-list").hidden=false; $("qs-pane-wizard").hidden=true;
   $("qs-list-note").textContent="読み込み中…";
   try{
-    // ★問題数は questions(count) の埋め込み集計に頼らない（環境によるPostgRESTの対応差を避ける）。
-    //   一覧は「公開状態が見える」ことが目的なので、件数は無くても用は足りる。
-    const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson,is_open&order=created_at.desc&limit=50");
+    // 受験記録の件数も一緒に取る。★これが無いと「消す」を押して初めて断られることになる
+    //   （2026-09-11 に実際にそうなった＝押しても何も起きないように見える）。
+    //   埋め込み集計 attempts(count) がこのインスタンスで効くことは確認済み（2026-09-11・[{count:N}] が返る）。
+    //   ⚠ 返って来ない環境でも落ちないよう、下で「分からなければ数を出さず、止めもしない」形にしてある。
+    const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson,is_open,attempts(count)"
+                               + "&order=created_at.desc&limit=50");
     if(window.__e2e) window.__e2e.lastSets = sets;   // ブラウザ実操作テストの覗き口（画面の動作には使わない）
     // ★毎回まるごと入れ替える。1行ずつ足す形だと、古い行が残っていないかを常に気にすることになる
     //   ・操作は「公開/停止」と「消す」の2つだけ。行に置くのは、一覧を見ながら押せるようにするため
     //     （ヨリソルは授業→クラス→タブと潜らないと状態を変えられなかった）
-    $("qs-list-body").innerHTML = sets.map(s=>
-      "<tr data-qsid='"+esc(s.id)+"'><td>"+esc(s.title)+"</td><td>"+esc(s.lesson||"")+"</td>"+
-      "<td><span class='pill "+(s.is_open?"on":"off")+"'>"+(s.is_open?"公開中":"下書き")+"</span></td>"+
-      "<td class='qs-act'>"+
-        "<button class='btn ghost qs-toggle' type='button' data-open='"+(s.is_open?"1":"0")+"'>"+
-          (s.is_open?"停止":"公開")+"</button>"+
-        "<button class='btn ghost qs-del' type='button'>消す</button>"+
-      "</td></tr>").join("");
+    $("qs-list-body").innerHTML = sets.map(s=>{
+      // 受験記録の件数。★取れなかったときは null＝「分からない」。0 と混同しないこと
+      const n = (Array.isArray(s.attempts) && s.attempts[0] && typeof s.attempts[0].count === "number")
+                ? s.attempts[0].count : null;
+      // ★1件でもあれば消せない。**押す前に**ボタンを無効にして、理由をその場に出す
+      //   （押してから下のほうに理由が出る形だと、押しても何も起きないように見える）
+      const locked = n !== null && n > 0;
+      return "<tr data-qsid='"+esc(s.id)+"'><td>"+esc(s.title)+"</td><td>"+esc(s.lesson||"")+"</td>"+
+        "<td class='num'>"+(n===null ? "—" : n)+"</td>"+
+        "<td><span class='pill "+(s.is_open?"on":"off")+"'>"+(s.is_open?"公開中":"下書き")+"</span></td>"+
+        "<td class='qs-act'>"+
+          "<button class='btn ghost qs-toggle' type='button' data-open='"+(s.is_open?"1":"0")+"'>"+
+            (s.is_open?"停止":"公開")+"</button>"+
+          "<button class='btn ghost qs-del' type='button'"+(locked?" disabled":"")+
+            " title='"+(locked ? "受験記録が "+n+" 件あるので消せません。停止を使ってください"
+                               : "受験記録が無いので消せます")+"'>消す</button>"+
+          (locked ? "<span class='qs-why'>受験ずみ</span>" : "")+
+        "</td></tr>";
+    }).join("");
     $("qs-list-note").textContent = sets.length? (sets.length+"件（新しい順・上位50）") : "まだ何も登録されていません。「＋ Excelから取り込む」から始めます。";
     wireQsListActions(sets);
   }catch(e){ $("qs-list-note").textContent = "読み込みに失敗しました（"+e.message+"）"; }
@@ -511,7 +527,7 @@ function wireQsListActions(sets){
         //   （最終判断はサーバー側の delete_quiz_set。ここは説明を出すための先読み）
         const n = await FmtImport.db.attemptCount(id);
         if(n > 0){
-          msg("「"+s.title+"」は受験記録が "+n+" 件あるので消せません。停止にしてください。", true);
+          msg("「"+s.title+"」は受験記録が "+n+" 件あるので消せません。「停止」を使ってください。", true);
           busy(false); return;
         }
         if(!confirm("「"+s.title+"」を消します。\n設問も一緒に消えます。元に戻せません。")){ busy(false); return; }
