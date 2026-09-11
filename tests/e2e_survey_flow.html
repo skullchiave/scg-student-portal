@@ -6,8 +6,11 @@
 <script>
 /* 回帰テスト（tests/run_e2e_survey.py から起動）。学生画面をそのまま iframe で動かし、ログイン→アンケート一覧→回答→一覧に戻る までを実際に操作する。
    結果は #out に JSON で書く（--dump-dom で回収）。
-   アカウントは負荷試験用 l150。回答は検査専用の定義 test_multi_ui_<時刻>（本番の SURVEYS に無い＝どの画面にも出ない。学生は行を消せないので毎回新キー）に出すので、
-   本物の4本の回答数を汚さない。 */
+   アカウントは負荷試験用 l150。回答は検査専用の定義 test_ui（本番の SURVEYS に無い＝どの画面にも出ない）に出すので、
+   本物の4本の回答数を汚さない。
+   ★鍵は**固定**（2026-09-11 に変更）。以前は test_multi_ui_<時刻> と毎回ちがう鍵にしていたため、
+     消す口が無い survey_responses に行が9件たまっていた。固定にすると毎回おなじ回へ上書きされる。
+     対応する「回」は db/2026-09-11_survey_rounds_phase2.sql が常設で1つ作る（題名「検査用」）。 */
 const out = document.getElementById("out"), log = { steps: [] };
 const step = (name, ok, detail) => log.steps.push({ name, ok: !!ok, detail: detail === undefined ? "" : String(detail).slice(0, 220) });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -20,7 +23,7 @@ function rows(d) { return [...d.querySelectorAll("#survey-list .row")].map(r => 
   try { w.localStorage.clear(); } catch (e) {}
   const $ = id => d.getElementById(id);
   // 検査専用のアンケートを5本目として差し込む（がくひと同じ「select 3問」の形）
-  w.eval("SURVEYS").push({ key: "test_multi_ui_" + Date.now(), sb: "Test", color: "#888888",
+  w.eval("SURVEYS").push({ key: "test_ui", sb: "Test", color: "#888888",
     title: { ja: "じどうけんさの アンケート", en: "Self-check survey" }, desc: { ja: "e2e", en: "e2e" }, intro: { ja: "e2e", en: "e2e" },
     q: [ { k: "a", t: "select", l: { ja: "A", en: "A" }, sl: "A", o: [{ v: "1", ja: "いち", en: "one" }, { v: "2", ja: "に", en: "two" }] },
          { k: "b", t: "select", l: { ja: "B", en: "B" }, sl: "B", o: [{ v: "1", ja: "いち", en: "one" }, { v: "2", ja: "に", en: "two" }] },
@@ -42,17 +45,28 @@ function rows(d) { return [...d.querySelectorAll("#survey-list .row")].map(r => 
   await sleep(200);
   step("back to ja", $("btn-gotest").textContent.includes("テストを うける"), $("btn-gotest").textContent.trim());
   await sleep(1500); // survey map の読込を待つ
-  step("badge before (hidden: no real answers yet)", $("survey-done-badge").hidden === true, "hidden=" + $("survey-done-badge").hidden + " text=" + $("survey-done-badge").textContent);
+  // ★2026-09-11 の月次化以降、一覧に出るのは「いま自分に開いている回」なので、
+  //   何行あるか・何件済みかは**その時のDBの状態しだい**。決め打ちにせず、前後の差で見る。
+  const badgeBefore = $("survey-done-badge").textContent;
+  step("badge is readable before", typeof badgeBefore === "string", "text=" + badgeBefore);
   $("btn-gosurvey").click();
   step("survey list shown", await until(() => !$("scr-surveylist").hidden), "");
+  // ★一覧は「いま自分に開いている回」を取ってから作られる（非同期）。中身が入るまで待つ
+  await until(() => d.querySelectorAll("#survey-list .row").length > 0, 15000);
   const before = rows(d);
-  step("list before (5 rows, all todo, real 4 first)", before.length === 5 && before.every(x => x.startsWith("[ ]")) && before[4].includes("じどうけんさ"), before.join(" | "));
+  step("★検査用のアンケートが一覧に出る（回から引けている）",
+       before.some(x => x.includes("じどうけんさ")), before.join(" | "));
+  step("★本物の4本も一覧に出る（常設の回に紐づいている）",
+       before.some(x => x.includes("しんろ")), before.join(" | "));
   const target = [...d.querySelectorAll("#survey-list .row")].find(r => r.textContent.includes("じどうけんさ"));
   target.click();
   step("survey form shown", await until(() => !$("scr-survey").hidden), $("survey-title").textContent);
   const selects = [...d.querySelectorAll("#survey-fields select")];
   step("form has 3 selects", selects.length === 3, selects.length);
   // 未回答のまま送信 → エラー表示
+  // ★前の実行で答えた回を開くと選択肢が埋まっている（回モデルでは毎回おなじ回へ上書きするため）。
+  //   「空のまま出したら断られる」を見たいので、いったん空へ戻す。
+  selects.forEach(s => { s.selectedIndex = 0; });
   $("btn-survey-submit").click();
   await sleep(300);
   step("empty submit is rejected", $("survey-msg").textContent.includes("1つ以上"), $("survey-msg").textContent);
@@ -60,13 +74,25 @@ function rows(d) { return [...d.querySelectorAll("#survey-list .row")].map(r => 
   $("btn-survey-submit").click();
   step("back to list after submit", await until(() => !$("scr-surveylist").hidden && $("surveylist-msg").textContent.includes("うけとりました"), 25000), $("survey-msg").textContent + " / " + $("surveylist-msg").textContent);
   const after = rows(d);
-  step("answered one sank to bottom with badge", after.length === 5 && after[4].startsWith("[済]") && after[4].includes("じどうけんさ") && after[4].includes("ていしゅつ済み"), after.join(" | "));
+  // ★行数を決め打ちにしない（開いている回の数はDBの状態しだい）。**並びの規則**を見る＝
+  //   まだのもの → ていしゅつ済み の順。境目より後ろに [ ] が無ければ正しい。
+  const firstDone = after.findIndex(x => x.startsWith("[済]"));
+  step("答えたものが下へ沈む（まだ→済みの順）",
+       firstDone === -1 || after.slice(firstDone).every(x => x.startsWith("[済]")), after.join(" | "));
+  step("答えた回に「ていしゅつ済み」が付く",
+       after.some(x => x.startsWith("[済]") && x.includes("じどうけんさ") && x.includes("ていしゅつ済み")),
+       after.join(" | "));
   // 英語に切り替えても並びと状態は同じで、文言だけ変わる（保存値は言語に依らない）
   w.eval('setLang("en")'); await sleep(200);
   const afterEn = rows(d);
-  step("en: same order, English labels", afterEn.length === 5 && afterEn[4].startsWith("[済]") && afterEn[4].includes("Self-check") && afterEn[4].includes("Submitted") && afterEn[0].includes("Career"), afterEn.join(" | "));
+  step("en: 並びと状態は同じで、文言だけ英語になる",
+       afterEn.length === after.length && afterEn[0].includes("Career") &&
+       afterEn.some(x => x.startsWith("[済]") && x.includes("Self-check") && x.includes("Submitted")),
+       afterEn.join(" | "));
   w.eval('setLang("ja")'); await sleep(200);
-  step("real 4 still todo on top", after.slice(0, 4).every(x => x.startsWith("[ ]")), after.slice(0, 4).join(" | "));
+  step("本物の4本はまだ未回答のまま上にある",
+       ["しんろ", "すまい", "けんこう", "がくひ"].every(k =>
+         after.some(x => x.startsWith("[ ]") && x.includes(k))), after.join(" | "));
   // 再度開くと前回の答えが入っていて「なおして そうしん」になる
   [...d.querySelectorAll("#survey-list .row")].find(r => r.textContent.includes("じどうけんさ")).click();
   await until(() => !$("scr-survey").hidden);
@@ -76,11 +102,28 @@ function rows(d) { return [...d.querySelectorAll("#survey-list .row")].map(r => 
   await until(() => !$("scr-surveylist").hidden);
   d.querySelector("#scr-surveylist [data-back]").click();
   step("back to mypage", await until(() => !$("scr-mypage").hidden), "");
-  step("badge after = 1／5", $("survey-done-badge").hidden === false && $("survey-done-badge").textContent.includes("1／5"), "hidden=" + $("survey-done-badge").hidden + " text=" + $("survey-done-badge").textContent);
+  // ★バッジの数字も決め打ちにしない。**一覧の実際の数と合っているか**で見る
+  const doneN = after.filter(x => x.startsWith("[済]")).length;
+  // ★言語によって区切りが「／」と「/」で変わるので、**数字だけ**で見る。
+  //   ⚠ 文言そのものは下の「言語が残っていない」で別に見る
+  const badgeNums = ($("survey-done-badge").textContent.match(/\d+/g) || []).join(",");
+  step("バッジの数字が一覧の実際の数と合う",
+       $("survey-done-badge").hidden === false && badgeNums === doneN + "," + after.length,
+       "text=" + $("survey-done-badge").textContent + " / 一覧は " + doneN + "／" + after.length);
+  // ★アンケート一覧で英語にして戻ってきた直後。バッジに前の言語が残っていないこと
+  step("バッジに前の言語が残っていない（日本語に戻っている）",
+       $("survey-done-badge").textContent.includes("ていしゅつ"),
+       $("survey-done-badge").textContent);
   $("btn-gosurvey").click();
   step("btn-gosurvey (= #survey deep link) opens list", await until(() => !$("scr-surveylist").hidden), "");
+  // ★ここも一覧の取得は非同期。中身が入るまで待つ
+  await until(() => d.querySelectorAll("#survey-list .row").length > 0, 15000);
   // 本物の しんろ を開いて既存形式（text/select/text）が組み上がるか
-  [...d.querySelectorAll("#survey-list .row")].find(r => r.textContent.includes("しんろ")).click();
+  // ★日本語／英語のどちらでも見つかるようにする（バッジが英語のまま残る場合があるため）
+  const shinroRow = [...d.querySelectorAll("#survey-list .row")]
+    .find(r => r.textContent.includes("しんろ") || r.textContent.includes("Career"));
+  step("しんろアンケートの行がある", !!shinroRow, rows(d).join(" | "));
+  shinroRow.click();
   await until(() => !$("scr-survey").hidden);
   const kinds = [...d.querySelectorAll("#survey-fields .field")].map(x => x.querySelector("select") ? "select" : "text");
   step("shinro form = text/select/text with 10 options", kinds.join(",") === "text,select,text" && d.querySelectorAll("#survey-fields select option").length === 11, kinds.join(",") + " options=" + d.querySelectorAll("#survey-fields select option").length);

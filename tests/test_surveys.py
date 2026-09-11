@@ -149,23 +149,61 @@ class TestSurveysLive(unittest.TestCase):
             self.assertTrue(cond, detail or name)
 
     def test_01_login(self):
-        print("\n=== DB往復テスト（l150 / test_multi_*） ===")
+        print("\n=== DB往復テスト（l150 / 検査用の回） ===")
         self.check("l150 でログイン", bool(self.tok))
 
-    def test_02_multi_survey_roundtrip(self):
+    def test_02_round_roundtrip(self):
+        """★月次化の本体＝**同じアンケートでも、回が違えば別の行になる**。
+
+        2026-09-11 の段階2 まで、一意は (student_id, survey_key) だった＝再提出は上書きで、
+        毎月集めても最新1件しか残らなかった。いまは (student_id, round_id)。
+
+        ⚠ 検査用の回（survey_key='test_ui' の「検査用」「検査用2」）は
+          db/2026-09-11_survey_rounds_phase2.sql が常設で作る。**毎回そこへ上書きする**ので
+          行は増えない。以前は毎回ちがう survey_key を作っていて9件たまっていた
+          （survey_responses には消す口が無いので、溜めない作りにするのが唯一の直し方）。
+        """
         if not self.tok:
             self.skipTest("l150 のログインに失敗しているため往復テストを飛ばす")
+
+        st, rounds = req("/rest/v1/survey_rounds?select=id,title&survey_key=eq.test_ui&order=title", self.tok)
+        if not isinstance(rounds, list) or len(rounds) < 2:
+            self.skipTest("検査用の回がまだ無い（db/2026-09-11_survey_rounds_phase2.sql を流す前）")
+        r1, r2 = rounds[0]["id"], rounds[1]["id"]
+
         UP = {"Prefer": "resolution=merge-duplicates"}
-        for key, ans in (("test_multi_a", {"x": "1"}), ("test_multi_b", {"x": "2"}), ("test_multi_a", {"x": "3"})):
-            st, _ = req("/rest/v1/survey_responses?on_conflict=student_id,survey_key", self.tok,
-                        {"survey_key": key, "answers": ans, "submitted_at": "2026-09-03T12:00:00Z"}, UP)
-            self.check(f"upsert {key} {ans}", st in (200, 201), str(st))
-        st, rows = req("/rest/v1/survey_responses?select=survey_key,answers&survey_key=in.(test_multi_a,test_multi_b)", self.tok)
-        m = {r_["survey_key"]: r_["answers"] for r_ in (rows or [])}
-        self.check("同じ学生が複数のアンケート（2キー）を持てる", isinstance(rows, list) and len(rows) == 2, str(rows)[:120])
-        self.check("同じキーの再提出は上書き（重複行にならない）", m.get("test_multi_a") == {"x": "3"})
-        st, rows = req("/rest/v1/survey_responses?select=survey_key,answers,submitted_at", self.tok)
-        self.check("学生画面と同じ読み方（キー指定なし）で自分の全回答が取れる", isinstance(rows, list) and len(rows) >= 2)
+        def put(round_id, ans):
+            return req("/rest/v1/survey_responses?on_conflict=student_id,round_id", self.tok,
+                       {"round_id": round_id, "survey_key": "test_ui", "answers": ans,
+                        "submitted_at": "2026-09-11T12:00:00Z"}, UP)[0]
+
+        self.check("1本目の回に出せる", put(r1, {"x": "1"}) in (200, 201))
+        self.check("2本目の回にも出せる", put(r2, {"x": "2"}) in (200, 201))
+        self.check("1本目に出し直せる", put(r1, {"x": "3"}) in (200, 201))
+
+        st, rows = req("/rest/v1/survey_responses?select=round_id,answers&survey_key=eq.test_ui", self.tok)
+        by = {r_["round_id"]: r_["answers"] for r_ in (rows or [])}
+        self.check("★同じアンケートでも回が違えば別の行になる（＝毎月ためられる）",
+                   isinstance(rows, list) and len(rows) == 2, str(rows)[:140])
+        self.check("同じ回への出し直しは上書き（行が増えない）", by.get(r1) == {"x": "3"})
+        self.check("別の回の答えは上書きされていない", by.get(r2) == {"x": "2"})
+
+        st, rows = req("/rest/v1/survey_responses?select=round_id,survey_key,answers,submitted_at", self.tok)
+        self.check("学生画面と同じ読み方（キー指定なし）で自分の全回答が取れる",
+                   isinstance(rows, list) and len(rows) >= 2)
+
+    def test_03_open_rounds_rpc(self):
+        """学生が「いま自分に開いている回」を取れること（画面はこれを使って一覧を作る）。"""
+        if not self.tok:
+            self.skipTest("l150 のログインに失敗しているため飛ばす")
+        st, got = req("/rest/v1/rpc/my_open_survey_rounds", self.tok, {})
+        if st == 404:
+            self.skipTest("my_open_survey_rounds がまだ無い（段階2 を流す前）")
+        self.check("my_open_survey_rounds が配列を返す", isinstance(got, list), str(st))
+        if isinstance(got, list) and got:
+            keys = set(got[0].keys())
+            self.check("回に round_id / survey_key / title がある",
+                       {"round_id", "survey_key", "title"} <= keys, str(sorted(keys)))
 
 
 if __name__ == "__main__":

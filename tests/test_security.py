@@ -19,6 +19,7 @@
 import sys, os, json, io, unittest
 import urllib.request
 import urllib.error
+import urllib.parse
 
 # discoverで他のtest_*.pyと同じプロセスに同居する時、全員が無条件に
 # sys.stdout を包み直すと、先に包んだ方のラッパーがGCで下敷きのbufferを
@@ -139,17 +140,24 @@ class TestSecurity(unittest.TestCase):
         self._require_tokens()
         print("\n=== 7. アンケート（survey_responses） ===")
         UP = {"Prefer": "resolution=merge-duplicates"}
-        st, _ = req("/rest/v1/survey_responses?on_conflict=student_id,survey_key", self.stok,
-                    {"survey_key": "test_rls", "answers": {"job": "テスト"}}, UP)
-        self.check("学生はアンケートを提出できる（本人扱いで保存）", st in (200, 201))
+        # ★2026-09-11 の月次化（段階2）以降、一意は (student_id, round_id)。
+        #   検査専用の回（survey_key='test_ui' / 題名「検査用」）へ出す＝毎回そこへ上書きされ、行が増えない。
+        # ⚠ URL に日本語をそのまま入れると urllib が ascii で送ろうとして落ちる。必ず quote する
+        st, rounds = req("/rest/v1/survey_rounds?select=id&survey_key=eq.test_ui&title=eq."
+                         + urllib.parse.quote("検査用"), self.stok)
+        rid = rounds[0]["id"] if isinstance(rounds, list) and rounds else None
+        self.check("検査用の回が読める（学生は自分に開いている回を見られる）", bool(rid), str(rounds)[:120])
+        st, _ = req("/rest/v1/survey_responses?on_conflict=student_id,round_id", self.stok,
+                    {"round_id": rid, "survey_key": "test_ui", "answers": {"job": "テスト"}}, UP)
+        self.check("学生はアンケートを提出できる（本人扱いで保存）", st in (200, 201), str(st))
         st, _ = req("/rest/v1/survey_responses", self.stok,
                     {"student_id": "00000000-0000-0000-0000-000000000000",
                      "survey_key": "test_rls_fake", "answers": {}})
         self.check("学生は他人名義でアンケートを出せない", st in (401, 403))
         st2tok = login("s002", "sakura24")
-        st, rows = req("/rest/v1/survey_responses?select=student_id&survey_key=eq.test_rls", st2tok)
-        self.check("学生は他人のアンケート回答を読めない", rows == [])
-        st, rows = req("/rest/v1/survey_responses?select=student_id&survey_key=eq.test_rls", self.ttok)
+        st, rows = req("/rest/v1/survey_responses?select=student_id&survey_key=eq.test_ui", st2tok)
+        self.check("学生は他人のアンケート回答を読めない", rows == [], str(rows)[:120])
+        st, rows = req("/rest/v1/survey_responses?select=student_id&survey_key=eq.test_ui", self.ttok)
         self.check("教師は全員のアンケート回答を読める", isinstance(rows, list) and len(rows) >= 1)
 
 

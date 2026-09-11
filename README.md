@@ -50,7 +50,7 @@
 **まとめて回すのはこの1行**（2026-09-10 に1コマンド化）:
 
 ```
-python -m unittest discover -s tests -p "test_*.py"       # 全部（218項目・DB系は既定でskip）
+python -m unittest discover -s tests -p "test_*.py"       # 全部（219項目・DB系は既定でskip）
 SP_LIVE=1 python -m unittest discover -s tests -p "test_*.py"   # 本物のDBへの往復も込みで全部
 ```
 
@@ -62,7 +62,7 @@ SP_LIVE=1 python -m unittest discover -s tests -p "test_*.py"   # 本物のDBへ
 （`test_security.py` だけは単体実行なら**引数なしでも常にDBを叩く**＝これまで通り）。
 
 ```
-python tests/test_security.py       # セキュリティ回帰テスト（スキーマ変更したら必ず。18項目・要DB）
+python tests/test_security.py       # セキュリティ回帰テスト（スキーマ変更したら必ず。19項目・要DB）
 python tests/test_db_migrations.py  # db/*.sql の見張り（DB不要・27項目。★流す前に）
 python tests/test_surveys.py --live # アンケート定義の検査＋DB往復（surveys.js を変えたら）
 python tests/test_choices.py --live # 選択肢まわり（ダミーの3択・4択を作って試し、最後に消す）
@@ -168,17 +168,18 @@ RPC の `revoke execute ... from anon` 忘れ・列の削除・巻き戻し手�
 | `2026-09-10_question_columns.sql` | 画像・カテゴリ・配点・解説の4列 | 投入済み |
 | `2026-09-10_four_layers.sql` | 設問／問題セット／実施回／回答の4層 | 投入済み |
 | `2026-09-11_delete_quiz_set.sql` | 回を消す RPC（受験記録があれば断る） | 投入済み |
+| `2026-09-11_survey_rounds_phase2.sql` | アンケートの月次化（段階2・一意を回ごとに） | 投入済み |
 
 2026-09-10 の2本は**クライアント（`src/`）を1行も変えずに**流した（新しい引数はすべて既定値つき）。
 確認＝全テスト218件 OK・ブラウザ実操作3本とも 0 FAIL・`get_advisors` で ERROR 0件／WARN 11件
 （2026-09-11 の `delete_quiz_set` で 12件になる見込み）。
 巻き戻し手順は各 SQL の末尾にある。
 
-🔴 **意図的に止めてある2つ**（どちらも「片方だけ変えると壊れる」ため）:
-1. `submit_attempt` / `save_draft` が設問を引く先は **`questions.quiz_set_id` のまま**。
-   `quiz_set_questions` へ切り替えるのは `src/index.html` の取得と**同時に1回で**
-2. `survey_responses` の一意制約 `(student_id, survey_key)` は**外していない**。
-   外すと `src/assets/api.js` の upsert が即失敗する。段階2の手順は SQL の末尾に
+🔴 **意図的に止めてあるもの**（「片方だけ変えると壊れる」ため）:
+- `submit_attempt` / `save_draft` が設問を引く先は **`questions.quiz_set_id` のまま**。
+  `quiz_set_questions` へ切り替えるのは `src/index.html` の取得と**同時に1回で**
+- ~~`survey_responses` の一意制約~~ → **2026-09-11 に段階2を実施**。学生画面の提出を
+  `on_conflict=student_id,round_id` に変えるのと同じコミットで流した
 
 ### ヨリソルの設問を取り込む
 

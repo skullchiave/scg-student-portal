@@ -139,7 +139,7 @@
   ※ ここは以前「出題は `questions_public` ビュー」と書いてあったが、**そのビューは実在しない**
   （2026-09-06 に `db/0000_baseline.sql` を書き出して判明）。守る中身は変わらない＝直したのは記述だけ
 - 🔴 スキーマ・RLS を変えたら `python tests/test_security.py` を必ず実行。FAIL がある状態でデプロイしない
-- 🔴 月次点検 = Supabase 自動セキュリティ診断（get_advisors）。**合格基準: ERROR 0件・WARN 12件以下**。
+- 🔴 月次点検 = Supabase 自動セキュリティ診断（get_advisors）。**合格基準: ERROR 0件・WARN 15件以下**。
   既知の許容WARN（これ以外が出たら要対応）:
   1. `submit_attempt` が authenticated から実行可 → 仕様（学生の提出API。内部で auth.uid() 検証）
   2. `quiz_stats` が authenticated から実行可 → 仕様（教師専用は関数内で `app_hidden.is_teacher()` 検証）
@@ -153,9 +153,12 @@
   10. `my_open_runs` が authenticated から実行可 → 仕様（学生が自分に開いている回を取る。`auth.uid()` で絞る）
   11. `delete_quiz_set` が authenticated から実行可 → 仕様（回を消す。内部で `is_teacher()` と
       受験記録0件を検証。1件でもあれば例外）
-  12. Leaked Password Protection 無効 → 無料枠では有効化不可。Pro 移行時に ON にする
-  ※ 2026-09-10 の4層投入で 6件 → 11件、2026-09-11 の `delete_quiz_set` で **12件**。
-  実測（get_advisors）で **ERROR 0件・WARN 12件**を確認済み（2026-09-11）。
+  12. `my_open_survey_rounds` が authenticated から実行可 → 仕様（学生が自分に開いているアンケートの回）
+  13. `start_survey_round` が authenticated から実行可 → 仕様（アンケートの回をはじめる。`is_teacher()` 検証）
+  14. `close_survey_round` が authenticated から実行可 → 仕様（回を閉じる・取り消す。同上）
+  15. Leaked Password Protection 無効 → 無料枠では有効化不可。Pro 移行時に ON にする
+  ※ 2026-09-10 の4層投入で 6件 → 11件、2026-09-11 に `delete_quiz_set` で12件、
+  アンケートの月次化（段階2）の3本で **15件**。
   ★`app_hidden.my_class()` と `app_hidden.assert_run_open()` は診断に出ない＝`app_hidden` は API に公開しない
   スキーマなので PostgREST から呼べないため。**数に入れないのはこの理由**（本数を数え違えないこと）
 - 🔴 **新しい RPC を足したら `revoke execute ... from anon` を必ず書く**。`revoke all ... from public` だけでは
@@ -204,6 +207,31 @@
 - **実装済みは日本語/English**。中国語・ネパール語・ミャンマー語・シンハラ語・ベンガル語はメニューに「じゅんびちゅう」で並ぶだけ。
   足すときは ① `LANGS` に ready ② `I18N[コード]` ③ surveys.js の `{ja,en}` に追加 → 翻訳確認スタッフの確認後に公開
 - 画面イメージ（`.app[data-lang]`）だけは文言外部化せず日英の2本の木のまま（本物にする時に作り直すため）
+
+## アンケートの月次化 — 回（round）で集める（2026-09-11 実施）
+
+🔴 **すべてのアンケートは「回（`survey_rounds`）」経由で出す。** 一意は **(student_id, round_id)**。
+以前は `(student_id, survey_key)` ＝**再提出が上書き**で、毎月集めても最新1件しか残らなかった。
+進路の月次アンケートが 12月〜1月開始なので、**回答が入る前**に直した。
+
+- 学生の一覧は **RPC `my_open_survey_rounds()`** が返した回だけ。中身は `survey_key` で
+  `assets/surveys.js` の `SURVEYS` から引く。★**定義が見つからない回は画面に出さない**
+  （検査専用の回を混ぜても学生には見えない、という性質をここで使っている）
+- 提出は `api.upsert("survey_responses","student_id,round_id", {round_id, survey_key, answers, submitted_at})`。
+  🔴 **`on_conflict` を `student_id,survey_key` に戻さない**（その制約はもう無い＝42P10 で落ちる）
+- 教師は `start_survey_round(survey_key, title, class_names, student_ids, closes_at)` で毎月1本作る。
+  題名は「2026年12月」のように**あとで見分けられる名前**（`(survey_key, title)` が一意）
+- **粒度は小テストと違う＝複数クラス可**（月×学年で1本）。クラスごとに5本作ると全体の傾向が出せなくなる
+- 既存の4本には **「常設」の回**（締切なし）を作り、これまでの回答をそこへ紐づけた＝**1行も失っていない**
+- 同じアンケートが複数の回で出るので、**一覧には回の題名を添える**。ただし「常設」は出さない（内部用の名前）
+- ⚠ `round_id` が null の行（検査で作られた古い `test_multi_*`）は、部分索引
+  `survey_responses_one_per_key_legacy` が従来どおり1人1本に保つ
+
+★**`survey_responses` には消す口が無い**（「学生は自分の回答を消せない」方針）。だから
+**検査は毎回おなじ回へ上書きする**形にしてある（`test_ui` の「検査用」「検査用2」。
+`db/2026-09-11_survey_rounds_phase2.sql` が常設で作る）。
+2026-09-11 まで検査が毎回ちがう `survey_key` を作っていて、9件たまっていた。
+⚠ **消せないものは、溜めない作りにするしかない。**
 
 ## アンケート（2026-09-03 に複数化）
 

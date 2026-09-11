@@ -1218,23 +1218,45 @@ async function goMyPage(){
   $("my-class").textContent = p.class_name || t("my.noclass");
   $("my-no").textContent = p.student_no;
   show("scr-mypage"); clearMsg("my-msg");
-  try{ await loadSurveyMap(); renderSurveyBadge(); }catch(e){ /* バッジなしで続行 */ }
+  try{ await loadSurveyRounds(); renderSurveyBadge(); }catch(e){ /* バッジなしで続行 */ }
 }
 
-/* ---- テスト一覧 ---- */
+/* ---- テスト一覧 ----
+   2026-09-11: 実施回（quiz_runs）で開いた回も出す。いままでの is_open は
+   「臨時で全員に開く」予備の手段として残る。★同じ quiz_set_id が両方に出たら
+   実施回のほうを残す（誰が・いつ閉じるかが分かるほうを優先）。
+   実施回には締切（closes_at）がある＝残り時間を出す。★閉じたかどうかの判定は
+   サーバー側なので、ここでは表示するだけ。時計代わりに使って提出を止めたりしない。 */
+function quizMinutesLeft(iso){
+  return Math.max(1, Math.ceil((new Date(iso) - Date.now()) / 60000));
+}
+// 実施回から入った時だけ p_run_id を足す（is_open から入った時は渡さない＝今までどおり動く）
+function withRun(args){ if(quizSet && quizSet.run_id) args.p_run_id = quizSet.run_id; return args; }
 $("btn-gotest").onclick = async ()=>{
   show("scr-quizlist"); clearMsg("list-msg");
   $("quiz-list").innerHTML = "<div style='color:var(--sub);padding:18px 22px;'>"+t("q.loading")+"</div>";
   try{
-    const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson&is_open=eq.true&order=created_at.desc");
-    if(!sets.length){ $("quiz-list").innerHTML="<div style='color:var(--sub);padding:18px 22px;'>"+t("q.none")+"</div>"; return; }
+    const [sets, runs] = await Promise.all([
+      api.get("/rest/v1/quiz_sets?select=id,title,lesson&is_open=eq.true&order=created_at.desc"),
+      api.rpc("my_open_runs", {}),
+    ]);
+    const byId = new Map();
+    sets.forEach(s=>byId.set(s.id, { id:s.id, title:s.title, lesson:s.lesson, run_id:null, closes_at:null }));
+    runs.forEach(r=>byId.set(r.quiz_set_id, { id:r.quiz_set_id, title:r.title, lesson:r.lesson, run_id:r.run_id, closes_at:r.closes_at }));
+    // 締切が近いものを上に。締切の無いもの（is_open のみ）はうしろへ
+    const list = [...byId.values()].sort((a,b)=>{
+      if(a.closes_at && b.closes_at) return new Date(a.closes_at) - new Date(b.closes_at);
+      return a.closes_at ? -1 : (b.closes_at ? 1 : 0);
+    });
+    if(!list.length){ $("quiz-list").innerHTML="<div style='color:var(--sub);padding:18px 22px;'>"+t("q.none")+"</div>"; return; }
     $("quiz-list").innerHTML = "";
-    sets.forEach(s=>{
+    list.forEach(s=>{
       const b=document.createElement("button");
       b.className="row"; b.style.setProperty("--c","#1769aa");
+      const left = s.closes_at ? "<span class='ds'>"+t("q.left",{n:quizMinutesLeft(s.closes_at)})+"</span>" : "";
       b.innerHTML = "<span class='bar'></span><span class='txt'>"+
         "<span class='sb'>"+(s.lesson||"Quiz")+"</span>"+
-        "<span class='nm'>"+s.title+"</span></span><span class='go'></span>";
+        "<span class='nm'>"+s.title+"</span>"+left+"</span><span class='go'></span>";
       b.onclick = ()=>startQuiz(s);
       $("quiz-list").appendChild(b);
     });
@@ -1291,10 +1313,8 @@ async function draftFlush(){
       if(chosen === undefined){ draft.pending.delete(qid); continue; }
       draftShow("saving");
       try{
-        await api.rpc("save_draft", {
-          p_quiz_set_id: quizSet.id, p_question_id: qid,
-          p_chosen: chosen, p_client_seq: draft.seq,
-        });
+        await api.rpc("save_draft", withRun({ p_quiz_set_id: quizSet.id, p_question_id: qid,
+                                              p_chosen: chosen, p_client_seq: draft.seq }));
         draft.pending.delete(qid);
         draft.saved[qid] = chosen;
         draftWriteLocal();
@@ -1471,17 +1491,18 @@ $("btn-next").onclick = async ()=>{
   try{
     // 提出の前に、未送信の下書きを送り切る（送れなくても提出そのものは進める）
     await draftFlush();
-    const r = await api.rpc("submit_attempt",{
-      p_quiz_set_id: quizSet.id, p_answers: answers,
-      p_duration_ms: Date.now()-startedAt,
-    });
+    const r = await api.rpc("submit_attempt", withRun({ p_quiz_set_id: quizSet.id,
+      p_answers: answers, p_duration_ms: Date.now()-startedAt }));
     // 提出できたので下書きは捨てる。失敗しても提出は成立しているので握りつぶす
     draftClearLocal(quizSet.id);
     try{ await api.rpc("discard_drafts",{ p_quiz_set_id: quizSet.id }); }catch(e){}
     $("savest").hidden = true;
     showResult(r);
   }catch(e){
-    err("quiz-msg",t("q.fail",{msg:e.message}));
+    // ★実施回の締切切れは assert_run_open() の生の英文メッセージが返る。
+    //   閉じたかどうかの判定はサーバー側＝ここでは言い方を変えるだけ（画面の時計では止めない）
+    const closed = quizSet.run_id && /^(run is closed|run has not started|run was cancelled|no such run|not a target of this run|run does not belong to this quiz set)$/.test(e.message||"");
+    err("quiz-msg", closed ? t("q.timeup") : t("q.fail",{msg:e.message}));
     $("btn-next").disabled=false; $("btn-next").textContent=t("q.submit");
   }
 };
@@ -1509,47 +1530,68 @@ function showResult(r){
 }
 $("btn-r-home").onclick=goMyPage;
 
-/* ---- アンケート（定義は assets/surveys.js・回答は survey_responses） ---- */
-let surveyMap = {};      // survey_key → {answers, submitted_at}（ログイン本人の分だけ。RLSが他人の行を返さない）
-let curSurvey = null;
-async function loadSurveyMap(){
-  const rows = await api.get("/rest/v1/survey_responses?select=survey_key,answers,submitted_at");
-  surveyMap = {};
-  rows.forEach(r=>{ surveyMap[r.survey_key] = r; });
+/* ---- アンケート（定義は assets/surveys.js・回答は survey_responses） ----
+   2026-09-11 に「回（round）」経由へ変更。1人1本の上書きをやめ、回ごとに1本へ。
+   ★学生に出すのは my_open_survey_rounds() が返した回だけ。中身（質問文など）は
+     survey_key で SURVEYS（定義）から引く。定義が見つからない回は出さない
+     （画面が空白になるより安全）。同じアンケートが複数の回で出ることがあるので、
+     回の題名（title）を添えて見分けられるようにする。ただし「常設」は内部名なので出さない。 */
+let openRounds = [];      // [{round_id,survey_key,title,opens_at,closes_at,def}]（def=SURVEYS の該当項目）
+let respByRound = {};     // round_id → {answers, submitted_at}（ログイン本人の分だけ。RLSが他人の行を返さない）
+let curRound = null;
+async function loadSurveyRounds(){
+  const [rounds, rows] = await Promise.all([
+    api.rpc("my_open_survey_rounds", {}),
+    api.get("/rest/v1/survey_responses?select=round_id,survey_key,answers,submitted_at"),
+  ]);
+  respByRound = {};
+  rows.forEach(r=>{ if(r.round_id) respByRound[r.round_id] = r; });
+  openRounds = rounds.map(r=>({ ...r, def: SURVEYS.find(s=>s.key===r.survey_key) })).filter(r=>r.def);
 }
 function renderSurveyBadge(){
-  const n = SURVEYS.filter(s=>surveyMap[s.key]).length, tot = SURVEYS.length, b = $("survey-done-badge");
+  const tot = openRounds.length, n = openRounds.filter(r=>respByRound[r.round_id]).length, b = $("survey-done-badge");
   b.hidden = (n===0);
-  b.textContent = (n===tot) ? t("sv.badge.all") : t("sv.badge.n",{n:n,t:tot});
+  b.textContent = (tot>0 && n===tot) ? t("sv.badge.all") : t("sv.badge.n",{n:n,t:tot});
 }
 function fmtDay(iso){ const d=new Date(iso); return (d.getMonth()+1)+"/"+d.getDate(); }
 /* 一覧: まだ答えていないもの → 答えたもの（ていしゅつ済みバッジ）の順に並べる */
 function renderSurveyList(){
   const list=$("survey-list"); list.innerHTML="";
-  const todo = SURVEYS.filter(s=>!surveyMap[s.key]);
-  const done = SURVEYS.filter(s=> surveyMap[s.key]);
-  todo.concat(done).forEach(s=>{
-    const d = surveyMap[s.key];
+  if(!openRounds.length){ list.innerHTML="<div style='color:var(--sub);padding:18px 22px;'>"+t("sv.none")+"</div>"; return; }
+  const todo = openRounds.filter(r=>!respByRound[r.round_id]);
+  const done = openRounds.filter(r=> respByRound[r.round_id]);
+  todo.concat(done).forEach(r=>{
+    const d = respByRound[r.round_id], s = r.def;
+    // ★「常設」は内部用の名前（学生には意味がない）ので出さない。それ以外の題名は見分けるために添える
+    const roundLabel = (r.title && r.title !== "常設") ? "　・　"+r.title : "";
     const b=document.createElement("button");
     b.className = "row" + (d ? " done" : "");
     b.style.setProperty("--c", s.color);
     b.innerHTML = "<span class='bar'></span><span class='txt'>"+
       "<span class='sb'>"+s.sb+"</span>"+
-      "<span class='nm'>"+tx(s.title)+(d ? " <span class='badge-done'>"+t("sv.done")+"</span>" : "")+"</span>"+
+      "<span class='nm'>"+tx(s.title)+roundLabel+(d ? " <span class='badge-done'>"+t("sv.done")+"</span>" : "")+"</span>"+
       "<span class='ds'>"+(d ? t("sv.doneds",{d:fmtDay(d.submitted_at)}) : tx(s.desc))+"</span>"+
       "</span><span class='go'></span>";
-    b.onclick = ()=>openSurvey(s);
+    b.onclick = ()=>openSurvey(r);
     list.appendChild(b);
   });
 }
-$("btn-gosurvey").onclick = ()=>{ clearMsg("surveylist-msg"); renderSurveyList(); show("scr-surveylist"); };
+$("btn-gosurvey").onclick = async ()=>{
+  clearMsg("surveylist-msg"); show("scr-surveylist");
+  $("survey-list").innerHTML = "<div style='color:var(--sub);padding:18px 22px;'>"+t("q.loading")+"</div>";
+  try{ await loadSurveyRounds(); renderSurveyBadge(); renderSurveyList(); }
+  catch(e){ $("survey-list").innerHTML=""; err("surveylist-msg", e.message); }
+};
 $("btn-survey-back").onclick = ()=>{ clearMsg("surveylist-msg"); renderSurveyList(); show("scr-surveylist"); };
 
 /* 回答画面: 定義の q[] から入力欄を組み立てる。提出済みなら前回の答えを入れておく */
-function openSurvey(s){
-  curSurvey = s; clearMsg("survey-msg");
-  const prev = surveyMap[s.key] ? (surveyMap[s.key].answers || {}) : null;
-  $("survey-title").textContent = tx(s.title);
+function openSurvey(r){
+  curRound = r; clearMsg("survey-msg");
+  const s = r.def;
+  const prevRow = respByRound[r.round_id];
+  const prev = prevRow ? (prevRow.answers || {}) : null;
+  const roundLabel = (r.title && r.title !== "常設") ? "　・　"+r.title : "";
+  $("survey-title").textContent = tx(s.title) + roundLabel;
   $("survey-intro").innerHTML = tx(s.intro);
   const box=$("survey-fields"); box.innerHTML="";
   s.q.forEach((q,i)=>{
@@ -1579,19 +1621,21 @@ function openSurvey(s){
   show("scr-survey");
 }
 $("btn-survey-submit").onclick = async ()=>{
-  const s = curSurvey; if(!s) return;
+  const r = curRound; if(!r) return;
+  const s = r.def;
   const ans = {}; let filled = 0;
   s.q.forEach(q=>{ const v = $("sv-"+q.k).value.trim(); ans[q.k] = v; if(v) filled++; });
   if(!filled){ err("survey-msg",t("sv.min1")); return; }
   const btn=$("btn-survey-submit");
   btn.disabled=true; btn.textContent=t("q.sending");
   try{
-    // student_id は送らない（DB側の既定値 auth.uid() = ログイン本人に固定される）
+    // student_id は送らない（DB側の既定値 auth.uid() = ログイン本人に固定される）。
+    // 🔴 一意制約は (student_id, round_id)。1人1本ではなく回ごとに1本
     const now = new Date().toISOString();
-    await api.upsert("survey_responses","student_id,survey_key",{
-      survey_key: s.key, answers: ans, submitted_at: now,
+    await api.upsert("survey_responses","student_id,round_id",{
+      round_id: r.round_id, survey_key: s.key, answers: ans, submitted_at: now,
     });
-    surveyMap[s.key] = { survey_key: s.key, answers: ans, submitted_at: now };
+    respByRound[r.round_id] = { round_id: r.round_id, survey_key: s.key, answers: ans, submitted_at: now };
     renderSurveyBadge(); renderSurveyList(); show("scr-surveylist");
     info("surveylist-msg",t("sv.received",{title:tx(s.title)}));
   }catch(e){
@@ -1605,18 +1649,22 @@ mountLangSwitch($("langsw"));     // ヘッダー右上の 🌐 メニュー
 window.addEventListener("sp:lang", ()=>{
   // 静的な文言は applyI18n() が貼り替え済み。ここでは JS が組み立てた部分だけ描き直す
   renderExams();                    // 日付の書き方が言語で変わるので必ず組み直す
-  if(!$("scr-mypage").hidden && api.profile){
-    $("my-name").textContent = t("my.san",{name:api.profile.display_name});
-    $("my-class").textContent = api.profile.class_name || t("my.noclass");
+  if(api.profile){
+    // ★バッジは**画面が隠れていても**貼り替える。マイページ以外（アンケート一覧など）で
+    //   言語を変えて戻ると、バッジだけ前の言語が残っていた（2026-09-11 に検査で発覚）。
     renderSurveyBadge();
+    if(!$("scr-mypage").hidden){
+      $("my-name").textContent = t("my.san",{name:api.profile.display_name});
+      $("my-class").textContent = api.profile.class_name || t("my.noclass");
+    }
   }
   if(!$("scr-quiz").hidden && questions.length) render();
   if(!$("scr-result").hidden && lastResult) showResult(lastResult);
   if(!$("scr-surveylist").hidden) renderSurveyList();
-  if(!$("scr-survey").hidden && curSurvey){
-    const keep={}; curSurvey.q.forEach(q=>{ const el=$("sv-"+q.k); if(el) keep[q.k]=el.value; });
-    openSurvey(curSurvey);                                       // 今の言語で組み直し
-    curSurvey.q.forEach(q=>{ if(keep[q.k]) $("sv-"+q.k).value=keep[q.k]; });   // 入力途中の値は残す
+  if(!$("scr-survey").hidden && curRound){
+    const keep={}; curRound.def.q.forEach(q=>{ const el=$("sv-"+q.k); if(el) keep[q.k]=el.value; });
+    openSurvey(curRound);                                        // 今の言語で組み直し
+    curRound.def.q.forEach(q=>{ if(keep[q.k]) $("sv-"+q.k).value=keep[q.k]; });   // 入力途中の値は残す
   }
 });
 
