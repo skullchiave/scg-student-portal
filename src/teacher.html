@@ -101,6 +101,10 @@
   dialog.cfmdlg .cfm-actions .btn{width:auto;padding:10px 20px;}
   /* 危険な操作（削除）だけ赤系にする。app.css には無い色なのでここで足す */
   dialog.cfmdlg .btn.danger{background:var(--ng);border-color:var(--ng);color:#fff;}
+  /* アンケートの回ダイアログはクラス選択（複数）が伸びるので、ダイアログ自体に上限をつけてスクロールさせる */
+  #svround-dlg{max-height:88vh;overflow-y:auto;}
+  #svround-classes{max-height:170px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:4px 10px;}
+  #svround-classes .chk{margin-bottom:0;}
   @media (max-width:900px){
     .adm{grid-template-columns:1fr;}
     .side{position:static;}
@@ -212,6 +216,17 @@
           <h2>アンケート 回答一覧</h2>
           <select id="sv-pick" style="font-family:inherit;font-size:1rem;padding:8px 12px;margin:2px 0 12px;border:1px solid var(--line);border-radius:10px;max-width:100%;"></select>
           <div class="feed" id="sv-list" style="max-height:460px;"><div style="color:var(--sub)">回答待ち…</div></div>
+        </div>
+        <!-- ══ アンケートの回（2026-09-11・余力枠）══
+             小テストの「はじめる」と同じ考え方。★粒度が違う＝複数クラスに同時に出せる（月×学年で1本）。
+             一意制約は (survey_key, title) なので、同じ題名は二度作れない（db側で保証） -->
+        <div class="panel">
+          <h2>この アンケートの回</h2>
+          <div class="note"><b>回</b>ごとに集める（毎月おなじアンケートを取れる）。締切は省けます（ずっと開いたまま）。
+            🔴 <b>クラスごとに何本も作らないこと</b>（例: 1年生全員なら1本にまとめる。5クラス分作ると全体の傾向が見えなくなる）。</div>
+          <div id="sv-rounds-list"><div style="color:var(--sub)">読み込み中…</div></div>
+          <div class="btnrow"><button class="btn" id="sv-btn-newround" type="button" style="width:auto;">＋ 新しい回を はじめる</button></div>
+          <div class="msg" id="sv-rounds-msg" style="display:none;"></div>
         </div>
       </div>
 
@@ -476,6 +491,30 @@
   </div>
 </dialog>
 
+<!-- アンケートの回を「はじめる」ダイアログ（余力枠・2026-09-11）。
+     小テストの run-dlg と違い、対象クラスは複数選べる（月×学年で1本、が普通の使い方）。 -->
+<dialog class="cfmdlg" id="svround-dlg">
+  <h3 id="svround-title"></h3>
+  <div class="field">
+    <label for="svround-name">回の名前（あとで見分ける題名。例: 2026年12月）</label>
+    <input type="text" id="svround-name" placeholder="例: 2026年12月">
+  </div>
+  <div class="field">
+    <label>対象クラス（複数選べます。1つも選ばなければ全員が対象）</label>
+    <div id="svround-classes">クラスの一覧を読み込んでいます…</div>
+  </div>
+  <div class="field">
+    <label for="svround-closes">締切（省略できます＝ずっと開いたまま）</label>
+    <input type="date" id="svround-closes">
+  </div>
+  <div class="note" id="svround-target"></div>
+  <div class="msg" id="svround-msg" style="display:none;"></div>
+  <div class="btnrow cfm-actions">
+    <button type="button" class="btn ghost" id="svround-cancel">やめる</button>
+    <button type="button" class="btn" id="svround-start" disabled>この回を はじめる</button>
+  </div>
+</dialog>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★Excel読み取り(SheetJS)は教師画面だけで読む。学生画面(index.html)には絶対に足さない -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -613,6 +652,89 @@ function openRunDialog(qs){
       names.forEach(n=>{ const o=document.createElement("option"); o.value=n; o.textContent=n; sel.appendChild(o); });
       tgt.textContent = names.length ? "クラスを選ぶと対象人数が出ます。" : "学生のクラスが見つかりませんでした。";
     }).catch(e=>{ tgt.textContent = "クラス一覧を読み込めませんでした（"+e.message+"）。"; });
+
+    dlg.showModal();
+  });
+}
+
+/* アンケートの回を「はじめる」ダイアログ（余力枠・2026-09-11）。
+ * ★小テストの openRunDialog と同じ形だが、対象クラスは複数選べる
+ *   （粒度が違う＝「1年生全員に1本」が普通の使い方。クラスごとに何本も作らない）。
+ * 戻り値: はじめられたら start_survey_round の返り値、キャンセルなら false。 */
+function openSurveyRoundDialog(surveyKey){
+  const dlg=$("svround-dlg"), name=$("svround-name"), classesBox=$("svround-classes"),
+        closes=$("svround-closes"), tgt=$("svround-target"), msg=$("svround-msg"),
+        startBtn=$("svround-start"), cancelBtn=$("svround-cancel");
+  // ★教師画面は言語切替が無い＝常に日本語名で出す（sv-pick と同じ考え方。tx() は使わない）
+  const def = SURVEYS.find(s=>s.key===surveyKey);
+  $("svround-title").textContent = "「"+(def ? def.title.ja : surveyKey)+"」の回を はじめる";
+  name.value = ""; closes.value = "";
+  msg.style.display = "none";
+  startBtn.disabled = true; cancelBtn.disabled = false;
+  classesBox.innerHTML = "クラスの一覧を読み込んでいます…";
+  tgt.textContent = "";
+
+  return new Promise(resolve=>{
+    let settled=false;
+    function cleanup(){
+      dlg.removeEventListener("close", onClose);
+      name.oninput = null;
+      startBtn.removeEventListener("click", onStart);
+      cancelBtn.removeEventListener("click", onCancel);
+    }
+    function finish(v){ if(settled) return; settled=true; cleanup(); dlg.close(""); resolve(v); }
+    function onCancel(){ finish(false); }
+    function onClose(){ finish(false); }   // Esc・背景相当の受け皿
+
+    function selectedClasses(){ return [...classesBox.querySelectorAll(".svround-cls-chk:checked")].map(cb=>cb.value); }
+    function validate(){ startBtn.disabled = !name.value.trim(); }
+    async function updateTarget(){
+      const cls = selectedClasses();
+      try{
+        const n = await api.rpc("run_target_count", {p_class_names:cls});
+        tgt.textContent = cls.length ? ("「"+cls.join("・")+"」を、"+n+"人 を対象にはじめます。")
+                                      : ("クラスを選んでいません＝全員（"+n+"人）が対象になります。");
+      }catch(e){ tgt.textContent = "対象人数は数えられませんでした（"+e.message+"）。"; }
+    }
+    name.oninput = validate;
+
+    async function onStart(){
+      const title = name.value.trim();
+      if(!title) return;
+      startBtn.disabled=true; cancelBtn.disabled=true;
+      msg.style.display="block"; msg.className="msg info"; msg.textContent="はじめています…";
+      const cls = selectedClasses();
+      // date input（日付だけ）→ その日の終わりまで開く
+      const closesIso = closes.value ? new Date(closes.value+"T23:59:59").toISOString() : null;
+      try{
+        const r = await api.rpc("start_survey_round",
+          {p_survey_key:surveyKey, p_title:title, p_class_names:cls, p_closes_at:closesIso});
+        cleanup(); settled=true; dlg.close("ok"); resolve(r);
+      }catch(e){
+        msg.className="msg err"; msg.textContent="はじめられませんでした（"+e.message+"）";
+        startBtn.disabled=false; cancelBtn.disabled=false;
+      }
+    }
+
+    dlg.addEventListener("close", onClose);
+    startBtn.addEventListener("click", onStart);
+    cancelBtn.addEventListener("click", onCancel);
+
+    fetchClassNames().then(names=>{
+      classesBox.innerHTML =
+        "<div class='btnrow' style='margin:0 0 6px;'>"+
+          "<button type='button' class='btn ghost' id='svround-cls-all' style='width:auto;padding:5px 12px;font-size:.8rem;'>すべて選ぶ</button>"+
+          "<button type='button' class='btn ghost' id='svround-cls-none' style='width:auto;padding:5px 12px;font-size:.8rem;'>すべて外す</button>"+
+        "</div>"+
+        (names.length ? names.map(n=>
+          "<label class='chk'><input type='checkbox' class='svround-cls-chk' value=\""+escHtml(n)+"\"> <span>"+escHtml(n)+"</span></label>"
+        ).join("") : "<div class='note'>クラスが見つかりませんでした。</div>");
+      classesBox.querySelectorAll(".svround-cls-chk").forEach(cb=>cb.onchange=updateTarget);
+      const allBtn = $("svround-cls-all"), noneBtn = $("svround-cls-none");
+      if(allBtn) allBtn.onclick = ()=>{ classesBox.querySelectorAll(".svround-cls-chk").forEach(cb=>cb.checked=true); updateTarget(); };
+      if(noneBtn) noneBtn.onclick = ()=>{ classesBox.querySelectorAll(".svround-cls-chk").forEach(cb=>cb.checked=false); updateTarget(); };
+      updateTarget();
+    }).catch(e=>{ classesBox.innerHTML = "<div class='note'>クラス一覧を読み込めませんでした（"+esc(e.message)+"）。</div>"; });
 
     dlg.showModal();
   });
@@ -1030,7 +1152,7 @@ async function tick(){
   try{
     if(activeView==="today") await tickToday();
     else if(activeView==="quiz") await tickQuiz();
-    else if(activeView==="survey") await tickSurvey();
+    else if(activeView==="survey") await Promise.all([ tickSurvey(), renderSurveyRounds() ]);
   }catch(e){ /* 一時的な失敗は次のtickで回復 */ }
 }
 
@@ -1190,6 +1312,7 @@ $("sv-pick").onchange = ()=>{
   svKey = $("sv-pick").value;
   $("sv-list").innerHTML = "<div style='color:var(--sub)'>読み込み中…</div>";
   tickSurvey().catch(()=>{});
+  renderSurveyRounds().catch(()=>{});
 };
 async function tickSurvey(){
   // 学生総数（初回だけ取得）: 未提出数 = 次に支援する人 の算出用
@@ -1217,6 +1340,79 @@ async function tickSurvey(){
     $("sv-list").innerHTML = "<div style='color:var(--sub)'>回答待ち…</div>";
   }
 }
+
+/* アンケートの回の一覧・操作（余力枠・2026-09-11）。小テストの「今日」パネルと同じ考え方だが、
+   締切が無い回（常設）もあるので残り時間の表現はしない。teacher は survey_rounds を直接読める
+  （RLS「teacher manage rounds」が for all）。 */
+function svRoundsMsg(text, ng){ const m=$("sv-rounds-msg"); m.style.display="block"; m.textContent=text; m.className="msg"+(ng?" err":" info"); }
+
+async function renderSurveyRounds(){
+  const box = $("sv-rounds-list");
+  let rounds;
+  try{
+    rounds = await api.get("/rest/v1/survey_rounds?select=id,title,class_names,opens_at,closes_at,is_void"
+      + "&survey_key=eq."+encodeURIComponent(svKey)+"&order=opens_at.desc&limit=30");
+  }catch(e){
+    box.innerHTML = "<div class='msg err' style='display:block;'>読み込みに失敗しました（"+esc(e.message)+"）</div>";
+    return;
+  }
+  if(!rounds.length){
+    box.innerHTML = "<div style='color:var(--sub);'>まだ回がありません。「＋ 新しい回を はじめる」から作れます。</div>";
+    return;
+  }
+  const now = Date.now();
+  box.innerHTML = "<div class='tblwrap'><table class='tbl'><thead><tr>"
+    + "<th>回の名前</th><th>クラス</th><th>締切</th><th>状態</th><th>操作</th>"
+    + "</tr></thead><tbody>"
+    + rounds.map(r=>{
+        const cls = (r.class_names && r.class_names.length) ? r.class_names.join("・") : "全員";
+        const closed = !!r.closes_at && new Date(r.closes_at).getTime() <= now;
+        const live = !r.is_void && !closed;
+        const closesTxt = r.closes_at ? new Date(r.closes_at).toLocaleDateString("ja-JP") : "ずっと開いたまま";
+        const stateTxt = r.is_void ? "取り消し済み" : (closed ? "終了" : "受付中");
+        return "<tr data-roundid='"+esc(r.id)+"'><td>"+esc(r.title||"（無題）")+"</td><td>"+esc(cls)+"</td>"
+          + "<td>"+closesTxt+"</td>"
+          + "<td><span class='pill "+(live?"on":"off")+"'>"+stateTxt+"</span></td>"
+          + "<td class='qs-act'>"
+          +   (live ? "<button class='btn ghost svr-close' type='button'>閉じる</button>"
+                     + "<button class='btn ghost svr-void' type='button'>取り消し</button>" : "")
+          + "</td></tr>";
+      }).join("")
+    + "</tbody></table></div>";
+
+  box.querySelectorAll("tr[data-roundid]").forEach(tr=>{
+    const id = tr.getAttribute("data-roundid");
+    const label = tr.children[0].textContent.trim();
+    const closeBtn = tr.querySelector(".svr-close"), voidBtn = tr.querySelector(".svr-void");
+    if(closeBtn) closeBtn.onclick = async ()=>{
+      const ok = await askDialog({
+        title: "「"+label+"」を閉じます",
+        body: "今すぐ締め切ります。ここまでの回答はそのまま残ります。",
+        okText: "閉じる",
+      });
+      if(!ok) return;
+      try{ await api.rpc("close_survey_round",{p_round_id:id}); await renderSurveyRounds(); }
+      catch(e){ svRoundsMsg("閉じられませんでした（"+e.message+"）", true); }
+    };
+    if(voidBtn) voidBtn.onclick = async ()=>{
+      const ok = await askDialog({
+        title: "「"+label+"」を取り消します",
+        body: "学生の画面からすぐに消えます。\n🔴 回答は消えません（集計から外れるだけです）。",
+        okText: "取り消す", danger: true,
+      });
+      if(!ok) return;
+      try{ await api.rpc("close_survey_round",{p_round_id:id, p_void:true}); await renderSurveyRounds(); }
+      catch(e){ svRoundsMsg("取り消せませんでした（"+e.message+"）", true); }
+    };
+  });
+}
+
+$("sv-btn-newround").onclick = async ()=>{
+  const r = await openSurveyRoundDialog(svKey);
+  if(!r) return;
+  await renderSurveyRounds();
+  svRoundsMsg("「"+r.title+"」を はじめました"+(r.target_count!=null ? "（"+r.target_count+"人対象）" : "")+"。");
+};
 
 /* イメージ「アンケートの作成」の一覧は本物の定義から出す（定義を足せばここにも出る） */
 $("svbuild-list").insertAdjacentHTML("beforeend", SURVEYS.map(s=>

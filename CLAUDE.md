@@ -219,8 +219,11 @@
   （検査専用の回を混ぜても学生には見えない、という性質をここで使っている）
 - 提出は `api.upsert("survey_responses","student_id,round_id", {round_id, survey_key, answers, submitted_at})`。
   🔴 **`on_conflict` を `student_id,survey_key` に戻さない**（その制約はもう無い＝42P10 で落ちる）
-- 教師は `start_survey_round(survey_key, title, class_names, student_ids, closes_at)` で毎月1本作る。
-  題名は「2026年12月」のように**あとで見分けられる名前**（`(survey_key, title)` が一意）
+- 教師は**画面から**毎月1本作る＝「アンケート 回答一覧」の下の「この アンケートの回」パネル
+  （2026-09-11・`openSurveyRoundDialog`）。中身は RPC `start_survey_round(survey_key, title,
+  class_names, student_ids, closes_at)`。題名は「2026年12月」のように**あとで見分けられる名前**
+  （`(survey_key, title)` が一意。ぶつかると理由つきで断る）。
+  ★**クラスを選ぶたびに対象人数が出る**（`run_target_count`）＝押す前に確かめられる
 - **粒度は小テストと違う＝複数クラス可**（月×学年で1本）。クラスごとに5本作ると全体の傾向が出せなくなる
 - 既存の4本には **「常設」の回**（締切なし）を作り、これまでの回答をそこへ紐づけた＝**1行も失っていない**
 - 同じアンケートが複数の回で出るので、**一覧には回の題名を添える**。ただし「常設」は出さない（内部用の名前）
