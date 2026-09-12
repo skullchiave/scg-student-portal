@@ -273,5 +273,41 @@ class JsSyntaxTest(unittest.TestCase):
         self.assertEqual(p.returncode, 0, p.stderr[:800])
 
 
+class CrossLinkTest(unittest.TestCase):
+    """先生 ⇄ マスター を行き来できること（2026-09-12 きあ指示）。
+
+    ★きあ「Aだとすると…学生はいらないね、相互リンク。先生とマスターはあった方がいいかも」
+
+    URLを2つに分けた摩擦は「どっちだっけ」であって、URLが2つあること自体ではない。
+    だから**間違えても損をしない**ようにする＝どちらに来ても1クリックで行ける。
+    ⓘ 学生画面には付けない（学生には行き先が無い）。
+    """
+
+    def test_teacher_links_to_master(self):
+        src = read()
+        self.assertIn('id="go-master"', src)
+        self.assertIn('href="master.html"', src)
+
+    def test_teacher_link_is_hidden_from_plain_teachers(self):
+        """🔴 先生に出してはいけない。押しても master.html に断られて、意味が無いどころか混乱する。"""
+        src = read()
+        self.assertIn('<a id="go-master"', src)
+        self.assertRegex(src, r'<a id="go-master"[^>]*\shidden')      # 既定は隠す
+        self.assertIn('$("go-master").hidden', src)                    # role で出し分ける
+
+    def test_master_links_back_to_teacher(self):
+        m = MASTER.read_text(encoding="utf-8")
+        self.assertIn('id="go-teacher"', m)
+        self.assertIn('href="teacher.html"', m)
+        # ★こちらは常に出す（master.html に入れているのはマスターだけ＝先生画面にも入れる）
+        self.assertNotRegex(m, r'<a id="go-teacher"[^>]*\shidden')
+
+    def test_student_screen_has_no_cross_link(self):
+        """学生画面には付けない（きあ指示）。"""
+        idx = (SRC / "index.html").read_text(encoding="utf-8")
+        self.assertNotIn("teacher.html", idx)
+        self.assertNotIn("master.html", idx)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

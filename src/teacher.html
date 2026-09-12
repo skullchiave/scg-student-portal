@@ -12,11 +12,12 @@
      🔴 master.html から機能を削って作らない、という約束のとおり、ここは新しく小さく書いてある。
      左メニューは無し＝タブが3つだけなので横並びで足りる（.side の min-width:0 の罠を踏まない作り）。 */
   #tabsbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px;}
-  #tabsbar button{font-family:inherit;font-size:.88rem;font-weight:700;border-radius:11px;
+  #tabsbar button,#tabsbar a{font-family:inherit;font-size:.88rem;font-weight:700;border-radius:11px;
     padding:10px 14px;cursor:pointer;white-space:nowrap;border:1px solid var(--line);
     background:var(--bg);color:var(--ink);}
   #tabsbar button[data-view].on{background:var(--blue);border-color:var(--blue);color:#fff;}
   #tabsbar .sp{flex:1 1 auto;}
+  #tabsbar a{text-decoration:none;}
   #tabsbar .ghostbtn{background:var(--surface);color:var(--sub);}
   .notice{margin:0 22px 14px;background:#eef5fb;color:var(--blue-d);border:1px solid #d3e5f2;
     border-radius:12px;padding:10px 14px;font-size:.85rem;font-weight:700;line-height:1.6;}
@@ -99,12 +100,24 @@
       <button data-view="select"><span>▶</span> テストを選んではじめる</button>
       <button data-view="quiz"><span>📝</span> 小テスト ライブ集計</button>
       <span class="sp"></span>
+      <!-- 🔴 行き来の口（2026-09-12 きあ指示）。URLを2つに分けた摩擦は
+           「どっちだっけ」で、URLが2つあること自体ではない。だから**間違えても損をしない**ようにする。
+           ★出すのは role==="master" のときだけ。先生に出すと、押しても断られて意味が無い。
+           （学生画面には付けない＝学生には行き先が無いため。きあ指示） -->
+      <!-- ⚠ ここの文言に「アンケート」「お知らせ配信」「点検・バックアップ」と書かないこと。
+           tests/test_teacher_screen.py が「その機能が入っていないこと」を**文字で**見張っていて、
+           行き先の説明のつもりでも引っかかる（2026-09-12 に実際に落ちた）。
+           ★見張りを緩めるのではなく、こちらの言い方を変える。緩めると本物の混入を見逃す。 -->
+      <a id="go-master" class="ghostbtn" href="master.html" hidden
+         title="問題の登録など、机の仕事はマスターの画面です"><span>🗂</span> マスターへ</a>
       <button id="btn-qr" type="button" class="ghostbtn"><span>🔢</span> 学生用QR</button>
       <button id="btn-logout" type="button" class="ghostbtn"><span>⏏</span> ログアウト</button>
     </div>
 
     <div class="notice" id="master-notice" hidden>
-      マスターの画面は master.html です。ここは先生用の画面（授業中に使うもの）です。
+      ここは<b>先生の画面</b>です（授業中に使うものだけ）。
+      問題の登録など、机の仕事は
+      <a href="master.html">マスターの画面</a>にあります。
     </div>
 
     <!-- ══ 📅今日（既定の画面）══
@@ -820,7 +833,11 @@ $("qrclose").onclick = ()=>$("qrov").classList.remove("on");
    ★これは案内であって、権限ではない。権限は RLS が持っている（いまは先生とマスターで同じ）。
      だから「先生を締め出した」つもりにならないこと。
    ══════════════════════════════════════════════════════════════════ */
-function applyRoleNotice(role){ $("master-notice").hidden = (role!=="master"); }
+function applyRoleNotice(role){
+  const isMaster = (role === "master");
+  $("master-notice").hidden = !isMaster;
+  $("go-master").hidden     = !isMaster;   // 先生には出さない（押しても断られるため）
+}
 
 async function start(){
   $("scr-login").hidden=true; $("scr-dash").hidden=false;

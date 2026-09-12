@@ -19,11 +19,12 @@
   .side{background:var(--surface);border:1px solid var(--edge);border-radius:16px;padding:10px;position:sticky;top:12px;}
   .side .sechead{padding:10px 12px 6px;}
   .nav{display:flex;flex-direction:column;gap:2px;}
-  .nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-radius:11px;
+  .nav button,.nav a{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-radius:11px;
     padding:11px 12px;font-family:inherit;font-size:.95rem;font-weight:700;color:var(--ink);cursor:pointer;}
-  .nav button:hover{background:color-mix(in srgb,var(--blue) 6%,transparent);}
+  .nav button:hover,.nav a:hover{background:color-mix(in srgb,var(--blue) 6%,transparent);}
   .nav button.on{background:color-mix(in srgb,var(--blue) 11%,transparent);color:var(--blue-d);}
-  .nav button .ico{width:1.5em;text-align:center;}
+  .nav button .ico,.nav a .ico{width:1.5em;text-align:center;}
+  .nav a{text-decoration:none;color:inherit;font:inherit;cursor:pointer;}
   .nav button .soon{margin-left:auto;font-size:.62rem;font-weight:800;color:var(--sub);border:1px solid var(--line);border-radius:99px;padding:1px 7px;}
   .content .stats,.content .panel,.content .list{margin-left:0;margin-right:0;}
   .dashhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
@@ -187,6 +188,12 @@
         <button data-view="ops"><span class="ico">🛡</span>点検・バックアップ<span class="soon">イメージ</span></button>
       </div>
       <div class="nav" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px;">
+        <!-- 🔴 行き来の口（2026-09-12 きあ指示）。先生画面とマスター画面を相互に行き来できるようにする。
+             ★こちらは**常に出す**。この画面に入れているのはマスターだけで、
+               マスターは先生画面にも入れるため（先生画面側は role で出し分けている）。
+             ⓘ 学生画面には付けない（学生には行き先が無いため。きあ指示） -->
+        <a id="go-teacher" href="teacher.html"
+           title="授業中に使う画面（今日・はじめる・ライブ集計）へ"><span class="ico">🍎</span>先生の画面へ</a>
         <button id="btn-logout"><span class="ico">⏏</span>ログアウト</button>
       </div>
     </aside>
