@@ -355,5 +355,41 @@ class LoginScreenSwitchTest(unittest.TestCase):
         self.assertIn('placeholder="t001"', s)
 
 
+class WhoAmITest(unittest.TestCase):
+    """いま誰で入っているかを画面に出す（2026-09-12 きあ報告）。
+
+    ★きあ「先生でログインしてるところに『マスターへ』ってのがあって、押すとマスターに入れる。
+      意味ないじゃん？ これはそれとも、私がどっちでもログインしたことがあるから？」
+      → 調べたら **m001（マスター）で入っていた**。動きは正しい。
+        だが **画面がどっちで入っているかを教えていなかった**ので、確かめようがなかった。
+    ★権限で画面を分けるなら、「**今の自分が何者か**」は必ず出す。
+      出していないと、正しい動きも不具合に見える。
+    """
+
+    def test_both_screens_show_it(self):
+        for src, name in ((read(), "teacher.html"),
+                          (MASTER.read_text(encoding="utf-8"), "master.html")):
+            with self.subTest(screen=name):
+                self.assertIn('id="whoami"', src, name)
+                self.assertIn("function showWhoAmI", src, name)
+
+    def test_it_is_filled_on_entry(self):
+        """ログインでも、開き直しでも出ること（start() の中で呼ぶ）。"""
+        for src, name in ((read(), "teacher.html"),
+                          (MASTER.read_text(encoding="utf-8"), "master.html")):
+            with self.subTest(screen=name):
+                i = src.find("async function start(){")
+                self.assertGreater(i, 0, name + " に start() が無い")
+                head = src[i:i + 120]
+                self.assertIn("showWhoAmI();", head,
+                              name + " が start() の先頭で showWhoAmI() を呼んでいない")
+
+    def test_it_shows_the_role_in_japanese(self):
+        src = read()
+        self.assertIn("マスター", src)
+        self.assertIn("先生", src)
+        self.assertIn("student_no", src)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

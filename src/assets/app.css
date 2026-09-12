@@ -273,3 +273,10 @@ body.projector .exam-none{font-size:clamp(1.1rem,2.4vw,1.8rem);padding:40px 22px
 .pwbtn:active{transform:translateY(-50%) scale(.92);}
 .pwbtn:focus-visible{outline:2px solid var(--blue);outline-offset:1px;}
 .pwbtn svg{display:block;}
+
+/* いま誰で入っているか（2026-09-12）。先生画面とマスター画面の両方で使う。
+   ★権限で画面が分かれているのに「自分が何者か」が出ていないと、
+     正しい動きでも不具合に見える。 */
+.whoami{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  font-size:.76rem;font-weight:800;color:#41505f;
+  background:#eef2f7;border:1px solid var(--line);border-radius:99px;padding:5px 12px;}

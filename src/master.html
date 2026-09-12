@@ -209,6 +209,7 @@
              ⓘ 学生画面には付けない（学生には行き先が無いため。きあ指示） -->
         <a id="go-teacher" href="teacher.html"
            title="授業中に使う画面（今日・はじめる・ライブ集計）へ"><span class="ico">→</span>先生の画面</a>
+        <div id="whoami" class="whoami" hidden></div>
         <button id="btn-logout"><span class="ico">⏏</span>ログアウト</button>
       </div>
     </aside>
@@ -1373,7 +1374,26 @@ async function loadQuizPickOptions(){
   return sets;
 }
 
+
+/* いま誰で入っているかを画面に出す（2026-09-12 きあ報告）。
+   🔴 先生画面に「マスターへ」が出ていたのは **m001 で入っていた**ため。動きは正しいが、
+      **画面がどっちで入っているか教えていなかった**ので確かめようがなかった。
+   ★「今の自分が何者か」は、権限の話をする画面では必ず出す。
+     出していないと、正しい動きも不具合に見える。 */
+function roleWord(role){
+  return role === "master" ? "マスター" : (role === "teacher" ? "先生" : (role || "?"));
+}
+function showWhoAmI(){
+  const el = document.getElementById("whoami");
+  if(!el) return;
+  const p = api.profile || {};
+  el.textContent = (p.student_no || "?") + "・" + roleWord(p.role);
+  el.title = (p.display_name || "") + "（" + roleWord(p.role) + "）でログイン中";
+  el.hidden = false;
+}
+
 async function start(){
+  showWhoAmI();
   await ensureQpFilters();
   const sets = await loadQuizPickOptions();
   if(!sets.length){ err("login-msg","クイズセットがありません"); return; }

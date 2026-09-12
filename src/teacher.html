@@ -123,6 +123,7 @@
       <a id="go-master" class="ghostbtn" href="master.html" hidden
          title="問題の登録など、机の仕事はマスターの画面です"><span>→</span> マスター画面</a>
       <button id="btn-qr" type="button" class="ghostbtn"><span>🔢</span> 学生用QR</button>
+      <span id="whoami" class="whoami" hidden></span>
       <button id="btn-logout" type="button" class="ghostbtn"><span>⏏</span> ログアウト</button>
     </div>
 
@@ -852,7 +853,27 @@ function applyRoleNotice(role){
   $("go-master").hidden     = !isMaster;   // 先生には出さない（押しても断られるため）
 }
 
+
+/* いま誰で入っているかを画面に出す（2026-09-12 きあ報告）。
+   🔴 きあ「先生でログインしてるところにマスターへってのがあって、押すとマスターに入れる」
+      → 実際は **m001（マスター）で入っていた**。動きは正しいが、
+        **画面がどっちで入っているか教えていなかった**ので確かめようがなかった。
+   ★「今の自分が何者か」は、権限の話をする画面では必ず出す。
+     出していないと、正しい動きも不具合に見える。 */
+function roleWord(role){
+  return role === "master" ? "マスター" : (role === "teacher" ? "先生" : (role || "?"));
+}
+function showWhoAmI(){
+  const el = document.getElementById("whoami");
+  if(!el) return;
+  const p = api.profile || {};
+  el.textContent = (p.student_no || "?") + "・" + roleWord(p.role);
+  el.title = (p.display_name || "") + "（" + roleWord(p.role) + "）でログイン中";
+  el.hidden = false;
+}
+
 async function start(){
+  showWhoAmI();
   $("scr-login").hidden=true; $("scr-dash").hidden=false;
   setView("today");
   timer = setInterval(tick, 2000);
