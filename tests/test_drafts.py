@@ -21,6 +21,10 @@ import urllib.request, urllib.error
 # すでにutf-8ならそのまま使う（-X utf8 実行なら通常ここに来る）。
 if getattr(sys.stdout, "encoding", "").lower() != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from env_creds import get_student_pw, NO_ENV_MSG
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SQL = os.path.join(ROOT, "db", "2026-09-06_attempt_drafts.sql")
 INDEX = os.path.join(ROOT, "src", "index.html")
@@ -52,7 +56,7 @@ def req(path, token=None, body=None, method=None, extra=None):
         return e.code, (json.loads(raw) if raw.strip() else None)
 
 
-def login(no, pw="sakura24"):
+def login(no, pw):
     st, b = req("/auth/v1/token?grant_type=password",
                 body={"email": f"{no}@stu.scg-portal.jp", "password": pw})
     return b.get("access_token") if st == 200 and b else None
@@ -136,9 +140,13 @@ class TestDraftsLive(unittest.TestCase):
 
     def test_01_roundtrip(self):
         print("\n=== 4. 本物のDBで往復（--live）===")
+        s_pw = get_student_pw()
+        if not s_pw:
+            self.skipTest(NO_ENV_MSG)
+            return
         try:
-            # 負荷試験用の2人を使う（学生画面の一覧には出ない）
-            tokA, tokB = login("l149"), login("l150")
+            # 負荷試験用の2人を使う（学生画面の一覧には出ない）。パスワードはデモ学生共通
+            tokA, tokB = login("l149", s_pw), login("l150", s_pw)
         except (urllib.error.URLError, OSError) as e:
             self.skipTest(f"DBに接続できないためskip（{e}）")
             return

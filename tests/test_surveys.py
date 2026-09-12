@@ -21,6 +21,10 @@ import urllib.request, urllib.error
 # すでにutf-8ならそのまま使う（-X utf8 実行なら通常ここに来る）。
 if getattr(sys.stdout, "encoding", "").lower() != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from env_creds import get_student_pw, NO_ENV_MSG
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JS = os.path.join(ROOT, "src", "assets", "surveys.js")
 I18N_JS = os.path.join(ROOT, "src", "assets", "i18n.js")
@@ -138,8 +142,11 @@ class TestSurveysLive(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.s_pw = get_student_pw()
+        if not cls.s_pw:
+            raise unittest.SkipTest(NO_ENV_MSG)
         try:
-            cls.tok = login("l150", "sakura24")
+            cls.tok = login("l150", cls.s_pw)
         except (urllib.error.URLError, OSError) as e:
             raise unittest.SkipTest(f"DBに接続できないためskip（{e}）")
 

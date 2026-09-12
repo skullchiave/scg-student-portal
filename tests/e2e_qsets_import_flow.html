@@ -3,8 +3,11 @@
 <body>
 <iframe id="f" src="../src/teacher.html" width="1100" height="900"></iframe>
 <pre id="out">RUNNING</pre>
+<!-- 資格情報は file:// から .env を読めないので、run_e2e_qsets_import.py が書き出した tmp/e2e_creds.js から取る。
+     ★無ければ window.__E2E_CREDS が undefined のままになる＝下の分岐で気づいて止まる（黙って落ちない）。 -->
+<script src="../tmp/e2e_creds.js"></script>
 <script>
-/* 「問題の登録・解放」の回帰テスト（tests/run_e2e_qsets_import.py から起動）。
+/* 「問題の登録・解放」の回帰テスト（tests/run_e2e_qsets_import.py から起動）。パスワードは資格情報のみ .env 由来。
    教師画面を iframe でそのまま動かし、
      ログイン → ②取り込み(シート選択・重複ブロック) → ②プレビュー → ③1問ずつ修正
      → ④公開（本物のデモDBに書く） → 一覧に出るか確認 → 片付け（消す）
@@ -22,6 +25,7 @@ const out = document.getElementById("out"), log = { steps: [] };
 const step = (name, ok, detail) => log.steps.push({ name, ok: !!ok, detail: detail === undefined ? "" : String(detail).slice(0, 260) });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, ms = 20000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (fn()) return true; } catch (e) {} await sleep(150); } return false; }
+const CREDS = window.__E2E_CREDS || null;
 
 const HEAD = ["問題番号", "問題文1", "問題文2", "添付ファイル名",
   "選択肢1", "選択肢2", "選択肢3", "選択肢4", "選択肢5", "解説", "解答", "カテゴリ", "配点"];
@@ -32,14 +36,30 @@ function qrow(no, t2, choices, ans) {
 const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
 
 (async () => {
+  if (!CREDS || !CREDS.teacherPw) {
+    log.error = "資格情報が読めません（tmp/e2e_creds.js が無いか不完全）。tests/run_e2e_qsets_import.py から起動してください。";
+    out.textContent = "E2E_RESULT " + JSON.stringify(log);
+    return;
+  }
   const f = document.getElementById("f");
-  await until(() => f.contentDocument && f.contentDocument.getElementById("btn-login"));
+  /* 🔴「要素がある」を「準備できた」と読み替えないこと（2026-09-11 に踏んだ）。
+     ログインボタンは静的HTMLなので最初から存在するが、その onclick は
+     アプリの巨大なスクリプトの終盤で代入される。存在だけで待って押すと
+     **押しても何も起きず、例外もエラー文言も出ない**。
+     「ログインできない」ではなく「ログインしていない」まま先へ進み、
+     あとから別の呼び出しが 401 になって、原因から遠い場所で落ちる。
+     ★待ち時間を延ばして直したことにしない。競合であって遅さではない。 */
+  await until(() => {
+    const dd = f.contentDocument;
+    const b = dd && dd.getElementById("btn-login");
+    return !!b && typeof b.onclick === "function";
+  });
   const w = f.contentWindow, d = f.contentDocument;
   try { w.localStorage.clear(); } catch (e) {}
   const $ = id => d.getElementById(id);
 
   // ---- ログイン ----
-  $("in-no").value = "t001"; $("in-pw").value = "sensei-scg-2026"; $("btn-login").click();
+  $("in-no").value = "t001"; $("in-pw").value = CREDS.teacherPw; $("btn-login").click();
   step("教師としてログインできる", await until(() => !$("scr-dash").hidden), $("login-msg").textContent);
 
   // ---- 「問題の登録・解放」タブへ ----
@@ -175,6 +195,90 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
          "画面=" + (rowOf() ? rowOf().textContent.slice(0, 50) : "無し") +
          " / DB=" + JSON.stringify(inDb2.map(r => r.is_open)));
   } finally { /* 差し替えは無いので戻すものも無い */ }
+
+  // ---- 絞り込み・検索（2026-09-11・きあ決定「教材で絞る＋名前で検索」）----
+  // ★件数を決め打ちしない。「絞る前 ≧ 絞った後」「絞った結果が全部その教材/検索語」の形で見る
+  //   （このダミーの件数は前回の残骸の有無で毎回変わりうるため）。
+  // 🔴 教材（source_book）は quiz_sets にまだ無い環境もある（DBは別担当が進めている）。
+  //   列が無ければ qs-filter-book / qp-filter-book は hidden のまま＝その場合は検索だけ確認して分岐する。
+  {
+    // ①一覧: 名前検索
+    const beforeRows = $("qs-list-tbl").querySelectorAll("tr[data-qsid]").length;
+    const noteBefore = $("qs-list-note").textContent;
+    $("qs-filter-q").value = TITLE_PREFIX;
+    $("qs-filter-q").dispatchEvent(new Event("input"));
+    await until(() => $("qs-list-note").textContent !== noteBefore && $("qs-list-note").textContent !== "読み込み中…", 8000);
+    await sleep(150);
+    const afterRows = [...$("qs-list-tbl").querySelectorAll("tr[data-qsid]")];
+    step("★一覧の名前検索: 絞る前 ≧ 絞った後", beforeRows > 0 && afterRows.length <= beforeRows,
+         "前=" + beforeRows + " / 後=" + afterRows.length);
+    step("★一覧の名前検索: 結果が1件以上あり、全部タイトルに検索語を含む",
+         afterRows.length > 0 && afterRows.every(tr => tr.children[0].textContent.includes(TITLE_PREFIX)),
+         afterRows.map(tr => tr.children[0].textContent).join("|").slice(0, 200));
+    step("★一覧に件数の表示が出る（◯件を表示）", /件.*表示/.test($("qs-list-note").textContent), $("qs-list-note").textContent);
+
+    // ①一覧: 教材フィルタ（列がある環境でだけ検証できる。無ければ「出ていない」ことだけ見て分岐）
+    if (!$("qs-filter-book").hidden && $("qs-filter-book").options.length > 1) {
+      $("qs-filter-q").value = ""; $("qs-filter-q").dispatchEvent(new Event("input"));
+      await sleep(400);
+      const beforeBook = $("qs-list-tbl").querySelectorAll("tr[data-qsid]").length;
+      const book = $("qs-filter-book").options[1].value;
+      $("qs-filter-book").value = book;
+      $("qs-filter-book").dispatchEvent(new Event("change"));
+      await until(() => $("qs-list-note").textContent !== "読み込み中…", 8000);
+      await sleep(150);
+      const afterBookIds = [...$("qs-list-tbl").querySelectorAll("tr[data-qsid]")].map(tr => tr.getAttribute("data-qsid"));
+      step("★一覧の教材フィルタ: 絞る前 ≧ 絞った後", afterBookIds.length <= beforeBook,
+           "前=" + beforeBook + " / 後=" + afterBookIds.length);
+      // ★画面の行だけを見て自己採点しない。DBに直接聞いて「その教材のものだけか」を照合する
+      const dbRows = await w.__e2e.get("/rest/v1/quiz_sets?select=id&source_book=eq." + encodeURIComponent(book) + "&limit=200");
+      const dbIds = new Set(dbRows.map(r => r.id));
+      step("★一覧の教材フィルタ: 画面の行が全部その教材のもの（DBに直接聞いて照合）",
+           afterBookIds.length > 0 && afterBookIds.every(id => dbIds.has(id)),
+           "画面=" + afterBookIds.length + "件 / DB直接=" + dbRows.length + "件");
+      $("qs-filter-book").value = ""; $("qs-filter-book").dispatchEvent(new Event("change"));
+      await sleep(400);
+    } else if ($("qs-filter-book").hidden) {
+      step("（教材フィルタは列が無いので出ていない＝列が無いときの正しい壊れ方。検索だけ確認した）", true,
+           "qs-filter-book.hidden=" + $("qs-filter-book").hidden);
+    } else {
+      // 列はあるが source_book にまだ値が無い環境（マイグレーション直後）＝
+      // セレクトは出るが「すべての教材」しか選べない。これも正しい壊れ方。
+      step("（教材フィルタの列はあるが、まだ教材名の入ったデータが無い＝「すべての教材」だけ。検索だけ確認した）", true,
+           "options=" + $("qs-filter-book").options.length);
+    }
+    // 検索欄を空に戻す（片付けの検索・以降の手順に影響しないように）
+    $("qs-filter-q").value = ""; $("qs-filter-q").dispatchEvent(new Event("input"));
+    await sleep(400);
+  }
+
+  {
+    // ②「集計するテスト」（はじめるの下敷き・quiz-pick）にも同じ絞り込みが効くか
+    d.querySelector('.nav [data-view="quiz"]').click();
+    step("「小テスト ライブ集計」画面に入る", await until(() => !d.getElementById("view-quiz").hidden));
+    await until(() => $("quiz-pick").options.length > 0, 8000);
+    // まず空検索で読み直し、いまのDBの状態にそろえてから絞る前の候補数を数える
+    $("qp-filter-q").value = ""; $("qp-filter-q").dispatchEvent(new Event("input"));
+    await sleep(700);
+    const beforeOpts = $("quiz-pick").options.length;
+    const noteBeforeSearch = $("qp-filter-note").textContent;
+    $("qp-filter-q").value = TITLE_PREFIX;
+    $("qp-filter-q").dispatchEvent(new Event("input"));
+    await until(() => $("qp-filter-note").textContent !== noteBeforeSearch, 8000);
+    await sleep(150);
+    const afterOpts = [...$("quiz-pick").options];
+    step("★「集計するテスト」の名前検索: 絞る前 ≧ 絞った後",
+         beforeOpts > 0 && afterOpts.length <= beforeOpts, "前=" + beforeOpts + " / 後=" + afterOpts.length);
+    step("★「集計するテスト」の名前検索: 選択肢が1件以上あり、全部タイトルに検索語を含む",
+         afterOpts.length > 0 && afterOpts.every(o => o.textContent.includes(TITLE_PREFIX)),
+         afterOpts.map(o => o.textContent).join("|").slice(0, 200));
+    // 検索を空に戻す（次に触る人が絞り込んだままにならないように）
+    $("qp-filter-q").value = ""; $("qp-filter-q").dispatchEvent(new Event("input"));
+    await sleep(400);
+    // 片付け（一覧からの消去）へ戻る
+    d.querySelector('.nav [data-view="qsets"]').click();
+    await until(() => !$("qs-pane-list").hidden);
+  }
 
   // ---- 片付け（ダミーを消す。消せたことまで確認する）----
   // ★w.api は const 宣言なので iframe外から拾えない。teacher.html が窓口として出している __e2e を使う。

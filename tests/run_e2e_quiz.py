@@ -18,6 +18,8 @@ import os, sys, io, re, json, html, subprocess, tempfile, shutil
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+from env_creds import write_e2e_creds_js, NO_ENV_MSG
 HARNESS = os.path.join(HERE, "e2e_quiz_flow.html")
 CANDS = [r"C:\Program Files\Google\Chrome\Application\chrome.exe",
          r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
@@ -25,6 +27,12 @@ CANDS = [r"C:\Program Files\Google\Chrome\Application\chrome.exe",
 chrome = next((c for c in CANDS if os.path.exists(c)), None)
 if not chrome:
     print("Chrome が見つかりません（このテストはブラウザ実操作なので Chrome が必要）"); sys.exit(2)
+
+# e2e_quiz_flow.html は file:// で開くので .env を直接読めない。
+# ここで .env を読んで tmp/e2e_creds.js に書き出し、HTML側はそれを読む（値は標準出力に出さない）。
+creds = write_e2e_creds_js(os.path.join(HERE, "..", "tmp", "e2e_creds.js"))
+if not creds.get("studentPw"):
+    print(f"🔴 {NO_ENV_MSG}"); sys.exit(2)
 
 prof = tempfile.mkdtemp(prefix="e2e-quiz-chrome-")
 try:

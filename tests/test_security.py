@@ -16,7 +16,7 @@
 使い方: python tests/test_security.py
 依存:   標準ライブラリのみ
 """
-import sys, os, json, io, unittest
+import sys, os, re, json, io, subprocess, unittest
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -27,6 +27,9 @@ import urllib.parse
 # すでにutf-8ならそのまま使う（-X utf8 実行なら通常ここに来る）。
 if getattr(sys.stdout, "encoding", "").lower() != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from env_creds import get_teacher_no, get_teacher_pw, get_student_no, get_student_pw, NO_ENV_MSG
 
 BASE = "https://egdcbxzpgwenmfabpodd.supabase.co"
 ANON = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnZGNieHpwZ3dlbm1mYWJwb2RkIiwi"
@@ -62,9 +65,13 @@ class TestSecurity(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.s_no, cls.s_pw = get_student_no(), get_student_pw()
+        cls.t_no, cls.t_pw = get_teacher_no(), get_teacher_pw()
+        if not all((cls.s_no, cls.s_pw, cls.t_no, cls.t_pw)):
+            raise unittest.SkipTest(NO_ENV_MSG)
         try:
-            cls.stok = login("s001", "sakura24")
-            cls.ttok = login("t001", "sensei-scg-2026")
+            cls.stok = login(cls.s_no, cls.s_pw)
+            cls.ttok = login(cls.t_no, cls.t_pw)
         except (urllib.error.URLError, OSError) as e:
             raise unittest.SkipTest(f"DBに接続できないためskip（{e}）")
 
@@ -85,7 +92,7 @@ class TestSecurity(unittest.TestCase):
     def test_01_auth(self):
         self._require_tokens()
         print("\n=== 1. 認証まわり ===")
-        self.check("誤ったパスワードは拒否される", login("s001", "wrong-pass") is None)
+        self.check("誤ったパスワードは拒否される", login(self.s_no, "wrong-pass") is None)
         st, _ = req("/rest/v1/quiz_sets?select=id")
         self.check("未ログインではデータを読めない", st in (200, 401) and (st == 401 or _ == []))
 
@@ -154,11 +161,87 @@ class TestSecurity(unittest.TestCase):
                     {"student_id": "00000000-0000-0000-0000-000000000000",
                      "survey_key": "test_rls_fake", "answers": {}})
         self.check("学生は他人名義でアンケートを出せない", st in (401, 403))
-        st2tok = login("s002", "sakura24")
+        # ★別の学生であることが要件なので番号は変える。パスワードは同じ枠のデモ全員に共通（.env の SP_STUDENT_PW）
+        st2tok = login("s002", self.s_pw)
         st, rows = req("/rest/v1/survey_responses?select=student_id&survey_key=eq.test_ui", st2tok)
         self.check("学生は他人のアンケート回答を読めない", rows == [], str(rows)[:120])
         st, rows = req("/rest/v1/survey_responses?select=student_id&survey_key=eq.test_ui", self.ttok)
         self.check("教師は全員のアンケート回答を読める", isinstance(rows, list) and len(rows) >= 1)
+
+
+class TestNoLeakedCredentials(unittest.TestCase):
+    """★(2026-09-12) 消したはずの平文パスワードが追跡ファイルに戻ってきていないかを機械で見る。
+
+    DB不要・常に実行（discoverでもskipしない）。理由: このリポは public で、
+    以前は11ファイルにデモの平文パスワードが直書きされていた（教材1,686問を入れた日に発覚）。
+    「塞いだ」を毎回機械で確かめるための見張り。
+
+    🔴 比較対象そのもの（旧パスワード）は、このファイルにも書かない。
+       書いてしまうと grep で拾える形になり、「消した」ことにならないため。
+       突き合わせは平文どうしの比較ではなく SHA-256 のハッシュで行う
+       （旧パスワードのハッシュ値だけをここに置く。ハッシュから元の文字列は再現できない）。
+    """
+
+    # 2026-09-12 に塞いだ旧デモパスワード2件（学生用・教師用）のSHA-256。値そのものはここに置かない。
+    _OLD_PW_SHA256 = {
+        "ce078c92012a413a7c0cd95080954a2411299ac8446748bdd12db6e2680c4618",
+        "cd781ee2b954aaaa0f3644f269771c0a27b14a406073525aaee232326df4b9a5",
+    }
+    _TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{5,40}")
+    _JWT_RE = re.compile(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
+    _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    def check(self, name, cond, detail=""):
+        print(("  ✅ " if cond else "  ❌ ") + name + (f"  ({detail})" if detail and not cond else ""))
+        with self.subTest(name=name):
+            self.assertTrue(cond, detail or name)
+
+    @classmethod
+    def setUpClass(cls):
+        # git管理下のファイルだけを見る（.env・tmp/・scratch/等は最初から対象外＝.gitignore済み）
+        out = subprocess.run(["git", "ls-files"], cwd=cls._ROOT, capture_output=True, text=True)
+        cls._files = [os.path.join(cls._ROOT, p) for p in out.stdout.splitlines() if p.strip()]
+
+    def _read(self, path):
+        try:
+            with open(path, encoding="utf-8", errors="ignore") as f:
+                return f.read()
+        except OSError:
+            return ""
+
+    def test_01_old_passwords_gone(self):
+        import hashlib
+        print("=== 資格情報の見張り（追跡ファイル・DB不要）===")
+        hits = []
+        for path in self._files:
+            text = self._read(path)
+            if not text:
+                continue
+            for tok in set(self._TOKEN_RE.findall(text)):
+                if hashlib.sha256(tok.encode()).hexdigest() in self._OLD_PW_SHA256:
+                    hits.append(os.path.relpath(path, self._ROOT))
+                    break
+        self.check("旧デモパスワードの文字列が追跡ファイルに1つも無い", not hits, ",".join(hits[:5]))
+
+    def test_02_no_service_role_key(self):
+        import base64
+        hits = []
+        for path in self._files:
+            text = self._read(path)
+            if "eyJ" not in text:
+                continue
+            for tok in self._JWT_RE.findall(text):
+                parts = tok.split(".")
+                if len(parts) < 2:
+                    continue
+                padded = parts[1] + "=" * (-len(parts[1]) % 4)
+                try:
+                    payload = json.loads(base64.urlsafe_b64decode(padded))
+                except Exception:
+                    continue
+                if isinstance(payload, dict) and payload.get("role") == "service_role":
+                    hits.append(os.path.relpath(path, self._ROOT))
+        self.check("service_role の鍵（JWTのroleがservice_role）が追跡ファイルに無い", not hits, ",".join(hits[:5]))
 
 
 if __name__ == "__main__":

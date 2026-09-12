@@ -19,12 +19,15 @@ import urllib.error
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(HERE, "tests"))
+from env_creds import get_student_pw, NO_ENV_MSG  # 資格情報は共通ヘルパーから読む（tests/env_creds.py）
+
 BASE = "https://egdcbxzpgwenmfabpodd.supabase.co"
 ANON = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnZGNieHpwZ3dlbm1mYWJwb2RkIiwi"
         "cm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNTcwNDYsImV4cCI6MjEwMzkzMzA0Nn0.m908C67Nh4KsYnH_LWvP4wAjOtxI79hhE-BKS1MCxX0")
 QUIZ_SET = "c75def6b-7623-4d86-8540-0c5b081ecf7c"
 N = 150
-HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOKENS_FILE = os.path.join(HERE, "tmp", "tokens.json")
 
 def req(path, token=None, body=None, timeout=30):
@@ -52,6 +55,10 @@ def req_retry(path, token=None, body=None, tries=4):
 
 # ---------- tokens: ゆっくり取得して貯める（レジューム可能） ----------
 def get_tokens():
+    pw = get_student_pw()
+    if not pw:
+        print(f"🔴 {NO_ENV_MSG}")
+        return
     os.makedirs(os.path.dirname(TOKENS_FILE), exist_ok=True)
     tokens = {}
     if os.path.exists(TOKENS_FILE):
@@ -63,7 +70,7 @@ def get_tokens():
         for attempt in range(10):
             try:
                 auth = req("/auth/v1/token?grant_type=password",
-                           body={"email": f"{sid}@stu.scg-portal.jp", "password": "sakura24"})
+                           body={"email": f"{sid}@stu.scg-portal.jp", "password": pw})
                 tokens[sid] = auth["access_token"]
                 json.dump(tokens, open(TOKENS_FILE, "w", encoding="utf-8"))
                 print(f"{sid} OK ({len(tokens)}/{N})", flush=True)

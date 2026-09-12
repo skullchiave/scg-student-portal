@@ -3,11 +3,14 @@
 <body>
 <iframe id="f" src="../src/index.html" width="420" height="900"></iframe>
 <pre id="out">RUNNING</pre>
+<!-- 資格情報は file:// から .env を読めないので、run_e2e_survey.py が書き出した tmp/e2e_creds.js から取る。
+     ★無ければ window.__E2E_CREDS が undefined のままになる＝下の分岐で気づいて止まる（黙って落ちない）。 -->
+<script src="../tmp/e2e_creds.js"></script>
 <script>
 /* 回帰テスト（tests/run_e2e_survey.py から起動）。学生画面をそのまま iframe で動かし、ログイン→アンケート一覧→回答→一覧に戻る までを実際に操作する。
    結果は #out に JSON で書く（--dump-dom で回収）。
    アカウントは負荷試験用 l150。回答は検査専用の定義 test_ui（本番の SURVEYS に無い＝どの画面にも出ない）に出すので、
-   本物の4本の回答数を汚さない。
+   本物の4本の回答数を汚さない。パスワードは資格情報のみ .env 由来。
    ★鍵は**固定**（2026-09-11 に変更）。以前は test_multi_ui_<時刻> と毎回ちがう鍵にしていたため、
      消す口が無い survey_responses に行が9件たまっていた。固定にすると毎回おなじ回へ上書きされる。
      対応する「回」は db/2026-09-11_survey_rounds_phase2.sql が常設で1つ作る（題名「検査用」）。 */
@@ -16,9 +19,26 @@ const step = (name, ok, detail) => log.steps.push({ name, ok: !!ok, detail: deta
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, ms = 20000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (fn()) return true; } catch (e) {} await sleep(150); } return false; }
 function rows(d) { return [...d.querySelectorAll("#survey-list .row")].map(r => (r.classList.contains("done") ? "[済]" : "[ ]") + r.querySelector(".nm").textContent.replace(/\s+/g, " ").trim()); }
+const CREDS = window.__E2E_CREDS || null;
 (async () => {
+  if (!CREDS || !CREDS.studentPw) {
+    log.error = "資格情報が読めません（tmp/e2e_creds.js が無いか不完全）。tests/run_e2e_survey.py から起動してください。";
+    out.textContent = "E2E_RESULT " + JSON.stringify(log);
+    return;
+  }
   const f = document.getElementById("f");
-  await until(() => f.contentDocument && f.contentDocument.getElementById("btn-login"));
+  /* 🔴「要素がある」を「準備できた」と読み替えないこと（2026-09-11 に踏んだ）。
+     ログインボタンは静的HTMLなので最初から存在するが、その onclick は
+     アプリの巨大なスクリプトの終盤で代入される。存在だけで待って押すと
+     **押しても何も起きず、例外もエラー文言も出ない**。
+     「ログインできない」ではなく「ログインしていない」まま先へ進み、
+     あとから別の呼び出しが 401 になって、原因から遠い場所で落ちる。
+     ★待ち時間を延ばして直したことにしない。競合であって遅さではない。 */
+  await until(() => {
+    const dd = f.contentDocument;
+    const b = dd && dd.getElementById("btn-login");
+    return !!b && typeof b.onclick === "function";
+  });
   const w = f.contentWindow, d = f.contentDocument;
   try { w.localStorage.clear(); } catch (e) {}
   const $ = id => d.getElementById(id);
@@ -30,7 +50,7 @@ function rows(d) { return [...d.querySelectorAll("#survey-list .row")].map(r => 
          { k: "c", t: "select", l: { ja: "C", en: "C" }, sl: "C", o: [{ v: "1", ja: "いち", en: "one" }, { v: "2", ja: "に", en: "two" }] } ] });
   await until(() => !$("scr-login").hidden, 8000);
   step("login screen shown", !$("scr-login").hidden);
-  $("in-no").value = "l150"; $("in-pw").value = "sakura24"; $("btn-login").click();
+  $("in-no").value = "l150"; $("in-pw").value = CREDS.studentPw; $("btn-login").click();
   step("mypage shown after login", await until(() => !$("scr-mypage").hidden), $("login-msg").textContent);
   step("my-name", true, $("my-name").textContent);
   // 言語切替: 🌐 ボタンがあり、English にすると静的文言と動的文言が変わり、選択が保存される

@@ -26,6 +26,10 @@ import urllib.request, urllib.error
 # すでにutf-8ならそのまま使う（-X utf8 実行なら通常ここに来る）。
 if getattr(sys.stdout, "encoding", "").lower() != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from env_creds import get_teacher_no, get_teacher_pw, get_student_no, get_student_pw, NO_ENV_MSG
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SQL = os.path.join(ROOT, "db", "2026-09-06_multi_choice.sql")
 INDEX = os.path.join(ROOT, "src", "index.html")
@@ -177,9 +181,13 @@ class TestChoicesLive(unittest.TestCase):
                         body={"email": f"{no}@stu.scg-portal.jp", "password": pw})
             return b.get("access_token") if st == 200 and b else None
 
+        t_pw, s_pw = get_teacher_pw(), get_student_pw()
+        if not (t_pw and s_pw):
+            self.skipTest(NO_ENV_MSG)
+            return
         try:
-            ttok = login("t001", "sensei-scg-2026")
-            stok = login("l149", "sakura24")
+            ttok = login("t001", t_pw)
+            stok = login("l149", s_pw)
         except (urllib.error.URLError, OSError) as e:
             self.skipTest(f"DBに接続できないためskip（{e}）")
             return

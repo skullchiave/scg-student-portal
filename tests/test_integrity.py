@@ -24,6 +24,10 @@ import urllib.request, urllib.error
 # すでにutf-8ならそのまま使う（-X utf8 実行なら通常ここに来る）。
 if getattr(sys.stdout, "encoding", "").lower() != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from env_creds import get_teacher_pw, get_student_pw, NO_ENV_MSG
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SQL     = os.path.join(ROOT, "db", "2026-09-06_attempt_focus.sql")
 INDEX   = os.path.join(ROOT, "src", "index.html")
@@ -187,9 +191,13 @@ class TestIntegrityLive(unittest.TestCase):
 
     def test_01_roundtrip(self):
         print("\n=== 4. 本物のDBで往復（--live）===")
+        s_pw, t_pw = get_student_pw(), get_teacher_pw()
+        if not (s_pw and t_pw):
+            self.skipTest(NO_ENV_MSG)
+            return
         try:
-            tokA, tokB = login("l149", "sakura24"), login("l150", "sakura24")
-            tokT = login("t001", "sensei-scg-2026")
+            tokA, tokB = login("l149", s_pw), login("l150", s_pw)
+            tokT = login("t001", t_pw)
         except (urllib.error.URLError, OSError) as e:
             self.skipTest(f"DBに接続できないためskip（{e}）")
             return
