@@ -199,8 +199,13 @@
           <h2>いま開いている実施回</h2>
           <div id="today-runs"><div style="color:var(--sub)">読み込み中…</div></div>
           <div class="msg" id="today-runs-msg" style="display:none;"></div>
-          <div class="note">🔴 <b>取り消しても回答は消えません</b>（集計から外れるだけです）。
-            クラスを間違えて開いたときは、取り消してから正しいクラスで開き直してください。</div>
+          <div class="note">
+            <b>おわる</b>＝いま終わりにします。<u>出た答えはそのまま集計に入ります</u>（時間が余ったとき）。<br>
+            <b>取り消す</b>＝この回を<b>無かったことに</b>します。
+            🔴 <u>答えは消えません（集計から外れるだけです）</u>（クラスを間違えて開いたとき）。
+            取り消してから、正しいクラスで開き直してください。<br>
+            ⓘ 一覧（✏️ 問題の登録・解放）の「停止」は<b>別のもの</b>です＝
+            そちらは<u>その回を学生に見せるかどうか</u>の切り替えで、時間とは関係ありません。</div>
         </div>
         <div class="panel">
           <h2>今日 登録した回</h2>
@@ -917,8 +922,13 @@ async function showQsList(resetLimit){
         "<td><span class='pill "+(s.is_open?"on":"off")+"'>"+(s.is_open?"公開中":"下書き")+"</span></td>"+
         "<td class='qs-act'>"+
           "<button class='btn ghost qs-start' type='button' title='クラスと時間を指定して、その時間だけ開きます（授業中はこちら推奨）'>はじめる</button>"+
-          "<button class='btn ghost qs-toggle' type='button' data-open='"+(s.is_open?"1":"0")+"'>"+
-            (s.is_open?"停止":"公開")+"</button>"+
+          /* ★「停止」→「公開をやめる」に変えた（2026-09-12）。
+             📅今日 にも「停止」があって**別のこと**（動いている回を早く終わらせる）をしていた。
+             こちらは時間と関係なく「学生に見せるかどうか」なので、そう読める言葉にする。 */
+          "<button class='btn ghost qs-toggle' type='button' data-open='"+(s.is_open?"1":"0")+"' "+
+            "title='"+(s.is_open ? "学生に見せるのをやめます（時間とは関係ありません）"
+                                 : "時間を決めずに、ずっと学生に見せます。授業中は「はじめる」のほうが向いています")+"'>"+
+            (s.is_open?"公開をやめる":"公開")+"</button>"+
           "<button class='btn ghost qs-del' type='button'"+(locked?" disabled":"")+
             " title='"+(locked ? "受験記録が "+n+" 件あるので消せません。停止を使ってください"
                                : "受験記録が無いので消せます")+"'>消す</button>"+
@@ -1443,8 +1453,13 @@ async function renderTodayRuns(){
           + "<td class='num'>"+fmtRemain(r.closes_at)+"</td>"
           + "<td class='num'>"+submitted+" / "+(target==null?"—":target)+"</td>"
           + "<td class='qs-act'>"
-          +   "<button class='btn ghost run-stop' type='button'>停止</button>"
-          +   "<button class='btn ghost run-void' type='button'>取り消し</button>"
+          /* ★名前を「停止」から「おわる」に変えた（2026-09-12 きあ「停止と取り消しの違いがわからない」）。
+             一覧にも「停止」があって**別のこと**（学生に見せる/見せないの切り替え）をするので、
+             同じ言葉を2か所で違う意味に使わない。 */
+          +   "<button class='btn ghost run-stop' type='button' "
+          +     "title='いま終わりにします。出た答えは集計に入ります'>おわる</button>"
+          +   "<button class='btn ghost run-void' type='button' "
+          +     "title='この回を無かったことにします。答えは消えませんが集計から外れます'>取り消す</button>"
           + "</td></tr>";
       }).join("")
     + "</tbody></table></div>";
@@ -1454,9 +1469,11 @@ async function renderTodayRuns(){
     const label = tr.children[0].textContent.trim()+"（"+tr.children[1].textContent.trim()+"）";
     tr.querySelector(".run-stop").onclick = async ()=>{
       const ok = await askDialog({
-        title: "「"+label+"」を今すぐ閉じます",
-        body: "残り時間を待たずに、学生の画面からすぐに消えます。\n受験ずみの回答はそのまま残ります。",
-        okText: "閉じる",
+        title: "「"+label+"」を おわりにします",
+        body: "残り時間を待たずに、学生の画面からすぐに消えます。\n"
+            + "★出た答えは そのまま集計に入ります（点数は有効です）。\n\n"
+            + "この回を無かったことにしたいときは、こちらではなく「取り消す」を使ってください。",
+        okText: "おわる",
       });
       if(!ok) return;
       try{ await api.rpc("close_quiz_run",{p_run_id:runId}); await renderTodayRuns(); }

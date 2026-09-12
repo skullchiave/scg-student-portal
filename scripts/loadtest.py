@@ -26,7 +26,10 @@ from env_creds import get_student_pw, NO_ENV_MSG  # 資格情報は共通ヘル�
 BASE = "https://egdcbxzpgwenmfabpodd.supabase.co"
 ANON = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnZGNieHpwZ3dlbm1mYWJwb2RkIiwi"
         "cm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNTcwNDYsImV4cCI6MjEwMzkzMzA0Nn0.m908C67Nh4KsYnH_LWvP4wAjOtxI79hhE-BKS1MCxX0")
-QUIZ_SET = "c75def6b-7623-4d86-8540-0c5b081ecf7c"
+QUIZ_SET = "7e57c0de-0000-4000-8000-000000000001"
+# 教材「テスト用」の常設の回（db/2026-09-12_seed_test_quiz_set.sql）。
+# ★ふつうの名前の回を当てにしていたせいで、きあが「停止」を押しただけで落ちていた。
+#   名前で検査用だと分かるものに変えてある。消さない・止めない。
 N = 150
 TOKENS_FILE = os.path.join(HERE, "tmp", "tokens.json")
 

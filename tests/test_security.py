@@ -34,7 +34,10 @@ from env_creds import get_teacher_no, get_teacher_pw, get_student_no, get_studen
 BASE = "https://egdcbxzpgwenmfabpodd.supabase.co"
 ANON = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnZGNieHpwZ3dlbm1mYWJwb2RkIiwi"
         "cm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNTcwNDYsImV4cCI6MjEwMzkzMzA0Nn0.m908C67Nh4KsYnH_LWvP4wAjOtxI79hhE-BKS1MCxX0")
-QUIZ_SET = "c75def6b-7623-4d86-8540-0c5b081ecf7c"
+QUIZ_SET = "7e57c0de-0000-4000-8000-000000000001"
+# 教材「テスト用」の常設の回（db/2026-09-12_seed_test_quiz_set.sql）。
+# ★ふつうの名前の回を当てにしていたせいで、きあが「停止」を押しただけで落ちていた。
+#   名前で検査用だと分かるものに変えてある。消さない・止めない。
 
 # 単体実行(__main__)なら引数なしでも必ずlive。discover経由は SP_LIVE=1 か --live が要る。
 RUN_LIVE = (__name__ == "__main__") or os.environ.get("SP_LIVE") == "1" or "--live" in sys.argv

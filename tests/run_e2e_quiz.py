@@ -44,7 +44,10 @@ import urllib.request  # noqa: E402
 BASE = "https://egdcbxzpgwenmfabpodd.supabase.co"
 with io.open(os.path.join(HERE, "..", "src", "assets", "api.js"), encoding="utf-8") as f:
     ANON = re.search(r'"(eyJ[\w-]+\.[\w-]+\.[\w-]+)"', f.read()).group(1)
-QUIZ_SET = "c75def6b-7623-4d86-8540-0c5b081ecf7c"   # 検査用の回（tests/test_security.py と同じ）
+QUIZ_SET = "7e57c0de-0000-4000-8000-000000000001"
+# 教材「テスト用」の常設の回（db/2026-09-12_seed_test_quiz_set.sql）。
+# ★ふつうの名前の回を当てにしていたせいで、きあが「停止」を押しただけで落ちていた。
+#   名前で検査用だと分かるものに変えてある。消さない・止めない。
 
 
 def _req(path, token=None, body=None, method=None):

@@ -112,6 +112,9 @@ def load_set(token: str, s: dict) -> tuple[bool, str]:
     st, rows = req("/rest/v1/quiz_sets", "POST", {
         "title": s["title"],
         "lesson": s.get("lesson"),
+        # 教科書の順に並べるための値。入れたあと scripts/retitle_tsunagu.py が付け直す
+        # （出どころから機械的に決めるので、ここでは持たせない＝2か所で決めない）
+        "sort_key": s.get("sort_key"),
         "is_open": False,                     # ★ 必ず下書き
         "source_book": s.get("source_book"),
         "source_file": s.get("source_file"),

@@ -355,6 +355,8 @@ FmtImport.db = (() => {
       questionExtra: await probe("questions", "image_name,category,points"),
       explanation: await probe("question_answers", "explanation"),
       quizSetsSource: await probe("quiz_sets", "source_book,source_file,source_sheet"),
+      // 教科書の順で並べるための値（2026-09-12）。無い環境では従来どおり新しい順に倒す
+      quizSetsSort: await probe("quiz_sets", "sort_key"),
     };
     return colsProbed;
   }
@@ -384,9 +386,27 @@ FmtImport.db = (() => {
      戻り値: { rows, total }。total は数えられなかったときだけ null（0件と混同しないため）。 */
   async function searchQuizSets(select, opts) {
     opts = opts || {};
+    // 🔴 sort_key が無い環境で order に書くと PostgREST が 400 を返す。必ず確かめてから使う
+    //    （source_book 等と同じ考え方。列が無い相手でも落ちない、が守るところ）
+    if (!opts.order) {
+      const cols = await probeColumns();
+      opts = Object.assign({}, opts,
+        { order: cols.quizSetsSort ? "sort_key.asc.nullsfirst,created_at.desc"
+                                   : "created_at.desc" });
+    }
     const params = [
       "select=" + select,
-      "order=" + (opts.order || "created_at.desc"),
+      /* ★既定は「教科書の順」（2026-09-12 きあ指示・上の probe で決めている）。
+         毎日のチェックテストとまとめテストを、課の進む順に1本に並べる:
+           1-① 1-② 1-③ 2-① … 3-③ まとめ1-3 4-① …
+         sort_key がそのための値（'01-1' / '03-9' のように0詰め）。
+         🔴 sort_key を持たない回（取り込んだばかり・手で作った・検査用）は **nullsfirst で先頭**。
+            最後に送ったら、取り込んだ直後の回が87件の向こうに隠れて
+            「取り込んだのに何も起きていない」ように見えた（2026-09-12 に踏んだ）。
+            null どうしは従来どおり新しい順。
+         ⚠ lesson（"1-①"）で並べると 1,10,11,12,2,3… と文字の順になる。
+            **表示用の文字で並べないこと。** */
+      "order=" + opts.order,
       "limit=" + (opts.limit || 50),
       "offset=" + (opts.offset || 0),
     ];
