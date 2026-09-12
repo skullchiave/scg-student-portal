@@ -60,6 +60,16 @@ r"""import_fmt_xlsx.py — 「課題登録FMT」の Excel を、学生ポータ�
   question_answers(question_id, <正解列>, explanation) … 値は「何番目が正解か」（1始まり）
   ⓘ quiz_set_questions（②と①をつなぐ表）への登録は書かない。
     db/2026-09-10_four_layers.sql のトリガ questions_sync_set_link が自動で入れる。
+
+■ 出どころの記録（2026-09-11・db/2026-09-11_quiz_set_source.sql）
+  quiz_sets に source_book / source_file / source_sheet を書く。
+  --source-book は明示しないと入らない（フォルダ名は呼び出し側しか知らない）。
+  --source-file を省略すると --xlsx のファイル名だけを使う。
+  --source-sheet-from-name は既定 true＝シート名がそのまま source_sheet になる。
+  🔴 **同じ (source_file, source_sheet) が既に入っていれば、insert のかわりに
+     raise notice を出して飛ばす**（黙って二重登録しない・黙って捨てない）。
+  db/2026-09-11_quiz_set_source.sql を先に流していない相手に書き出すと、
+  そちらの quiz_sets に source_* 列が無いので SQL は 42703 で落ちる。
 """
 from __future__ import annotations
 
@@ -370,7 +380,13 @@ def build_sheet(ws, sheet_name: str, prefix: str, ruby: str = "keep") -> tuple[d
 
 # ---------------------------------------------------------------- 変換（ブック全体）
 def build(path: Path, only: list[str] | None, exclude: list[str] | None,
-          prefix: str, include_template: bool, ruby: str = "keep") -> tuple[list[dict], list[str]]:
+          prefix: str, include_template: bool, ruby: str = "keep",
+          source_book: str | None = None, source_file: str | None = None,
+          source_sheet_from_name: bool = False) -> tuple[list[dict], list[str]]:
+    """★出どころ引数（source_book / source_file / source_sheet_from_name）は既定オフ。
+    ライブラリとして直接呼ぶ既存の呼び方（test 含む）を変えないための線引き。
+    CLI（main）だけが source_sheet_from_name=True を渡す（--source-sheet-from-name の既定）。
+    """
     wb = load_workbook(path, data_only=True)
     wbf = load_workbook(path, data_only=False)   # ★数式そのもの。計算結果の有無を見るためだけに使う
     warn: list[str] = []
@@ -404,6 +420,13 @@ def build(path: Path, only: list[str] | None, exclude: list[str] | None,
         missing = [n for n in only if n not in wb.sheetnames]
         if missing:
             warn.append(f"--sheet で指定したシートが無い: {missing} / このブックのシート = {wb.sheetnames}")
+
+    # ★出どころを全件に付ける（stale・非FMT・0件のシートも含めて）。
+    #   キーは常に持たせる（値が null でも「無かった」ことの証拠になる＝dropped/unwritten と同じ考え方）。
+    for s in sets:
+        s["source_book"] = source_book
+        s["source_file"] = source_file
+        s["source_sheet"] = s["sheet"] if source_sheet_from_name else None
 
     # ★同じ課の範囲を指すシートが2枚あると、そのまま流すと二重に登録される。
     #   実データの「①1-3」と「①1-3 （新）」がこれ。どちらを使うかは人が決める。
@@ -451,6 +474,11 @@ def to_sql(sets: list[dict], answer_col: str, schema: str = SCHEMA_NEW) -> str:
     sets = [s for s in sets if s["questions"]]
     n = sum(len(s["questions"]) for s in sets)
     new = schema == SCHEMA_NEW
+    # ★出どころが1つでも付いていれば、この回だけでなくファイル全体を「出どころ記録あり」で書く。
+    #   source_book / source_file / source_sheet_from_name を渡さない旧来の呼び方（既存テスト含む）
+    #   では全部 None のままなので、ここは false になり、SQL は今までどおり3列のまま変わらない。
+    has_source = any(s.get("source_book") or s.get("source_file") or s.get("source_sheet")
+                     for s in sets)
     L = [
         "-- 課題登録FMT の Excel → 学生ポータル（scripts/import_fmt_xlsx.py が生成）",
         f"-- 回 {len(sets)} 件 / 設問 {n} 件 / 正解列 = {answer_col} / スキーマ = {schema}",
@@ -468,26 +496,53 @@ def to_sql(sets: list[dict], answer_col: str, schema: str = SCHEMA_NEW) -> str:
         ]
     else:
         L.append("-- ⚠ --schema 2026-09-06: 画像・カテゴリ・配点・解説は**捨てられる**（列が無いため）")
+    if has_source:
+        L += [
+            "-- ★ db/2026-09-11_quiz_set_source.sql を先に流しておくこと",
+            "--    （source_book / source_file / source_sheet の3列と、一意索引を使う）",
+            "-- ⓘ 同じ (source_file, source_sheet) が既に入っていれば insert せず、",
+            "--    raise notice で飛ばしたことを出す（二重登録の防止・黙って捨てない）。",
+        ]
     L += ["begin;", "do $$", "declare v_set uuid; v_q uuid;", "begin"]
 
     for s in sets:
+        sb, sf, ssheet = s.get("source_book"), s.get("source_file"), s.get("source_sheet")
+        # ★「既にあるか」を判定できるのは source_file と source_sheet が両方そろっている時だけ。
+        #   片方でも欠けていれば、二重防止の分岐なしでそのまま insert する。
+        dedup = has_source and bool(sf) and bool(ssheet)
+
         L.append(f"  -- ---- {s['sheet']} ----")
-        L.append("  insert into quiz_sets(title, lesson, is_open) values "
-                 f"({sq(s['title'])}, {sq(s['lesson'])}, false) returning id into v_set;")
+        indent = "  "
+        if dedup:
+            L.append(f"  if exists (select 1 from public.quiz_sets"
+                     f" where source_file = {sq(sf)} and source_sheet = {sq(ssheet)}) then")
+            L.append(f"    raise notice 'すでに入っています（飛ばしました）: % / %', "
+                     f"{sq(sf)}, {sq(ssheet)};")
+            L.append("  else")
+            indent = "    "
+
+        cols, vals = "title, lesson, is_open", f"{sq(s['title'])}, {sq(s['lesson'])}, false"
+        if has_source:
+            cols += ", source_book, source_file, source_sheet"
+            vals += f", {nq(sb)}, {nq(sf)}, {nq(ssheet)}"
+        L.append(f"{indent}insert into quiz_sets({cols}) values ({vals}) returning id into v_set;")
         for it in s["questions"]:
-            cols, vals = "quiz_set_id, seq, prompt", f"v_set, {it['seq']}, {sq(it['prompt'])}"
+            qcols, qvals = "quiz_set_id, seq, prompt", f"v_set, {it['seq']}, {sq(it['prompt'])}"
             if new:
-                cols += ", image_name, category, points"
-                vals += f", {nq(it['image_name'])}, {nq(it['category'])}, {nq(it['points'])}"
-            L.append(f"  insert into questions({cols}) values ({vals}) returning id into v_q;")
+                qcols += ", image_name, category, points"
+                qvals += f", {nq(it['image_name'])}, {nq(it['category'])}, {nq(it['points'])}"
+            L.append(f"{indent}insert into questions({qcols}) values ({qvals}) returning id into v_q;")
             ch = ", ".join(f"(v_q, {i}, {sq(lab)})" for i, lab in enumerate(it["choices"], start=1))
-            L.append(f"  insert into question_choices(question_id, idx, label) values {ch};")
+            L.append(f"{indent}insert into question_choices(question_id, idx, label) values {ch};")
             # ★正解は選択肢を入れたあと（外部キーが選択肢を指しているため）
             acols, avals = f"question_id, {answer_col}", f"v_q, {it['correct_idx']}"
             if new:
                 acols += ", explanation"
                 avals += f", {nq(it['explanation'])}"
-            L.append(f"  insert into question_answers({acols}) values ({avals});")
+            L.append(f"{indent}insert into question_answers({acols}) values ({avals});")
+
+        if dedup:
+            L.append("  end if;")
 
     L += ["end $$;", "commit;", ""]
     return "\n".join(L)
@@ -513,6 +568,18 @@ def main(argv=None) -> int:
                          "2026-09-06＝それらの列が無い相手向け（★その4つは捨てられる）")
     ap.add_argument("--allow-duplicate-lesson", action="store_true",
                     help="同じ課の範囲のシートが複数あっても SQL を書く（既定は書かない）")
+    ap.add_argument("--source-book", default=None,
+                    help="教材フォルダ名。quiz_sets.source_book に入れる（例: 001.つなぐ日本語初級）。"
+                         "省略すると null のまま")
+    ap.add_argument("--source-file", default=None,
+                    help="教材フォルダのルートからの相対パス。quiz_sets.source_file に入れる。"
+                         "省略すると --xlsx のファイル名だけを使う")
+    ap.add_argument("--source-sheet-from-name", dest="source_sheet_from_name",
+                    action="store_true", default=True,
+                    help="source_sheet にシート名を記録する（既定）")
+    ap.add_argument("--no-source-sheet-from-name", dest="source_sheet_from_name",
+                    action="store_false",
+                    help="source_sheet を記録しない")
     ap.add_argument("--out-json", type=Path)
     ap.add_argument("--out-sql", type=Path)
     a = ap.parse_args(argv)
@@ -521,8 +588,14 @@ def main(argv=None) -> int:
         print(f"ファイルが無い: {a.xlsx}", file=sys.stderr)
         return 2
 
+    # ★--source-file を省略したら、せめて --xlsx のファイル名だけは残す
+    #   （出どころ0件よりは、二重登録に気づける方が安全なため）。
+    source_file = a.source_file or a.xlsx.name
+
     sets, warn = build(a.xlsx, a.sheet or None, a.exclude or None,
-                       a.title_prefix, a.include_template, a.ruby)
+                       a.title_prefix, a.include_template, a.ruby,
+                       source_book=a.source_book, source_file=source_file,
+                       source_sheet_from_name=a.source_sheet_from_name)
 
     total = sum(len(s["questions"]) for s in sets)
     print(f"{a.xlsx.name}")

@@ -585,6 +585,132 @@ class SqlTest(Tmp):
         self.assertLess(s.index("begin;"), s.index("insert into"))
 
 
+# ------------------------------------------------------------------ 出どころ（2026-09-11 追加）
+class SourceTest(Tmp):
+    """★教材Excelの出どころ（source_book / source_file / source_sheet）。
+    db/2026-09-11_quiz_set_source.sql の一意索引と対になる、二重登録の防止策。
+
+    見ているのは3つ:
+      ① 渡せば SQL と JSON の両方に載る
+      ② 渡さなくても（＝旧来の呼び方のままでも）壊れない
+      ③ 同じ (source_file, source_sheet) をもう一度流すと、SQL に「飛ばす」分岐が入る
+    """
+
+    def run_main(self, argv) -> tuple[int, str]:
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = fx.main(argv)
+        return rc, buf.getvalue()
+
+    # ---- ① 渡せば載る ----
+
+    def test_source_columns_in_sql_when_given(self):
+        sets, _ = self.build(
+            {"①1-3": [qrow(1)]},
+            source_book="001.つなぐ日本語初級", source_file="001\\まとめ\\t.xlsx",
+            source_sheet_from_name=True)
+        s = fx.to_sql(sets, "correct_idx")
+        line = next(l for l in s.splitlines() if "insert into quiz_sets(" in l)
+        self.assertIn("source_book, source_file, source_sheet", line)
+        self.assertIn("'001.つなぐ日本語初級'", line)
+        self.assertIn("'001\\まとめ\\t.xlsx'", line)
+        self.assertIn("'①1-3'", line)
+
+    def test_source_sheet_is_the_sheet_name_itself(self):
+        """★シートごとに違う値になること（教材1冊で複数シートを一度に流す想定）。"""
+        sets, _ = self.build(
+            {"①1-3": [qrow(1)], "②4-6": [qrow(1)]},
+            source_file="t.xlsx", source_sheet_from_name=True)
+        s = fx.to_sql(sets, "correct_idx")
+        lines = [l for l in s.splitlines() if "insert into quiz_sets(" in l]
+        self.assertEqual(len(lines), 2)
+        self.assertTrue(any("'①1-3'" in l for l in lines))
+        self.assertTrue(any("'②4-6'" in l for l in lines))
+
+    def test_source_columns_in_json(self):
+        p = self.book({"①1-3": [qrow(1)]})
+        out = self.dir / "o.json"
+        self.run_main(["--xlsx", str(p), "--out-json", str(out),
+                      "--source-book", "001.つなぐ日本語初級"])
+        data = json.loads(out.read_text(encoding="utf-8"))
+        item = data["sets"][0]
+        self.assertEqual(item["source_book"], "001.つなぐ日本語初級")
+        self.assertEqual(item["source_file"], "t.xlsx")     # ★省略時は xlsx のファイル名だけ
+        self.assertEqual(item["source_sheet"], "①1-3")      # ★既定でシート名が載る
+
+    def test_source_file_can_be_a_relative_path(self):
+        p = self.book({"①1-3": [qrow(1)]})
+        out = self.dir / "o.json"
+        rel = "001.つなぐ日本語初級\\まとめテスト\\Ⅰ\\t.xlsx"
+        self.run_main(["--xlsx", str(p), "--out-json", str(out), "--source-file", rel])
+        data = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(data["sets"][0]["source_file"], rel)
+
+    # ---- ② 渡さなくても壊れない ----
+
+    def test_no_source_means_no_source_columns_for_direct_to_sql_call(self):
+        """★ライブラリとして to_sql を直接呼ぶ（build() にも出どころを渡さない）なら、
+        旧来どおり source_* 列は出ない。既存の呼び出し元を変えなくてよいことの確認。"""
+        sets, _ = self.build({"①1-3": [qrow(1)]})
+        s = fx.to_sql(sets, "correct_idx")
+        self.assertNotIn("source_book", s)
+        self.assertIn("insert into quiz_sets(title, lesson, is_open)", s)
+
+    def test_main_without_source_args_still_works(self):
+        """★既存の呼び出し方（引数なし）でも壊れない。
+        ただし CLI 経由では既定で xlsx のファイル名とシート名が自動で載る
+        （--source-sheet-from-name の既定が true のため）。"""
+        p = self.book({"①1-3": [qrow(1)]})
+        out = self.dir / "o.sql"
+        rc, _ = self.run_main(["--xlsx", str(p), "--out-sql", str(out)])
+        self.assertEqual(rc, 0)
+        s = out.read_text(encoding="utf-8")
+        line = next(l for l in s.splitlines() if "insert into quiz_sets(" in l)
+        self.assertIn("source_book, source_file, source_sheet", line)
+        self.assertIn("'t.xlsx'", line)
+        self.assertIn("'①1-3'", line)
+
+    def test_source_sheet_from_name_can_be_turned_off(self):
+        p = self.book({"①1-3": [qrow(1)]})
+        out = self.dir / "o.json"
+        self.run_main(["--xlsx", str(p), "--out-json", str(out), "--no-source-sheet-from-name"])
+        data = json.loads(out.read_text(encoding="utf-8"))
+        self.assertIsNone(data["sets"][0]["source_sheet"])
+
+    # ---- ③ 同じシートを2回流しても二重に入らない ----
+
+    def test_rerun_generates_skip_branch(self):
+        sets, _ = self.build(
+            {"①1-3": [qrow(1)]}, source_file="t.xlsx", source_sheet_from_name=True)
+        s = fx.to_sql(sets, "correct_idx")
+        self.assertIn("if exists (select 1 from public.quiz_sets", s)
+        self.assertIn("source_file = 't.xlsx' and source_sheet = '①1-3'", s)
+        self.assertIn("raise notice 'すでに入っています（飛ばしました）", s)
+        self.assertIn("else", s)
+        self.assertIn("end if;", s)
+
+    def test_skip_branch_wraps_the_whole_insert_sequence(self):
+        """questions / question_choices / question_answers も if の中に入っていること。"""
+        sets, _ = self.build(
+            {"①1-3": [qrow(1)]}, source_file="t.xlsx", source_sheet_from_name=True)
+        s = fx.to_sql(sets, "correct_idx")
+        lines = s.splitlines()
+        i_else = next(i for i, l in enumerate(lines) if l.strip() == "else")
+        i_endif = next(i for i, l in enumerate(lines) if l.strip() == "end if;")
+        body = "\n".join(lines[i_else:i_endif])
+        self.assertIn("insert into quiz_sets(", body)
+        self.assertIn("insert into questions(", body)
+        self.assertIn("insert into question_choices(", body)
+        self.assertIn("insert into question_answers(", body)
+
+    def test_no_dedup_branch_without_source_sheet(self):
+        """source_file はあっても source_sheet が無ければ、既にあるか判定できないので分岐なし。"""
+        sets, _ = self.build({"①1-3": [qrow(1)]}, source_file="t.xlsx")   # sheet_from_name 既定 False
+        s = fx.to_sql(sets, "correct_idx")
+        self.assertNotIn("if exists", s)
+        self.assertIn("source_book, source_file, source_sheet", s)   # 列自体は出る
+
+
 # ------------------------------------------------------------------ main（入口）
 class MainTest(Tmp):
     def run_main(self, argv) -> tuple[int, str]:
