@@ -40,12 +40,14 @@ QUIZ_SET = "c75def6b-7623-4d86-8540-0c5b081ecf7c"
 RUN_LIVE = (__name__ == "__main__") or os.environ.get("SP_LIVE") == "1" or "--live" in sys.argv
 
 
-def req(path, token=None, body=None, extra=None):
+def req(path, token=None, body=None, extra=None, method=None):
+    """method を省くと、body があれば POST・無ければ GET（従来どおり）。
+    ★PATCH/DELETE を使うときだけ明示する。X-HTTP-Method-Override は効かない（2026-09-12 実測）。"""
     headers = {"apikey": ANON, "Content-Type": "application/json"}
     if extra: headers.update(extra)
     if token: headers["Authorization"] = "Bearer " + token
     data = json.dumps(body).encode() if body is not None else None
-    r = urllib.request.Request(BASE + path, data=data, headers=headers)
+    r = urllib.request.Request(BASE + path, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(r, timeout=20) as res:
             return res.status, json.loads(res.read().decode() or "null")
@@ -119,15 +121,36 @@ class TestSecurity(unittest.TestCase):
         self._require_tokens()
         print("\n=== 4. 採点の正しさ（正解は1番目/2番目が半々＝全問「1番目」なら5/10） ===")
         # ★2026-09-06 に選択肢が2個固定でなくなり、答えは 'a'/'b' から「何番目か」へ変わった
-        st, qs = req(f"/rest/v1/questions?select=id&quiz_set_id=eq.{QUIZ_SET}", self.stok)
-        st, r = req("/rest/v1/rpc/submit_attempt", self.stok,
-                    {"p_quiz_set_id": QUIZ_SET, "p_answers": {q["id"]: 1 for q in qs}})
-        self.check("採点が正しい（全問「1番目」提出=5/10）", isinstance(r, dict) and r.get("score") == 5 and r.get("total") == 10)
-        # 範囲外の番号は「未回答」扱いにする（1問の壊れた値で提出全体を落とさない）
-        st, r2 = req("/rest/v1/rpc/submit_attempt", self.stok,
-                     {"p_quiz_set_id": QUIZ_SET, "p_answers": {q["id"]: 99 for q in qs}})
-        self.check("範囲外の番号は未回答あつかい（提出そのものは通る）",
-                    isinstance(r2, dict) and r2.get("score") == 0 and r2.get("total") == 10, str(r2)[:80])
+        # 🔴 この検査は以前「検査用の回が公開中のままである」ことを当てにしていた。
+        #    2026-09-12、きあがデモを触って「停止」を押した結果、コードは正しいのに落ちた。
+        #    ＝**誰かが画面でボタンを押したら落ちる検査**になっていた。
+        #    → 自分で開けて、終わったら元の状態へ戻す（他の検査と同じ流儀）。
+        st, before = req(f"/rest/v1/quiz_sets?select=is_open&id=eq.{QUIZ_SET}", self.ttok)
+        was_open = bool(before[0]["is_open"]) if isinstance(before, list) and before else None
+        self.check("検査用の回の状態が読める", was_open is not None, str(before)[:80])
+        if was_open is None:
+            return
+        if not was_open:
+            req(f"/rest/v1/quiz_sets?id=eq.{QUIZ_SET}", self.ttok, {"is_open": True},
+                method="PATCH")
+        try:
+            st, qs = req(f"/rest/v1/questions?select=id&quiz_set_id=eq.{QUIZ_SET}", self.stok)
+            st, r = req("/rest/v1/rpc/submit_attempt", self.stok,
+                        {"p_quiz_set_id": QUIZ_SET, "p_answers": {q["id"]: 1 for q in qs}})
+            self.check("採点が正しい（全問「1番目」提出=5/10）",
+                       isinstance(r, dict) and r.get("score") == 5 and r.get("total") == 10,
+                       str(r)[:120])
+            # 範囲外の番号は「未回答」扱いにする（1問の壊れた値で提出全体を落とさない）
+            st, r2 = req("/rest/v1/rpc/submit_attempt", self.stok,
+                         {"p_quiz_set_id": QUIZ_SET, "p_answers": {q["id"]: 99 for q in qs}})
+            self.check("範囲外の番号は未回答あつかい（提出そのものは通る）",
+                       isinstance(r2, dict) and r2.get("score") == 0 and r2.get("total") == 10,
+                       str(r2)[:80])
+        finally:
+            # ★元に戻す。検査が環境の状態を変えたままにしない
+            if not was_open:
+                req(f"/rest/v1/quiz_sets?id=eq.{QUIZ_SET}", self.ttok, {"is_open": False},
+                    method="PATCH")
 
     def test_05_attempts_isolation(self):
         self._require_tokens()
@@ -167,6 +190,90 @@ class TestSecurity(unittest.TestCase):
         self.check("学生は他人のアンケート回答を読めない", rows == [], str(rows)[:120])
         st, rows = req("/rest/v1/survey_responses?select=student_id&survey_key=eq.test_ui", self.ttok)
         self.check("教師は全員のアンケート回答を読める", isinstance(rows, list) and len(rows) >= 1)
+
+    def test_08_open_run_reading(self):
+        """実施回（はじめる）で開いた回を、対象の学生が読めること／対象外は読めないこと。
+
+        🔴 **ここが無かったせいで、4月の本丸が壊れたまま通っていた**（2026-09-12）。
+        きあがスマホで触って「もんだいが ありません」と報告。調べたら、
+        questions / question_choices の select ポリシーが **quiz_sets.is_open しか見ておらず**、
+        実施回で開いた回（is_open は false のまま）の設問が**1問も読めなかった**。
+
+        ★なぜ検査をすり抜けたか＝ブラウザ実操作テストが **is_open=true のデモ回**しか通っておらず、
+          「実施回で開いた回を学生が解く」経路が一度も通されていなかった。
+          <u>作った機能の経路を1本も通していない検査は、通っていないのと同じ</u>。
+
+        この検査は**自分で回を開き、最後に必ず取り消す**（残骸を溜めない）。
+        """
+        self._require_tokens()
+        print("\n=== 8. 実施回（はじめる）で開いた回 ===")
+
+        # 学生のクラスを調べ、そのクラス宛に短い回を開く
+        st, me = req("/rest/v1/profiles?select=id,class_name", self.stok)
+        cls = me[0]["class_name"] if isinstance(me, list) and me else None
+        self.check("学生のクラスが取れる", bool(cls), str(me)[:120])
+        if not cls:
+            return
+
+        # 下書き（is_open=false）の回を1つ借りる。無ければ作らずに skip
+        # ⚠ 埋め込みは外部キーを名指しする。quiz_sets→questions の経路が2本あるため
+        #   （quiz_set_questions 経由が増えた）。名指ししないと HTTP 300 になる
+        st, sets = req("/rest/v1/quiz_sets?select=id,title,questions!questions_quiz_set_id_fkey(count)"
+                       "&is_open=eq.false&limit=20", self.ttok)
+        target = None
+        for s in (sets or []):
+            if not isinstance(s, dict):
+                continue
+            n = s.get("questions")
+            if isinstance(n, list) and n and n[0].get("count", 0) > 0:
+                target = s
+                break
+        if not target:
+            self.skipTest("設問のある下書きの回が無いのでskip")
+
+        st, r = req("/rest/v1/rpc/start_quiz_run", self.ttok,
+                    {"p_quiz_set_id": target["id"], "p_class_names": [cls], "p_duration_min": 1})
+        run_id = r.get("run_id") if isinstance(r, dict) else None
+        self.check("教師は実施回をはじめられる", bool(run_id), str(r)[:140])
+        if not run_id:
+            return
+
+        try:
+            # 🔴 **学生画面が実際に投げるURLで確かめる**（select=id だけでは足りない）。
+            #    2026-09-12、設問は読めるのに**選択肢だけ読めない**状態を作ってしまい、
+            #    画面には「もんだいが ありません」と出た（選択肢が2つ未満の設問は出さない作りのため）。
+            #    ＝「設問が読めるか」だけを見る検査は、この壊れ方を通してしまう。
+            qurl = ("/rest/v1/questions?select=id,seq,prompt,question_choices(idx,label)"
+                    "&quiz_set_id=eq." + target["id"] + "&order=seq")
+            st, rows = req(qurl, self.stok)
+            self.check("★対象クラスの学生は、実施回で開いた回の設問を読める",
+                       isinstance(rows, list) and len(rows) > 0, str(rows)[:120])
+            withch = sum(1 for q in (rows or []) if q.get("question_choices"))
+            self.check("★選択肢も一緒に取れる（ここが欠けると画面は「もんだいが ありません」になる）",
+                       withch == len(rows or []) and withch > 0,
+                       f"選択肢が付いた設問 {withch}/{len(rows or [])}")
+
+            # 広げすぎていないこと
+            st, rows = req("/rest/v1/question_answers?select=question_id&limit=5", self.stok)
+            self.check("★正解は読めないまま（ここが緩んだら致命的）", rows == [], str(rows)[:120])
+
+            st, rows = req(qurl)      # 未ログイン
+            self.check("未ログインでは読めない", rows == [] or st in (401, 403), str(rows)[:120])
+
+            # 対象外のクラスの学生
+            st, others = req("/rest/v1/profiles?select=student_no&class_name=neq."
+                             + urllib.parse.quote(cls) + "&limit=1", self.ttok)
+            if isinstance(others, list) and others:
+                otok = login(others[0]["student_no"], self.s_pw)
+                st, rows = req(qurl, otok)
+                self.check("★対象外のクラスの学生は読めない", rows == [], str(rows)[:120])
+        finally:
+            # ★必ず片付ける。「消せないものは溜めない」——回は取り消しで無効にできる
+            req("/rest/v1/rpc/void_quiz_run", self.ttok, {"p_run_id": run_id})
+
+        st, rows = req("/rest/v1/questions?select=id&quiz_set_id=eq." + target["id"] + "&limit=5",
+                       self.stok)
+        self.check("★取り消したら、もう読めない", rows == [], str(rows)[:120])
 
 
 class TestNoLeakedCredentials(unittest.TestCase):
