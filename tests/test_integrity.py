@@ -31,7 +31,7 @@ from env_creds import get_teacher_pw, get_student_pw, NO_ENV_MSG
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SQL     = os.path.join(ROOT, "db", "2026-09-06_attempt_focus.sql")
 INDEX   = os.path.join(ROOT, "src", "index.html")
-TEACHER = os.path.join(ROOT, "src", "teacher.html")
+TEACHER = os.path.join(ROOT, "src", "master.html")
 
 LIVE = os.environ.get("SP_LIVE") == "1" or "--live" in sys.argv
 

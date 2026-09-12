@@ -17,8 +17,24 @@
 
 ## 構成
 
-- 画面: `src/`（学生 `index.html` ／ 先生の管理画面 `teacher.html`＝小テスト集計・アンケート一覧が本物、他はイメージ）
-  → GitHub Pages（Actions で `src/` だけをデプロイ。`.github/workflows/pages.yml`）
+- 画面は **3つ**（2026-09-12 きあ提案で分けた）。→ GitHub Pages（Actions で `src/` だけをデプロイ）
+
+  | ファイル | 誰が | 何が置いてあるか |
+  |---|---|---|
+  | `src/index.html` | 学生 `s001〜` | 小テスト・アンケート・つぎの しけん |
+  | `src/teacher.html` | 先生 `t001〜` | **授業中に使うものだけ**＝📅今日／テストをえらんで はじめる／ライブ集計／結果のCSV／学生用QR |
+  | `src/master.html` | マスター `m001〜` | **机の仕事**＝問題の登録・公開・削除／アンケートの作成・回答一覧／お知らせ／点検 |
+
+  - ★**ログインIDの頭文字で役割が分かる**（s/t/m）。人に説明するときに効く
+  - ⚠ `master.html` は **2026-09-12 に `teacher.html` から改名**したもの。
+    いまの `teacher.html` は**新しく小さく書き起こしたもの**で、中身は別物。
+    ★**master から機能を削って作らなかった**のは、削る作り方には消し忘れが必ず残るため
+  - 🔴 **いまは画面だけが分かれていて、権限（RLS）は先生とマスターで同じ。**
+    `app_hidden.is_teacher()` は名前に反して「**職員（teacher または master）**」を意味する
+    （18のポリシーと8つの関数から呼ばれていて、今すぐ書き換えると1つ落としただけで静かに権限が消える）。
+    先生とマスターで分けたいところは `app_hidden.is_master()` を使う。
+    **権限を分けるのは「先生ごとのアカウントを作る」のと同時**（E領域・4月まで）
+  - 画面が「自分は何者か」を聞くのは `public.my_role()`。★**これは案内であって権限ではない**
 - 裏方: Supabase 無料枠・東京（ref `egdcbxzpgwenmfabpodd`・**きあ個人アカウント**＝本番前に学校名義で作り直す）
 - 顔写真: **Supabase に入れない**。学校の Google ドライブに置いたまま、GAS の配信口経由で見せる方針（きあ決定 2026-09-05）。
   流用元＝`scg-mendan-note/src/Code.gs`（写真索引シートの fileId だけを base64 で返す・6時間キャッシュ）。
@@ -260,7 +276,7 @@
 
 ## アンケート（2026-09-03 に複数化）
 
-- 定義は `src/assets/surveys.js` の `SURVEYS` 配列 **1か所**（index.html と teacher.html が同じファイルを読む）。
+- 定義は `src/assets/surveys.js` の `SURVEYS` 配列 **1か所**（index.html と master.html が同じファイルを読む）。
   1本足すときは配列に1件追加するだけ。DB変更は不要
 - 選択肢は **`v`（言語に依らない値）で保存**。教師画面は `optLabel()` で日本語名に戻す
 - `key` は一度公開したら変えない（`survey_responses` に `survey_key` で入り、(student_id, survey_key) で upsert＝再提出は上書き）
@@ -527,7 +543,7 @@ await until(() => {                                  // ← こう待つ
 - 役割3つ: `implementer`（実装・**担当ファイル限定**）／`reviewer`（読み取り専用・検査を回して file:line で指摘）／
   `researcher`（調べ役・sonnet・Web可）。「implementer の agent type で teammate を出して」で使う
 - **分け方はファイル単位**。同じファイルを2人に渡さない（ロックが無く、後勝ちで消える）。
-  `src/index.html`／`src/teacher.html`／`scripts/`／`tests/` は別の人に渡せる。`src/assets/app.css` は1人だけ
+  `src/index.html`／`src/master.html`／`scripts/`／`tests/` は別の人に渡せる。`src/assets/app.css` は1人だけ
 - リード（親セッション）がやること: キューを共有タスクにする → 担当ファイルと完了条件をつけて振る →
   reviewer に差分を見せる → 全テストを**1ファイルずつ**回す → 進捗ボード更新 → commit（きあが頼んだときだけ）
 - teammate にやらせないこと: DB への書き込み／commit・push／進捗ボードの編集（ドライブ側はリードが1人で触る）
@@ -550,8 +566,8 @@ await until(() => {                                  // ← こう待つ
     確認ダイアログはこれに反しない
   - 優先度＝**中**。管理画面の作り込みでは「入口を📅今日にする」「一覧にいつ・誰に出したかを出す」のほうが先
 
-- ~~問題を登録する画面~~ → **2026-09-10 に実装**（`src/teacher.html` ＋ `src/assets/fmt-import.js`）。
-  先生が `.xlsx` を選ぶ → 一覧 → 1問ずつ修正 → 公開 の4段。SheetJS は **teacher.html だけ**で読む
+- ~~問題を登録する画面~~ → **2026-09-10 に実装**（`src/master.html` ＋ `src/assets/fmt-import.js`）。
+  先生が `.xlsx` を選ぶ → 一覧 → 1問ずつ修正 → 公開 の4段。SheetJS は **master.html だけ**で読む
   （学生画面のライブラリ依存ゼロは維持）。実機のデモDBで往復確認ずみ（e2e 24項目・DB不要 60項目）。
   - 🔴 **取り込みの規則が Python と JS の2か所にある**（`scripts/import_fmt_xlsx.py` と `src/assets/fmt-import.js`）。
     **片方だけ直さない。** 見張りは `tests/test_qsets_import.py` が両者に同じシナリオを42件流している。
@@ -626,10 +642,10 @@ HTML標準の `<dialog>` を1つ置き、`askDialog({title, body, okText, danger
 
 ### 🔴 `app.css` は学生画面と共通（2026-09-11）
 
-`teacher.html` も `assets/app.css` を読む。**教師画面だけを直したいときに app.css を触らない。**
+`master.html` も `assets/app.css` を読む。**教師画面だけを直したいときに app.css を触らない。**
 `.field label{display:block}` と `.field input{width:100%}` が効きすぎて、
 **チェックボックスが欄いっぱいに広がり、ラベルが次の行へ落ちた**。
-直すのは `teacher.html` の `<style>` 側で、`.field label.chk` のように**app.css より強い書き方**で上書きする。
+直すのは `master.html` の `<style>` 側で、`.field label.chk` のように**app.css より強い書き方**で上書きする。
 - 🔴 **実施回（quiz_runs）と画面のつなぎ込み**（「はじめる」を押す・対象を指定する）。
   **DB側は 2026-09-10 に投入済み。残っているのは画面だけ。**
   いまの配信は `quiz_sets.is_open` の1本槍＝**どのクラスに開いたかが残らない**。

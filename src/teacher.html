@@ -3,154 +3,84 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SCG 学生ポータル — 管理画面</title>
+<title>SCG 学生ポータル — 先生</title>
 <meta name="theme-color" content="#10365e">
 <link rel="stylesheet" href="assets/app.css">
 <style>
-  /* 管理画面（先生がPCで見る前提。スマホでも崩れない）
-     左=機能の一覧（いま動きます／これから作る画面）、右=その中身。学生画面と同じく本物とイメージを混ぜない */
-  header{border-radius:0;}
-  .hin{max-width:1120px;}
-  main{max-width:1120px;padding:18px 16px 48px;}
-  .adm{display:grid;grid-template-columns:268px minmax(0,1fr);gap:20px;align-items:start;}
-  .side{background:var(--surface);border:1px solid var(--edge);border-radius:16px;padding:10px;position:sticky;top:12px;}
-  .side .sechead{padding:10px 12px 6px;}
-  .nav{display:flex;flex-direction:column;gap:2px;}
-  .nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-radius:11px;
-    padding:11px 12px;font-family:inherit;font-size:.95rem;font-weight:700;color:var(--ink);cursor:pointer;}
-  .nav button:hover{background:color-mix(in srgb,var(--blue) 6%,transparent);}
-  .nav button.on{background:color-mix(in srgb,var(--blue) 11%,transparent);color:var(--blue-d);}
-  .nav button .ico{width:1.5em;text-align:center;}
-  .nav button .soon{margin-left:auto;font-size:.62rem;font-weight:800;color:var(--sub);border:1px solid var(--line);border-radius:99px;padding:1px 7px;}
-  .content .stats,.content .panel,.content .list{margin-left:0;margin-right:0;}
-  .dashhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+  /* teacher.html（2026-09-12 新規・白紙から作った）
+     授業中に先生が使うものだけ。登録・アンケート作成・お知らせ配信・点検＝机の仕事は master.html。
+     🔴 master.html から機能を削って作らない、という約束のとおり、ここは新しく小さく書いてある。
+     左メニューは無し＝タブが3つだけなので横並びで足りる（.side の min-width:0 の罠を踏まない作り）。 */
+  #tabsbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px;}
+  #tabsbar button{font-family:inherit;font-size:.88rem;font-weight:700;border-radius:11px;
+    padding:10px 14px;cursor:pointer;white-space:nowrap;border:1px solid var(--line);
+    background:var(--bg);color:var(--ink);}
+  #tabsbar button[data-view].on{background:var(--blue);border-color:var(--blue);color:#fff;}
+  #tabsbar .sp{flex:1 1 auto;}
+  #tabsbar .ghostbtn{background:var(--surface);color:var(--sub);}
+  .notice{margin:0 22px 14px;background:#eef5fb;color:var(--blue-d);border:1px solid #d3e5f2;
+    border-radius:12px;padding:10px 14px;font-size:.85rem;font-weight:700;line-height:1.6;}
+  @media (min-width:560px){.notice{margin:0 44px 14px;}}
+  .dashhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 22px 14px;}
   .dashhead .t{flex:1;min-width:220px;font-size:1.05rem;font-weight:800;}
-  .mockflag{display:inline-flex;align-items:center;gap:8px;background:#fdf3e3;color:#7a4a00;border:1px solid #f1d9a8;
-    border-radius:10px;padding:8px 12px;font-size:.82rem;font-weight:700;margin-bottom:14px;line-height:1.5;}
+  @media (min-width:560px){.dashhead{margin:0 44px 14px;}}
+  /* app.css の .btn.ghost は文字色が var(--ink)。master.html と揃えるため、ここだけ濃い青にする */
+  .btn.ghost{color:var(--blue-d);}
+  .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;}
+  .btnrow .btn{width:auto;padding:11px 18px;font-size:.9rem;}
+  .note{font-size:.82rem;color:var(--sub);line-height:1.7;margin-top:8px;}
+  /* 離席の記録の注記。赤くしない＝「不正の告発」に読める使い方を否定した方針を崩さない（master.htmlと同じ） */
+  .focusnote{margin-top:12px;padding:10px 12px;border-radius:8px;background:#f4f6f9;
+    border:1px solid var(--line);font-size:.82rem;line-height:1.65;}
+  .focusnote .sub{color:var(--sub);font-size:.76rem;}
   .tbl{width:100%;border-collapse:collapse;font-size:.9rem;}
   .tbl th,.tbl td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
   .tbl th{font-size:.72rem;color:var(--sub);letter-spacing:.06em;text-transform:uppercase;font-weight:800;}
   .tbl .num{text-align:right;font-variant-numeric:tabular-nums;}
   .tblwrap{overflow-x:auto;}
   .pill{display:inline-block;border-radius:99px;padding:2px 10px;font-size:.74rem;font-weight:800;white-space:nowrap;}
-  .pill.on{background:#eaf6ed;color:var(--ok);} .pill.off{background:#eef1f5;color:var(--sub);} .pill.warn{background:#fdf3e3;color:#c77700;}
-  /* いま「はじめる」を押して作った回の目印（2026-09-12）。同時に何本も開いていることがあるので、
-     連れて来ただけでは「さっき自分が始めたのはどれか」が分からない。★色は青系＝警告に読ませない */
   .pill.live{background:#e7effd;color:var(--blue-d);}
   tr.just-started{background:#f2f7ff;}
   .nowtag{display:inline-block;border-radius:99px;padding:1px 9px;margin-right:2px;
     font-size:.7rem;font-weight:800;background:var(--blue);color:#fff;white-space:nowrap;}
-  .sw{display:inline-block;width:38px;height:22px;border-radius:99px;background:#cfd6df;position:relative;vertical-align:middle;}
-  .sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;}
-  .sw.on{background:var(--ok);} .sw.on::after{left:19px;}
-  .form2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 18px;}
-  .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;}
-  .btnrow .btn,.dashhead .btn{width:auto;padding:11px 18px;font-size:.9rem;}
-  .btn.ghost{background:var(--surface);color:var(--blue-d);border:1px solid var(--line);}
-  textarea{width:100%;font-family:inherit;font-size:.98rem;padding:12px 14px;border:1px solid var(--line);border-radius:12px;min-height:110px;}
-  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:18px;}
-  .kpi .stat{margin:0;}
-  .kpi .stat .s{font-size:.74rem;color:var(--sub);margin-top:2px;}
-  /* 🔴 .field の中に置くときは app.css の2行に負けるので、そこまで含めて指定する。
-     app.css:70 .field label{display:block}      → .chk の display:flex が消える
-     app.css:71 .field input{width:100%;padding:13px 14px} → チェックボックスが全幅になり、
-     ラベルが次の行へ落ちる（2026-09-11 に実際にそう表示された）。
-     ★app.css は学生画面と共通なので、直すのは必ずこちら側。 */
-  .chk,.field label.chk{display:flex;align-items:flex-start;gap:10px;padding:8px 0;
-    border-bottom:1px solid var(--line);font-size:.92rem;font-weight:400;color:var(--ink);margin-bottom:0;}
-  .chk input{margin-top:4px;}
-  /* app.css の width:100% は「文字を入れる欄」のためのもの。
-     チェックボックスとラジオは元の大きさに戻す（これが無いと押す場所が分からなくなる） */
-  .field input[type=checkbox],.field input[type=radio],
-  .chk input[type=checkbox],.chk input[type=radio]{
-    width:auto;min-width:0;padding:0;flex:none;}
-  .note{font-size:.82rem;color:var(--sub);line-height:1.7;margin-top:8px;}
-  /* 画面を離れた記録の注記。★警告色にしない＝赤くすると「不正の告発」に読める（方針で否定した使い方） */
-  .focusnote{margin-top:12px;padding:10px 12px;border-radius:8px;background:#f4f6f9;
-    border:1px solid var(--line);font-size:.82rem;line-height:1.65;}
-  .focusnote .sub{color:var(--sub);font-size:.76rem;}
-  /* 問題の登録・解放（①取り込み→②プレビュー→③修正→④登録） */
-  .wizsteps{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
-  .wizstep{flex:1;min-width:120px;text-align:center;padding:9px 6px;border-radius:11px;
-    border:1px solid var(--line);background:var(--surface);font-size:.82rem;font-weight:700;color:var(--sub);}
-  .wizstep .wn{display:inline-block;margin-right:4px;}
-  .wizstep.on{background:var(--blue);border-color:var(--blue);color:#fff;}
-  .wizstep.done{background:#eaf6ed;border-color:#bfe3c8;color:var(--ok);}
-  /* ⚠ ここに .chk をもう一度書かない。上（本番移行チェックリストと共用）が正。
-     2026-09-11 まで二重に定義されていて、どちらが効いているのか読めなくなっていた。 */
-  .qs-q{border-top:1px solid var(--line);padding:10px 0;}
-  .qs-q .qno{font-size:.75rem;color:var(--sub);font-weight:700;}
-  .qs-q .qp{white-space:pre-line;margin:2px 0 7px;}
-  .qs-q.ng{background:rgba(214,69,69,.06);border-left:3px solid var(--ng);padding-left:10px;}
-  .qs-choices{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px;}
-  .qs-choices li{border:1px solid var(--line);border-radius:8px;padding:3px 10px;font-size:.88rem;}
-  .qs-choices li.ok{border-color:var(--ok);background:rgba(47,158,68,.1);font-weight:700;}
-  .qs-warnbox{font-size:.8rem;color:var(--sub);margin-top:10px;line-height:1.6;}
-  /* 一覧の行に置く操作ボタン。表の行が高くならないように小さくする */
-  .qs-act{white-space:nowrap;}
-  .qs-act .btn{width:auto;padding:5px 12px;font-size:.8rem;margin:0 4px 0 0;}
-  .qs-act .btn:disabled{opacity:.4;cursor:not-allowed;}
-  .qs-why{font-size:.72rem;color:var(--sub);white-space:nowrap;}
-  /* 一覧・「はじめる」の絞り込みバー（2026-09-11）。
-     🔴 .field は使わない。app.css:70-71 の .field label{display:block} / .field input{width:100%} と
-     衝突する（チェックボックスで一度踏んだ罠＝ここでは最初から .field の外に置いて避ける）。
-     幅400pxでも横スクロールしないよう flex-wrap で縦積みに逃がす。 */
-  .qs-filterbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
-  .qs-filterbar select,.qs-filterbar input{font-family:inherit;font-size:.9rem;padding:9px 12px;
+  .actcell{white-space:nowrap;}
+  .btnsm{width:auto;padding:8px 16px;font-size:.85rem;margin:0 6px 0 0;}
+  /* 絞り込みバー（教材・検索）。幅400pxでも横スクロールしないよう flex-wrap で縦積みに逃がす
+     （master.html の qs-filterbar/qp-filterbar と同じ理由・同じ形。★ここで再現しないと同じ罠を踏む）。 */
+  .filterbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+  .filterbar select,.filterbar input{font-family:inherit;font-size:.9rem;padding:9px 12px;
     border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);
     height:38px;box-sizing:border-box;}
-  .qs-filterbar select{flex:1 1 180px;min-width:0;}
-  .qs-filterbar input[type=search]{flex:2 1 220px;min-width:0;}
-  .qs-filterbar select:focus,.qs-filterbar input:focus{outline:2px solid var(--blue);border-color:var(--blue);}
-  .qs-more{margin-top:10px;}
-  .qs-more .btn{width:auto;padding:9px 20px;font-size:.85rem;}
-  /* 確認ダイアログの自前化（2026-09-11）: ブラウザ標準の confirm() は
-     Chrome が「このページの内容」という見出しを勝手に付け、消せない・変えられない。
-     色も先生のブラウザ／OSの設定なので、先生ごとに見た目が違う＝うちの画面に見えない。
-     HTML標準の <dialog> に置き換える。★ライブラリは足さない（学生画面の依存ゼロと揃える）。
-     中に人数・件数を出せるのが目的の半分（例:「公開すると学生28人に見えます」）。 */
+  .filterbar select{flex:1 1 180px;min-width:0;}
+  .filterbar input[type=search]{flex:2 1 220px;min-width:0;}
+  .morebar{margin-top:10px;}
+  .morebar .btn{width:auto;padding:9px 20px;font-size:.85rem;}
+  /* 確認ダイアログの自前化（master.html の askDialog と同じ形。confirm() は使わない） */
   dialog.cfmdlg{border:0;border-radius:16px;padding:22px;width:min(420px,92vw);
     background:var(--surface);color:var(--ink);box-shadow:0 18px 50px rgba(16,21,27,.28);}
   dialog.cfmdlg::backdrop{background:rgba(16,21,27,.45);}
   dialog.cfmdlg h3{margin:0 0 10px;font-size:1.05rem;}
-  /* white-space:pre-line で \n がそのまま改行になる（.prompt と同じ考え方）。
-     ★中身は textContent で入れる＝escHtml を通さなくても安全（innerHTMLを使わないため）。 */
   dialog.cfmdlg .cfm-body{font-size:.92rem;line-height:1.7;color:var(--ink);white-space:pre-line;}
   dialog.cfmdlg .cfm-actions{margin-top:20px;justify-content:flex-end;}
   dialog.cfmdlg .cfm-actions .btn{width:auto;padding:10px 20px;}
-  /* 危険な操作（削除）だけ赤系にする。app.css には無い色なのでここで足す */
   dialog.cfmdlg .btn.danger{background:var(--ng);border-color:var(--ng);color:#fff;}
-  /* アンケートの回ダイアログはクラス選択（複数）が伸びるので、ダイアログ自体に上限をつけてスクロールさせる */
-  #svround-dlg{max-height:88vh;overflow-y:auto;}
-  #svround-classes{max-height:170px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:4px 10px;}
-  #svround-classes .chk{margin-bottom:0;}
-  @media (max-width:900px){
-    .adm{grid-template-columns:1fr;}
-    /* 🔴 min-width:0 が要る。grid の子は既定が min-width:auto なので、
-       中のボタンの幅ぶんだけ .side が広がり、.nav の overflow-x が効く前に
-       **ページ全体が横スクロール**していた（2026-09-11 に発見。先生の画面の全ページで発生）。 */
-    .side{position:static;min-width:0;}
-    .nav{flex-direction:row;overflow-x:auto;gap:4px;}
-    .nav button{white-space:nowrap;width:auto;}
-    .side .sechead{display:none;}
-  }
 </style>
 </head>
 <body>
 <header>
   <div class="hin">
-    <div class="eyebrow">SCG Student Portal — Admin</div>
+    <div class="eyebrow">SCG Student Portal — Teacher</div>
     <div class="plate"><img src="assets/logo-school.png" alt="学校ロゴ"></div>
-    <h1>管理画面 <span class="thin">for 先生</span></h1>
+    <h1>先生 <span class="thin">授業のあいだに使う画面</span></h1>
   </div>
 </header>
 <main>
 
   <section id="scr-login" hidden>
-    <div class="panel" style="max-width:520px;margin-left:auto;margin-right:auto;">
-      <h2>教師ログイン</h2>
+    <div class="panel">
+      <h2>先生ログイン</h2>
       <div class="field">
-        <label for="in-no">教師ID</label>
+        <label for="in-no">先生ID</label>
         <input id="in-no" type="text" autocapitalize="none" placeholder="t001">
       </div>
       <div class="field">
@@ -163,357 +93,108 @@
   </section>
 
   <section id="scr-dash" hidden>
-   <div class="adm">
 
-    <aside class="side">
-      <div class="sechead">いま動きます</div>
-      <div class="nav">
-        <!-- 🔴 入口は「授業」ではなく「今日やること」（ヨリソルの失敗analysis 1番目）。
-             ログイン直後にまず出るのはここ＝下の activeView 初期値・view-today の hidden 無しと対応。 -->
-        <button data-view="today" class="on"><span class="ico">📅</span>今日</button>
-        <button data-view="quiz"><span class="ico">📝</span>小テスト ライブ集計</button>
-        <button data-view="survey"><span class="ico">📋</span>アンケート 回答一覧</button>
-        <button data-view="qsets"><span class="ico">✏️</span>問題の登録・解放</button>
-        <button id="btn-qr"><span class="ico">📱</span>学生用QRを表示</button>
-      </div>
-      <div class="sechead">これから作る画面（イメージ）</div>
-      <div class="nav">
-        <button data-view="svbuild"><span class="ico">🧩</span>アンケートの作成<span class="soon">イメージ</span></button>
-        <button data-view="students"><span class="ico">👥</span>学生アカウント<span class="soon">イメージ</span></button>
-        <button data-view="notice"><span class="ico">📣</span>お知らせ配信<span class="soon">イメージ</span></button>
-        <button data-view="ops"><span class="ico">🛡</span>点検・バックアップ<span class="soon">イメージ</span></button>
-      </div>
-      <div class="nav" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px;">
-        <button id="btn-logout"><span class="ico">⏏</span>ログアウト</button>
-      </div>
-    </aside>
+    <div class="panel" id="tabsbar">
+      <button data-view="today" class="on"><span>📅</span> 今日</button>
+      <button data-view="select"><span>▶</span> テストを選んではじめる</button>
+      <button data-view="quiz"><span>📝</span> 小テスト ライブ集計</button>
+      <span class="sp"></span>
+      <button id="btn-qr" type="button" class="ghostbtn"><span>🔢</span> 学生用QR</button>
+      <button id="btn-logout" type="button" class="ghostbtn"><span>⏏</span> ログアウト</button>
+    </div>
 
-    <div class="content">
+    <div class="notice" id="master-notice" hidden>
+      マスターの画面は master.html です。ここは先生用の画面（授業中に使うもの）です。
+    </div>
 
-      <!-- ══ 📅今日（動く・入口）══
-           いま開いている実施回（クラス・残り時間・提出／対象）と、今日登録した回だけを見せる。
-           ★個人別は出さない（quiz_stats の focus と同じ思想）。中身が無くても空白にしない。 -->
-      <div id="view-today" data-viewpane>
-        <div class="dashhead"><span class="t">📅 今日</span></div>
-        <div class="panel">
-          <h2>いま開いている実施回</h2>
-          <div id="today-runs"><div style="color:var(--sub)">読み込み中…</div></div>
-          <div class="msg" id="today-runs-msg" style="display:none;"></div>
-          <div class="note">
-            <b>おわる</b>＝いま終わりにします。<u>出た答えはそのまま集計に入ります</u>（時間が余ったとき）。<br>
-            <b>取り消す</b>＝この回を<b>無かったことに</b>します。
-            🔴 <u>答えは消えません（集計から外れるだけです）</u>（クラスを間違えて開いたとき）。
-            取り消してから、正しいクラスで開き直してください。<br>
-            ⓘ 一覧（✏️ 問題の登録・解放）の「停止」は<b>別のもの</b>です＝
-            そちらは<u>その回を学生に見せるかどうか</u>の切り替えで、時間とは関係ありません。</div>
-        </div>
-        <div class="panel">
-          <h2>今日 登録した回</h2>
-          <div id="today-sets"><div style="color:var(--sub)">読み込み中…</div></div>
+    <!-- ══ 📅今日（既定の画面）══
+         いま開いている実施回だけを見せる。master.html の renderTodayRuns() とほぼ同じ動き
+         （2秒ごとに自動更新・おわる/取り消す）。「今日 登録した回」は机の仕事なのでここには置かない。 -->
+    <div id="view-today" data-viewpane>
+      <div class="dashhead"><span class="t">📅 今日</span></div>
+      <div class="panel">
+        <h2>いま開いている実施回</h2>
+        <div id="today-runs"><div style="color:var(--sub)">読み込み中…</div></div>
+        <div class="msg" id="today-runs-msg" style="display:none;"></div>
+        <div class="note">
+          <b>おわる</b>＝いま終わりにします。<u>出た答えはそのまま集計に入ります</u>（時間が余ったとき）。<br>
+          <b>取り消す</b>＝この回を<b>無かったことに</b>します。
+          🔴 <u>答えは消えません（集計から外れるだけです）</u>（クラスを間違えて開いたとき）。
+          取り消してから、正しいクラスで開き直してください。
         </div>
       </div>
+    </div>
 
-      <!-- ══ 小テスト（動く） ══ -->
-      <div id="view-quiz" data-viewpane hidden>
-        <div class="dashhead"><span class="t">📝 小テスト ライブ集計</span></div>
-        <div class="panel">
-          <!-- 絞り込み・検索（2026-09-11）: 一覧①と同じ理由・同じ考え方。テストが増えると
-               「はじめる」の下敷きになるこの選択肢からも目当てのテストが見えなくなるため。 -->
-          <div class="qs-filterbar" id="qp-filterbar">
-            <select id="qp-filter-book" hidden aria-label="教材で絞る"><option value="">すべての教材</option></select>
-            <input type="search" id="qp-filter-q" placeholder="テスト名で検索" aria-label="テスト名で検索">
-          </div>
-          <div class="note" id="qp-filter-note" style="margin:0 0 10px;"></div>
-          <div class="field" style="max-width:460px;margin-bottom:0;">
-            <label for="quiz-pick">集計するテスト（新しい順）</label>
-            <select id="quiz-pick"></select>
-          </div>
+    <!-- ══ ▶ テストを選んではじめる（新規の要）══
+         教材で絞る・テスト名で検索・件数表示・もっと見る。編集・公開・停止・削除は置かない＝できるのは「はじめる」だけ。 -->
+    <div id="view-select" data-viewpane hidden>
+      <div class="dashhead"><span class="t">▶ テストを選んではじめる</span></div>
+      <div class="panel">
+        <h2>登録されているテスト</h2>
+        <div class="filterbar" id="sel-filterbar">
+          <select id="sel-filter-book" hidden aria-label="教材で絞る"><option value="">すべての教材</option></select>
+          <input type="search" id="sel-filter-q" placeholder="テスト名で検索" aria-label="テスト名で検索">
         </div>
-        <div class="stats">
-          <div class="stat"><div class="v" id="st-count">0</div><div class="l">提出数</div></div>
-          <div class="stat"><div class="v" id="st-avg">–</div><div class="l">平均点 / 10</div></div>
+        <div class="note" id="sel-filter-note" style="margin:0 0 10px;">読み込み中…</div>
+        <div class="tblwrap"><table class="tbl" id="sel-list-tbl">
+          <thead><tr><th>テスト名</th><th>課</th><th>操作</th></tr></thead>
+          <tbody id="sel-list-body"></tbody>
+        </table></div>
+        <div class="morebar" id="sel-list-more" hidden>
+          <button class="btn ghost" id="sel-btn-more" type="button">もっと見る</button>
         </div>
-        <div class="panel">
-          <h2>設問別 正答率</h2>
-          <div id="qrates"><div style="color:var(--sub)">提出待ち…</div></div>
-          <!-- ★個人別は出さない。小テストは成績に反映しない＝罰の材料にしないため（方針 2026-09-06）。
-               出すのはクラス全体の合計だけで、意味は「この回の数字をどれくらい信用するか」。 -->
-          <div id="focus-note" class="focusnote" hidden></div>
+        <div class="note">クラスと時間を指定して、その時間だけ学生の画面に出します。
+          はじめたら「📅 今日」に移り、そこで残り時間と提出数が見られます。</div>
+        <div class="msg" id="sel-msg" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- ══ 📝 小テスト ライブ集計 ══
+         提出数・平均点・設問別正答率・提出フィード。結果の書き出し（CSV）はこの中。 -->
+    <div id="view-quiz" data-viewpane hidden>
+      <div class="dashhead"><span class="t">📝 小テスト ライブ集計</span></div>
+      <div class="panel">
+        <div class="filterbar" id="qp-filterbar">
+          <select id="qp-filter-book" hidden aria-label="教材で絞る"><option value="">すべての教材</option></select>
+          <input type="search" id="qp-filter-q" placeholder="テスト名で検索" aria-label="テスト名で検索">
         </div>
-        <div class="panel">
-          <h2>提出フィード</h2>
-          <div class="feed" id="feed"><div style="color:var(--sub)">提出待ち…</div></div>
-        </div>
-        <!-- ══ 結果の書き出し（台帳へ流す用・2026-09-11・完成の条件4）══
-             🔴 点数の正本は学生マスタDB（ここには保存しない）。学籍番号つきで書き出し、あちらへ取り込む。
-             🔴 集計（問題ごと）と個票（1行1学生）は別ファイル＝ヨリソルの失敗6番目「同じ表に混ぜない」。
-             🔴 離席の記録（画面を離れた回数）は出さない＝成績に反映しない方針が崩れるため。 -->
-        <div class="panel">
-          <h2>結果の書き出し</h2>
-          <div class="note">学籍番号つきの CSV をブラウザの中だけで作ります（送信しません）。
-            Excel で開けるよう UTF-8（BOM付き）で保存します。<b>個票</b>と<b>問題ごとの集計</b>は別ファイルです。</div>
-          <div class="field" style="max-width:460px;">
-            <label for="csv-run-pick">範囲</label>
-            <select id="csv-run-pick"><option value="">全クラスまとめて（横断）</option></select>
-          </div>
-          <div class="btnrow">
-            <button class="btn ghost" id="csv-btn-student" type="button" style="width:auto;">個票を CSV で書き出す</button>
-            <button class="btn ghost" id="csv-btn-question" type="button" style="width:auto;">問題ごとの集計を CSV で書き出す</button>
-          </div>
-          <div class="msg" id="csv-msg" style="display:none;"></div>
+        <div class="note" id="qp-filter-note" style="margin:0 0 10px;"></div>
+        <div class="field" style="max-width:460px;margin-bottom:0;">
+          <label for="quiz-pick">集計するテスト（新しい順）</label>
+          <select id="quiz-pick"></select>
         </div>
       </div>
-
-      <!-- ══ アンケート（動く） ══ -->
-      <div id="view-survey" data-viewpane hidden>
-        <div class="stats">
-          <div class="stat"><div class="v" id="sv-count">0</div><div class="l">回答数</div></div>
-          <div class="stat"><div class="v" id="sv-rest">–</div><div class="l">未提出（次に支援する人）</div></div>
-        </div>
-        <div class="panel">
-          <h2>アンケート 回答一覧</h2>
-          <select id="sv-pick" style="font-family:inherit;font-size:1rem;padding:8px 12px;margin:2px 0 12px;border:1px solid var(--line);border-radius:10px;max-width:100%;"></select>
-          <div class="feed" id="sv-list" style="max-height:460px;"><div style="color:var(--sub)">回答待ち…</div></div>
-        </div>
-        <!-- ══ アンケートの回（2026-09-11・余力枠）══
-             小テストの「はじめる」と同じ考え方。★粒度が違う＝複数クラスに同時に出せる（月×学年で1本）。
-             一意制約は (survey_key, title) なので、同じ題名は二度作れない（db側で保証） -->
-        <div class="panel">
-          <h2>この アンケートの回</h2>
-          <div class="note"><b>回</b>ごとに集める（毎月おなじアンケートを取れる）。締切は省けます（ずっと開いたまま）。
-            🔴 <b>クラスごとに何本も作らないこと</b>（例: 1年生全員なら1本にまとめる。5クラス分作ると全体の傾向が見えなくなる）。</div>
-          <div id="sv-rounds-list"><div style="color:var(--sub)">読み込み中…</div></div>
-          <div class="btnrow"><button class="btn" id="sv-btn-newround" type="button" style="width:auto;">＋ 新しい回を はじめる</button></div>
-          <div class="msg" id="sv-rounds-msg" style="display:none;"></div>
-        </div>
+      <div class="stats">
+        <div class="stat"><div class="v" id="st-count">0</div><div class="l">提出数</div></div>
+        <div class="stat"><div class="v" id="st-avg">–</div><div class="l">平均点 / 10</div></div>
       </div>
-
-      <!-- ══ 問題の登録・解放（動く） ══
-           ①取り込み → ②プレビューで確認 → ③1問ずつ修正 → ④登録 の4段。
-           取り込みが主・編集が従＝ゼロから1問ずつ作る画面にはしない（作問はExcelでやる前提）。
-           場所はURLで決まる（#qsets・#qsets/import/N）。モーダルの入れ子にしない。 -->
-      <div id="view-qsets" data-viewpane hidden>
-
-        <div id="qs-pane-list">
-          <div class="dashhead"><span class="t">✏️ 問題の登録・解放</span>
-            <button class="btn" id="qs-btn-new" type="button" style="width:auto;">＋ Excelから取り込む</button>
-          </div>
-          <div class="panel">
-            <h2>小テスト一覧</h2>
-            <!-- 絞り込み・検索（2026-09-11）: 本物の設問が入ると99回→437回になり、上位50件だけでは
-                 古いものに手が届かなくなるため。教材（source_book）は quiz_sets にまだ無い環境もあるので、
-                 列が無ければ非表示のまま（既定 hidden）＝JS側の ensureQsFilters が列の有無を確かめてから出す。
-                 検索・件数・もっと見るは列の有無に関係なく動く。 -->
-            <div class="qs-filterbar" id="qs-filterbar">
-              <select id="qs-filter-book" hidden aria-label="教材で絞る"><option value="">すべての教材</option></select>
-              <input type="search" id="qs-filter-q" placeholder="テスト名で検索" aria-label="テスト名で検索">
-            </div>
-            <!-- 🔴 thead と tbody を明示する。table に insertAdjacentHTML("beforeend") で <tr> を足すと、
-                 ブラウザが**そのたびに新しい tbody を作る**。すると「先頭以外の行を消す」掃除が
-                 tbody ごとに効いて、**再描画のたびに古い行が1行ずつ生き残る**。
-                 2026-09-11 に実際にそうなった（DOMは14行、DBは4件。しかも古い行が上に残るので、
-                 「公開を押したのに下書きのまま」に見えた）。★行の入れ替えは tbody の innerHTML で行う。 -->
-            <div class="tblwrap"><table class="tbl" id="qs-list-tbl">
-              <thead><tr><th>テスト名</th><th>課</th><th class="num">受験</th><th>状態</th><th>操作</th></tr></thead>
-              <tbody id="qs-list-body"></tbody>
-            </table></div>
-            <div class="note" id="qs-list-note">読み込み中…</div>
-            <div class="qs-more" id="qs-list-more" hidden>
-              <button class="btn ghost" id="qs-btn-more" type="button">もっと見る</button>
-            </div>
-            <div class="note"><b>はじめる</b>はクラスと時間を指定して、その時間だけ学生の画面に出します
-              （授業中の小テストはこちら推奨。「📅 今日」で残り時間・提出数が見られます）。<br>
-              <b>公開</b>を押すと、その回が<u>クラスを問わず</u>ずっと学生の画面に出ます。<b>停止</b>で引っ込みます。<br>
-              <b>消す</b>は<b>「受験」が 0 の回だけ</b>できます（取り込みを間違えたときの後始末用）。
-              ★<b>1人でも受けた回は「消す」が押せません</b>（「受験ずみ」と出ます）。停止にしてください＝
-              <u>受けた記録を消してしまう作りにはしない</u>という決めごとです。<br>
-              ⓘ「受験」が <b>—</b> のときは件数が取れなかったという意味です（0 ではありません）</div>
-            <div class="msg" id="qs-list-msg"></div>
-          </div>
-          <div class="note">Excelは「課題登録FMT」の形式だけ読めます（先生が問題を書く1枚もの）。
-            アップロードはしません。選んだファイルはブラウザの中だけで読み、そのままDBに送るのは
-            「④登録」を押したときだけです。★登録しても<b>学生にはまだ見えません（下書き）</b>。見せるときは一覧の「公開」を押します。</div>
-        </div>
-
-        <div id="qs-pane-wizard" hidden>
-          <div class="wizsteps" id="qs-steps">
-            <div class="wizstep" data-step="1"><span class="wn">①</span>取り込み</div>
-            <div class="wizstep" data-step="2"><span class="wn">②</span>プレビュー</div>
-            <div class="wizstep" data-step="3"><span class="wn">③</span>1問ずつ修正</div>
-            <div class="wizstep" data-step="4"><span class="wn">④</span>登録</div>
-          </div>
-
-          <!-- ① 取り込み -->
-          <div class="panel" id="qs-step-1" data-step-pane hidden>
-            <h2>①Excelを選ぶ</h2>
-            <div class="field"><label>Excelファイル（課題登録FMT・.xlsx）</label>
-              <input type="file" id="qs-file" accept=".xlsx"></div>
-            <div class="field"><label>テスト名の頭に付ける文字（省略可）</label>
-              <input type="text" id="qs-prefix" placeholder="れい: つなぐ日本語初級 まとめテスト"></div>
-            <div id="qs-sheetpick"></div>
-            <div class="msg" id="qs-step1-msg"></div>
-            <div class="btnrow"><button class="btn" id="qs-btn-to2" type="button" disabled>②プレビューへ</button>
-              <button class="btn ghost" id="qs-btn-cancel1" type="button">一覧へ戻る</button></div>
-          </div>
-
-          <!-- ② プレビュー -->
-          <div class="panel" id="qs-step-2" data-step-pane hidden>
-            <h2>②プレビュー（読み込んだ内容の確認）</h2>
-            <div class="kpi" id="qs-preview-kpi"></div>
-            <div class="note" id="qs-preview-note" hidden></div>
-            <div id="qs-preview-list"></div>
-            <div class="btnrow">
-              <button class="btn ghost" id="qs-btn-to1" type="button">①へ戻る</button>
-              <button class="btn" id="qs-btn-to3" type="button">③1問ずつ修正へ</button>
-            </div>
-          </div>
-
-          <!-- ③ 1問ずつ修正 -->
-          <div class="panel" id="qs-step-3" data-step-pane hidden>
-            <h2>③1問ずつ修正</h2>
-            <div class="note" id="qs-edit-nav"></div>
-            <div id="qs-edit-form"></div>
-            <div class="btnrow">
-              <button class="btn ghost" id="qs-ef-prev" type="button">◀ 前の問題</button>
-              <button class="btn ghost" id="qs-ef-next" type="button">次の問題 ▶</button>
-            </div>
-            <div class="btnrow" style="margin-top:14px;">
-              <button class="btn ghost" id="qs-btn-to2b" type="button">②プレビューへ戻る</button>
-              <button class="btn" id="qs-btn-to4" type="button">④登録へ</button>
-            </div>
-          </div>
-
-          <!-- ④ 公開 -->
-          <div class="panel" id="qs-step-4" data-step-pane hidden>
-            <h2>④登録</h2>
-            <div id="qs-publish-summary"></div>
-            <div class="note">🔴 <b>登録した時点では、学生にはまだ見えません（下書き）。</b>
-              学生に見せるときは、一覧に戻って<b>「公開」を押します</b>。<br>
-              ★こうしてあるのは、<b>取り込んだ瞬間に学生へ出てしまう事故を無くすため</b>です。
-              二重に登録しないよう1回だけ押してください。<b>ダミーの設問は入れないこと。</b></div>
-            <div class="btnrow">
-              <button class="btn ghost" id="qs-btn-to3b" type="button">③へ戻る</button>
-              <button class="btn" id="qs-btn-publish" type="button">この内容で登録する（下書き）</button>
-            </div>
-            <div class="msg" id="qs-publish-msg"></div>
-          </div>
-        </div>
+      <div class="panel">
+        <h2>設問別 正答率</h2>
+        <div id="qrates"><div style="color:var(--sub)">提出待ち…</div></div>
+        <!-- ★個人別は出さない。小テストは成績に反映しない＝罰の材料にしないため（master.html と同じ方針） -->
+        <div id="focus-note" class="focusnote" hidden></div>
       </div>
-
-      <!-- ══ イメージ: アンケートの作成 ══ -->
-      <div id="view-svbuild" data-viewpane hidden>
-        <div class="mockflag">🖼 画面イメージ（まだ動きません）— 一覧は本物の定義（assets/surveys.js）から出している。作成フォームはイメージ</div>
-        <div class="panel">
-          <h2>アンケート一覧（いま学生に出ているもの）</h2>
-          <div class="tblwrap"><table class="tbl" id="svbuild-list">
-            <tr><th>名前</th><th>English</th><th class="num">質問数</th><th>対象</th><th>状態</th></tr>
-          </table></div>
-        </div>
-        <div class="panel">
-          <h2>新しいアンケートを作る</h2>
-          <div class="form2">
-            <div class="field"><label>タイトル（やさしい日本語）</label><input type="text" placeholder="れい: ふゆやすみの よてい"></div>
-            <div class="field"><label>Title (English)</label><input type="text" placeholder="e.g. Winter holiday plans"></div>
-            <div class="field"><label>対象クラス</label><select><option>全クラス</option><option>A①</option><option>A②</option></select></div>
-            <div class="field"><label>締切</label><input type="text" placeholder="12/10"></div>
-          </div>
-          <div class="field"><label>質問 1</label>
-            <div class="form2">
-              <input type="text" placeholder="しつもんぶん（やさしい日本語）">
-              <select><option>えらぶ（1つ）</option><option>じゆうに かく</option></select>
-            </div>
-            <input type="text" placeholder="せんたくし（、で区切る）: にほんに いる、くにに かえる、りょこう" style="margin-top:8px;">
-          </div>
-          <div class="btnrow">
-            <button class="btn ghost" type="button">＋ 質問を足す</button>
-            <button class="btn ghost" type="button">翻訳の下書きを作る（英・中・ネパール・ミャンマー・シンハラ・ベンガル）</button>
-            <button class="btn" type="button">保存して公開</button>
-          </div>
-          <div class="note">翻訳の下書きは学校の翻訳確認スタッフが確認してから公開する。学生の回答は言語に関係なく同じ値で保存されるので集計がずれない。</div>
-        </div>
+      <div class="panel">
+        <h2>提出フィード</h2>
+        <div class="feed" id="feed"><div style="color:var(--sub)">提出待ち…</div></div>
       </div>
-
-      <!-- ══ イメージ: 学生アカウント ══ -->
-      <div id="view-students" data-viewpane hidden>
-        <div class="mockflag">🖼 画面イメージ（まだ動きません）— 本番では学生マスタDBから氏名・クラスを取り込んで一括発行する。ここに出ている学生はすべて架空</div>
-        <div class="kpi">
-          <div class="stat"><div class="v">40</div><div class="l">有効なアカウント</div><div class="s">A① 20・A② 20（ダミー）</div></div>
-          <div class="stat"><div class="v">31</div><div class="l">初回ログイン済み</div><div class="s">未ログイン 9名に声かけ</div></div>
-          <div class="stat"><div class="v">3</div><div class="l">初期パスワードのまま</div><div class="s">変更を促す</div></div>
+      <div class="panel">
+        <h2>結果の書き出し</h2>
+        <div class="note">学籍番号つきの CSV をブラウザの中だけで作ります（送信しません）。
+          Excel で開けるよう UTF-8（BOM付き）で保存します。<b>個票</b>と<b>問題ごとの集計</b>は別ファイルです。</div>
+        <div class="field" style="max-width:460px;">
+          <label for="csv-run-pick">範囲</label>
+          <select id="csv-run-pick"><option value="">全クラスまとめて（横断）</option></select>
         </div>
-        <div class="panel">
-          <h2>学生アカウント</h2>
-          <div class="btnrow" style="margin-bottom:12px;">
-            <button class="btn" type="button">Excelから一括発行</button>
-            <button class="btn ghost" type="button">初期パスワードを再発行</button>
-            <button class="btn ghost" type="button">卒業・退学で停止</button>
-          </div>
-          <div class="tblwrap"><table class="tbl">
-            <tr><th>学籍番号</th><th>名前</th><th>クラス</th><th>パスワード</th><th>最終ログイン</th><th>状態</th></tr>
-            <tr><td>s001</td><td>成基太郎1</td><td>A①</td><td><span class="pill on">変更済み</span></td><td>9/3 21:10</td><td><span class="pill on">有効</span></td></tr>
-            <tr><td>s002</td><td>成基太郎2</td><td>A①</td><td><span class="pill on">変更済み</span></td><td>9/3 20:42</td><td><span class="pill on">有効</span></td></tr>
-            <tr><td>s003</td><td>成基太郎3</td><td>A①</td><td><span class="pill warn">初期のまま</span></td><td>—</td><td><span class="pill on">有効</span></td></tr>
-            <tr><td>s004</td><td>成基太郎4</td><td>A①</td><td><span class="pill on">変更済み</span></td><td>9/3 01:05</td><td><span class="pill on">有効</span></td></tr>
-            <tr><td>s021</td><td>成基太郎21</td><td>A②</td><td><span class="pill on">変更済み</span></td><td>8/30 09:12</td><td><span class="pill off">停止（卒業）</span></td></tr>
-          </table></div>
-          <div class="note">発行の流れ（本番案）: 学生マスタDBから対象を選ぶ → 初期パスワードつきのカードを印刷 → 学生が初回ログインで変更（強制）。同意書に外部サーバー利用を明記してから運用する。</div>
+        <div class="btnrow">
+          <button class="btn ghost" id="csv-btn-student" type="button" style="width:auto;">個票を CSV で書き出す</button>
+          <button class="btn ghost" id="csv-btn-question" type="button" style="width:auto;">問題ごとの集計を CSV で書き出す</button>
         </div>
+        <div class="msg" id="csv-msg" style="display:none;"></div>
       </div>
+    </div>
 
-      <!-- ══ イメージ: お知らせ配信 ══ -->
-      <div id="view-notice" data-viewpane hidden>
-        <div class="mockflag">🖼 画面イメージ（まだ動きません）— 学生画面の「おしらせ」に出す連絡をここから配信する</div>
-        <div class="panel">
-          <h2>お知らせを配信する</h2>
-          <div class="form2">
-            <div class="field"><label>タイトル（やさしい日本語）</label><input type="text" placeholder="れい: 12月の JLPT の もうしこみ"></div>
-            <div class="field"><label>対象</label><select><option>全学生</option><option>A①</option><option>A②</option><option>N2 受験者</option></select></div>
-            <div class="field"><label>掲示期間</label><input type="text" placeholder="9/5 〜 9/20"></div>
-            <div class="field"><label>重要度</label><select><option>ふつう</option><option>大事（上に固定）</option></select></div>
-          </div>
-          <div class="field"><label>本文（やさしい日本語）</label><textarea placeholder="12がつ の JLPT を うける ひとは、9がつ 20にち までに じむしつ で もうしこんで ください。"></textarea></div>
-          <div class="btnrow">
-            <button class="btn ghost" type="button">翻訳の下書きを作る（6言語）</button>
-            <button class="btn ghost" type="button">学生画面でプレビュー</button>
-            <button class="btn" type="button">配信する</button>
-          </div>
-          <div class="note">翻訳は下書きを自動で作り、翻訳確認スタッフの承認後に各言語で表示する（承認前は日本語だけ）。</div>
-        </div>
-        <div class="panel">
-          <h2>配信履歴</h2>
-          <div class="tblwrap"><table class="tbl">
-            <tr><th>配信日</th><th>タイトル</th><th>対象</th><th class="num">既読</th><th>状態</th></tr>
-            <tr><td>9/1</td><td>9がつ の よてい</td><td>全学生</td><td class="num">86%</td><td><span class="pill on">掲示中</span></td></tr>
-            <tr><td>8/25</td><td>JPT の けっか を くばります</td><td>A①</td><td class="num">100%</td><td><span class="pill off">終了</span></td></tr>
-            <tr><td>8/20</td><td>たいふう の とき の れんらく</td><td>全学生</td><td class="num">92%</td><td><span class="pill off">終了</span></td></tr>
-          </table></div>
-        </div>
-      </div>
-
-      <!-- ══ イメージ: 点検・バックアップ ══ -->
-      <div id="view-ops" data-viewpane hidden>
-        <div class="mockflag">🖼 画面イメージ（数字は本物の実測値・自動化はこれから）— 「動いているか」「守れているか」を担当者がここで確認する</div>
-        <div class="kpi">
-          <div class="stat"><div class="v" style="color:var(--ok)">0</div><div class="l">セキュリティ診断 ERROR</div><div class="s">WARN 3（許容・文書化済）／最終 9/3</div></div>
-          <div class="stat"><div class="v">100%</div><div class="l">150名同時アクセス試験</div><div class="s">平均応答 1.2秒・再送ゼロ</div></div>
-          <div class="stat"><div class="v">17</div><div class="l">セキュリティ回帰テスト PASS</div><div class="s">正解は学生に届かない・他人の回答は見えない</div></div>
-          <div class="stat"><div class="v">毎日</div><div class="l">バックアップ</div><div class="s">本番移行後に復元訓練を1回</div></div>
-        </div>
-        <div class="panel">
-          <h2>本番移行チェック</h2>
-          <label class="chk"><input type="checkbox" disabled><span>Supabase を学校管理のアカウントで作り直す（いまは個人アカウントの無料枠＝デモ用）</span></label>
-          <label class="chk"><input type="checkbox" disabled><span>Pro プラン（月25ドル）に上げる。無料枠は1週間放置で休眠する</span></label>
-          <label class="chk"><input type="checkbox" disabled><span>デモ用アカウントを全削除し、実学生の発行フローを決める（初期PW・変更強制）</span></label>
-          <label class="chk"><input type="checkbox" disabled><span>2027年度の同意書に「外部サーバーでの処理」を織り込む</span></label>
-          <label class="chk"><input type="checkbox" disabled><span>バックアップ復元訓練を1回実施する</span></label>
-          <div class="note">月次点検の型: 自動セキュリティ診断 → 日本語の報告 → 担当者の承認。合格基準は ERROR 0件・WARN 3件以下。</div>
-        </div>
-      </div>
-
-    </div><!-- /content -->
-   </div><!-- /adm -->
   </section>
-
 </main>
 <footer>2秒ごとに自動更新 — SCG 学生ポータル（デモ）</footer>
 
@@ -526,8 +207,7 @@
   </div>
 </div>
 
-<!-- 確認ダイアログ（自前・askDialog() から使う）。部品は1つだけで、呼ぶ側が文言と数字を差し込む。
-     Esc で閉じる／ボタンにフォーカスが当たる（キーボードだけで押せる）のは <dialog> 標準の挙動。 -->
+<!-- 確認ダイアログ（自前・askDialog() から使う）。master.html と同じ部品。 -->
 <dialog class="cfmdlg" id="cfm-dlg">
   <form method="dialog" class="cfmform">
     <h3 id="cfm-title"></h3>
@@ -539,9 +219,7 @@
   </form>
 </dialog>
 
-<!-- 実施回を「はじめる」ダイアログ（②2026-09-11）。askDialog とは別物＝入力（クラス・時間）を持つため。
-     🔴 クラスは毎回選ばせる（前回の選択を既定にしない）。選ぶと対象人数がその場に出る＝
-     「1B（28人）で はじめます」を押す前に見える形にしてある。 -->
+<!-- テストを「はじめる」ダイアログ。master.html の run-dlg と同じ形（クラスは毎回選ばせる）。 -->
 <dialog class="cfmdlg" id="run-dlg">
   <h3 id="run-title"></h3>
   <div class="field">
@@ -560,51 +238,23 @@
   </div>
 </dialog>
 
-<!-- アンケートの回を「はじめる」ダイアログ（余力枠・2026-09-11）。
-     小テストの run-dlg と違い、対象クラスは複数選べる（月×学年で1本、が普通の使い方）。 -->
-<dialog class="cfmdlg" id="svround-dlg">
-  <h3 id="svround-title"></h3>
-  <div class="field">
-    <label for="svround-name">回の名前（あとで見分ける題名。例: 2026年12月）</label>
-    <input type="text" id="svround-name" placeholder="例: 2026年12月">
-  </div>
-  <div class="field">
-    <label>対象クラス（複数選べます。1つも選ばなければ全員が対象）</label>
-    <div id="svround-classes">クラスの一覧を読み込んでいます…</div>
-  </div>
-  <div class="field">
-    <label for="svround-closes">締切（省略できます＝ずっと開いたまま）</label>
-    <input type="date" id="svround-closes">
-  </div>
-  <div class="note" id="svround-target"></div>
-  <div class="msg" id="svround-msg" style="display:none;"></div>
-  <div class="btnrow cfm-actions">
-    <button type="button" class="btn ghost" id="svround-cancel">やめる</button>
-    <button type="button" class="btn" id="svround-start" disabled>この回を はじめる</button>
-  </div>
-</dialog>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<!-- ★Excel読み取り(SheetJS)は教師画面だけで読む。学生画面(index.html)には絶対に足さない -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="assets/i18n.js"></script>
 <script src="assets/api.js"></script>
-<script src="assets/surveys.js"></script>
 <script src="assets/ruby.js"></script>
-<script src="assets/fmt-import.js"></script>
+<!-- 🔴 fmt-import.js（取り込み）と xlsx.js（SheetJS）はここでは読まない。取り込みは先生の仕事ではない。
+     学生画面（index.html）の「ライブラリ依存ゼロ」と同じ考え方で、先生画面も軽く保つ。 -->
 <script>
 const $ = id => document.getElementById(id);
 function err(id,t){ const m=$(id); m.className="msg err"; m.textContent=t; }
 const esc = s => (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;");
-let quizSet=null, quizSets=[], timer=null, lastCount=0, activeView="today", studentTotal=null;
+let activeView="today", timer=null;
+let quizSet=null, quizSets=[], lastCount=0;
 
-/* 確認ダイアログ（自前の <dialog>・2026-09-11）。confirm() の置き換え。
- * ★部品は1つ。呼ぶ側が {title, body, okText, cancelText, danger} を渡す。
- *   body は textContent で入れる（\n はCSSの white-space:pre-line で改行になる）ので、
- *   ここでは escHtml/rubyHtml を通す必要がない＝innerHTML を使わないため。
- * ★フォーカスは最初「やめる」に当てる（危険な操作でEnterを連打しても誤って確定しないため）。
- *   OKボタンは type=submit・value="ok"＝<dialog>標準の挙動で、押すと自動的に
- *   dialog.returnValue="ok" で閉じる。Esc は返り値を変えずに閉じる＝ここでは「やめる」扱いになる。 */
+/* ══════════════════════════════════════════════════════════════════
+   確認ダイアログ（自前の <dialog>）。master.html の askDialog を丸ごと使う。
+   body は textContent で入れるので escHtml/rubyHtml を通す必要がない（innerHTML を使わないため）。
+   ══════════════════════════════════════════════════════════════════ */
 function askDialog({ title = "", body = "", okText = "OK", cancelText = "やめる", danger = false } = {}) {
   return new Promise(resolve => {
     const dlg = $("cfm-dlg"), ok = $("cfm-ok"), cancel = $("cfm-cancel");
@@ -613,12 +263,8 @@ function askDialog({ title = "", body = "", okText = "OK", cancelText = "やめ�
     ok.textContent = okText;
     cancel.textContent = cancelText;
     ok.classList.toggle("danger", !!danger);
-    dlg.returnValue = "";   // 前回開いたときの値が残らないように
+    dlg.returnValue = "";
     let done = false;
-
-    // ★クリックした瞬間に解決する（<dialog>の"close"イベントはキュー投入＝一拍遅れることがあるため、
-    //   OK/やめるを押した側では待たずに自分で閉じて即resolveする）。
-    //   "close" は Esc など、この2つを通らずに閉じた場合だけの受け皿として残す。
     function finish(v) {
       if (done) return; done = true;
       dlg.removeEventListener("close", onClose);
@@ -629,30 +275,25 @@ function askDialog({ title = "", body = "", okText = "OK", cancelText = "やめ�
     }
     function onCancel() { dlg.close(""); finish(false); }
     function onOk(e) { e.preventDefault(); dlg.close("ok"); finish(true); }
-    function onBackdrop(e) { if (e.target === dlg) onCancel(); }   // 外側クリック＝やめる
-    function onClose() { finish(dlg.returnValue === "ok"); }        // Esc等の受け皿
-
+    function onBackdrop(e) { if (e.target === dlg) onCancel(); }
+    function onClose() { finish(dlg.returnValue === "ok"); }
     dlg.addEventListener("close", onClose);
     dlg.addEventListener("click", onBackdrop);
     cancel.addEventListener("click", onCancel);
     ok.addEventListener("click", onOk);
-
     dlg.showModal();
     cancel.focus();
   });
 }
 
-/* クラス名の一覧（実施回「はじめる」のクラス選択用）。profiles は自由記述の文字列なので、
-   固定リストではなく実在のクラスから毎回引く。★件数は小さい（ダミーは190名）ので都度取得でよい。 */
+/* クラス名の一覧（実施回「はじめる」のクラス選択用）。master.html の fetchClassNames と同じ。 */
 async function fetchClassNames(){
   const rows = await api.get("/rest/v1/profiles?select=class_name&role=eq.student&class_name=not.is.null");
   return [...new Set(rows.map(r=>r.class_name).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ja"));
 }
 
-/* 実施回を「はじめる」ダイアログ（②2026-09-11）。
- * ★askDialog と違って中に入力（クラス・時間）を持つので専用に書く。
- * 対象人数はクラスを選んだ瞬間にその場で出す＝「1B（28人）で はじめます」を押す前に見える形。
- * 戻り値: はじめられたら start_quiz_run の返り値、キャンセルなら false。 */
+/* テストを「はじめる」ダイアログ。master.html の openRunDialog と同じ形。
+   戻り値: はじめられたら start_quiz_run の返り値、キャンセルなら false。 */
 function openRunDialog(qs){
   const dlg=$("run-dlg"), sel=$("run-class"), dur=$("run-dur"), tgt=$("run-target"),
         msg=$("run-msg"), startBtn=$("run-start"), cancelBtn=$("run-cancel");
@@ -675,7 +316,7 @@ function openRunDialog(qs){
     }
     function finish(v){ if(settled) return; settled=true; cleanup(); dlg.close(""); resolve(v); }
     function onCancel(){ finish(false); }
-    function onClose(){ finish(false); }   // Esc・背景相当の受け皿
+    function onClose(){ finish(false); }
 
     async function onChange(){
       const cls = sel.value;
@@ -687,7 +328,6 @@ function openRunDialog(qs){
         const n = await api.rpc("run_target_count", {p_class_names:[cls]});
         tgt.textContent = "「"+cls+"」を、"+n+"人 を対象に、"+n0+"分間 はじめます。";
       }catch(e){
-        // ★人数が出せなくても止めない（run_target_count と同じ考え方）。クラス名だけ見て進められるように
         tgt.textContent = "「"+cls+"」を、"+n0+"分間 はじめます。（対象人数は数えられませんでした）";
       }
       startBtn.disabled = false;
@@ -726,692 +366,164 @@ function openRunDialog(qs){
   });
 }
 
-/* アンケートの回を「はじめる」ダイアログ（余力枠・2026-09-11）。
- * ★小テストの openRunDialog と同じ形だが、対象クラスは複数選べる
- *   （粒度が違う＝「1年生全員に1本」が普通の使い方。クラスごとに何本も作らない）。
- * 戻り値: はじめられたら start_survey_round の返り値、キャンセルなら false。 */
-function openSurveyRoundDialog(surveyKey){
-  const dlg=$("svround-dlg"), name=$("svround-name"), classesBox=$("svround-classes"),
-        closes=$("svround-closes"), tgt=$("svround-target"), msg=$("svround-msg"),
-        startBtn=$("svround-start"), cancelBtn=$("svround-cancel");
-  // ★教師画面は言語切替が無い＝常に日本語名で出す（sv-pick と同じ考え方。tx() は使わない）
-  const def = SURVEYS.find(s=>s.key===surveyKey);
-  $("svround-title").textContent = "「"+(def ? def.title.ja : surveyKey)+"」の回を はじめる";
-  name.value = ""; closes.value = "";
-  msg.style.display = "none";
-  startBtn.disabled = true; cancelBtn.disabled = false;
-  classesBox.innerHTML = "クラスの一覧を読み込んでいます…";
-  tgt.textContent = "";
-
-  return new Promise(resolve=>{
-    let settled=false;
-    function cleanup(){
-      dlg.removeEventListener("close", onClose);
-      name.oninput = null;
-      startBtn.removeEventListener("click", onStart);
-      cancelBtn.removeEventListener("click", onCancel);
-    }
-    function finish(v){ if(settled) return; settled=true; cleanup(); dlg.close(""); resolve(v); }
-    function onCancel(){ finish(false); }
-    function onClose(){ finish(false); }   // Esc・背景相当の受け皿
-
-    function selectedClasses(){ return [...classesBox.querySelectorAll(".svround-cls-chk:checked")].map(cb=>cb.value); }
-    function validate(){ startBtn.disabled = !name.value.trim(); }
-    async function updateTarget(){
-      const cls = selectedClasses();
-      try{
-        const n = await api.rpc("run_target_count", {p_class_names:cls});
-        tgt.textContent = cls.length ? ("「"+cls.join("・")+"」を、"+n+"人 を対象にはじめます。")
-                                      : ("クラスを選んでいません＝全員（"+n+"人）が対象になります。");
-      }catch(e){ tgt.textContent = "対象人数は数えられませんでした（"+e.message+"）。"; }
-    }
-    name.oninput = validate;
-
-    async function onStart(){
-      const title = name.value.trim();
-      if(!title) return;
-      startBtn.disabled=true; cancelBtn.disabled=true;
-      msg.style.display="block"; msg.className="msg info"; msg.textContent="はじめています…";
-      const cls = selectedClasses();
-      // date input（日付だけ）→ その日の終わりまで開く
-      const closesIso = closes.value ? new Date(closes.value+"T23:59:59").toISOString() : null;
-      try{
-        const r = await api.rpc("start_survey_round",
-          {p_survey_key:surveyKey, p_title:title, p_class_names:cls, p_closes_at:closesIso});
-        cleanup(); settled=true; dlg.close("ok"); resolve(r);
-      }catch(e){
-        msg.className="msg err"; msg.textContent="はじめられませんでした（"+e.message+"）";
-        startBtn.disabled=false; cancelBtn.disabled=false;
-      }
-    }
-
-    dlg.addEventListener("close", onClose);
-    startBtn.addEventListener("click", onStart);
-    cancelBtn.addEventListener("click", onCancel);
-
-    fetchClassNames().then(names=>{
-      classesBox.innerHTML =
-        "<div class='btnrow' style='margin:0 0 6px;'>"+
-          "<button type='button' class='btn ghost' id='svround-cls-all' style='width:auto;padding:5px 12px;font-size:.8rem;'>すべて選ぶ</button>"+
-          "<button type='button' class='btn ghost' id='svround-cls-none' style='width:auto;padding:5px 12px;font-size:.8rem;'>すべて外す</button>"+
-        "</div>"+
-        (names.length ? names.map(n=>
-          "<label class='chk'><input type='checkbox' class='svround-cls-chk' value=\""+escHtml(n)+"\"> <span>"+escHtml(n)+"</span></label>"
-        ).join("") : "<div class='note'>クラスが見つかりませんでした。</div>");
-      classesBox.querySelectorAll(".svround-cls-chk").forEach(cb=>cb.onchange=updateTarget);
-      const allBtn = $("svround-cls-all"), noneBtn = $("svround-cls-none");
-      if(allBtn) allBtn.onclick = ()=>{ classesBox.querySelectorAll(".svround-cls-chk").forEach(cb=>cb.checked=true); updateTarget(); };
-      if(noneBtn) noneBtn.onclick = ()=>{ classesBox.querySelectorAll(".svround-cls-chk").forEach(cb=>cb.checked=false); updateTarget(); };
-      updateTarget();
-    }).catch(e=>{ classesBox.innerHTML = "<div class='note'>クラス一覧を読み込めませんでした（"+esc(e.message)+"）。</div>"; });
-
-    dlg.showModal();
-  });
+/* ══════════════════════════════════════════════════════════════════
+   quiz_sets の絞り込み検索（教材・テスト名）。「テストを選んではじめる」と
+   「小テスト ライブ集計」のテスト選びが共通で使う（master.html の FmtImport.db.searchQuizSets
+   と同じ考え方だが、取り込み専用の fmt-import.js は読まないので、ここに薄く自前で持つ）。
+   🔴 絞り込みは PostgREST 側でかける。クライアントで全部取ってから絞らない（件数が増えると遅くなるため）。
+   ══════════════════════════════════════════════════════════════════ */
+let colsProbed = null;
+async function probeQuizSetCols(){
+  if(colsProbed) return colsProbed;
+  const probe = async (cols)=>{ try{ await api.get("/rest/v1/quiz_sets?select="+cols+"&limit=1"); return true; }catch(e){ return false; } };
+  colsProbed = { source: await probe("source_book"), sortKey: await probe("sort_key") };
+  return colsProbed;
 }
-
-$("btn-login").onclick = async () => {
-  const no=$("in-no").value.trim(), pw=$("in-pw").value;
-  $("btn-login").disabled=true;
-  try{
-    const p = await api.login(no,pw);
-    if(p.role!=="teacher"){ api.logout(); throw new Error("教師アカウントでログインしてください"); }
-    await start();
-  }catch(e){ err("login-msg", e.message); }
-  finally{ $("btn-login").disabled=false; }
-};
-$("in-pw").addEventListener("keydown",e=>{ if(e.key==="Enter") $("btn-login").click(); });
-$("btn-logout").onclick = ()=>{ clearInterval(timer); api.logout(); location.reload(); };
-
-/* 左の一覧 → 右の中身。動く2つはタブ切替のたびに最新を取りにいく */
-document.querySelectorAll(".nav [data-view]").forEach(b=>{ b.onclick = ()=>setView(b.getAttribute("data-view")); });
-function setView(v){
-  // 「いま はじめた回」の目印は、📅今日 を離れたら消す（次に戻ったとき古い印が残らないように）
-  if(activeView==="today" && v!=="today") justStartedRunId = null;
-  activeView=v;
-  document.querySelectorAll(".nav [data-view]").forEach(b=>b.classList.toggle("on", b.getAttribute("data-view")===v));
-  document.querySelectorAll("[data-viewpane]").forEach(p=>{ p.hidden = (p.id!=="view-"+v); });
-  if(v==="quiz"||v==="survey"||v==="today") tick();
-  if(v==="qsets"){
-    // hashが変われば hashchange 経由で routeQsets() が呼ばれる。既に #qsets 系なら変わらないので直接呼ぶ
-    if(location.hash.startsWith("#qsets")) routeQsets(); else location.hash = "#qsets";
+async function listSourceBooks(){
+  const rows = await api.get("/rest/v1/quiz_sets?select=source_book&source_book=not.is.null");
+  return [...new Set(rows.map(r=>r.source_book).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ja"));
+}
+/* 件数は Prefer: count=exact と Content-Range ヘッダから取る。api.get() はヘッダを読めないので
+   ここだけ api._authed を直に呼ぶ（master.html の searchQuizSets と同じ理由）。 */
+async function searchQuizSets(select, opts){
+  opts = opts || {};
+  if(!opts.order){
+    const cols = await probeQuizSetCols();
+    opts = Object.assign({}, opts, { order: cols.sortKey ? "sort_key.asc.nullsfirst,created_at.desc" : "created_at.desc" });
   }
+  const params = ["select="+select, "order="+opts.order, "limit="+(opts.limit||50), "offset="+(opts.offset||0)];
+  if(opts.book) params.push("source_book=eq."+encodeURIComponent(opts.book));
+  if(opts.q) params.push("title=ilike.*"+encodeURIComponent(opts.q)+"*");
+  const res = await api._authed("/rest/v1/quiz_sets?"+params.join("&"), { headers:{ "Prefer":"count=exact" } });
+  if(!res.ok) throw new Error("読み込みに失敗しました（"+res.status+"）");
+  const rows = await res.json();
+  const cr = res.headers.get("content-range");
+  const m = cr && cr.match(/\/(\d+)$/);
+  return { rows, total: m ? Number(m[1]) : null };
+}
+/* いま実施中の quiz_set_id の集合。「はじめる」一覧に「実施中」の目印を付けるためだけに使う。 */
+async function liveQuizSetIds(){
+  try{
+    const nowIso = new Date().toISOString();
+    const runs = await api.get("/rest/v1/quiz_runs?select=quiz_set_id&is_void=eq.false"
+      + "&opens_at=lte."+nowIso+"&closes_at=gt."+nowIso);
+    return new Set(runs.map(r=>r.quiz_set_id));
+  }catch(e){ return new Set(); }
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   問題の登録・解放（①取り込み→②プレビュー→③1問ずつ修正→④公開）
-   場所はURLで決まる: #qsets（一覧）／#qsets/import/1〜4（取り込み中の段）。
-   ヘッドレスChromeのe2eテストは loadWorkbook を直接呼んでファイル選択を飛ばす
-   （<input type=file> へ合成のFileを注入することはできないため。手本: run_e2e_quiz.py）。
+   ▶ テストを選んではじめる（新規の要）。編集・公開・停止・削除は置かない＝できるのは「はじめる」だけ。
    ══════════════════════════════════════════════════════════════════ */
-const wizard = { wb:null, filename:"", sets:null, editFlat:null, editIdx:0 };
-
-window.addEventListener("hashchange", ()=>{ if(activeView==="qsets") routeQsets(); });
-
-function routeQsets(){
-  const parts = location.hash.replace(/^#/,"").split("/");   // "qsets","import","2"
-  const step = parts[1]==="import" ? (Number(parts[2])||1) : 0;
-  if(step){ showQsWizard(); showQsStep(step); }
-  else showQsList();
-}
-
-/* 一覧の絞り込み状態（2026-09-11）。教材・検索語・今出す件数の上限を持つ。
-   ★filter/search が変わったときだけ limit を50へ戻す（「もっと見る」で広げた分を、
-   公開/停止や削除のあとの読み直しでは保たない=保つ、を分けるため→showQsList(resetLimit) 参照）。 */
-const qsListState = { book:"", q:"", limit:50 };
-let qsFiltersReady = false;
-
-/* 教材フィルタの初期化。★列が無い環境でも一覧そのものは動かす＝失敗を握りつぶして「出さない」側に倒す。
-   一度だけでよい（教材の顔ぶれは操作中に増減しない前提。fetchClassNames と同じ考え方）。 */
-async function ensureQsFilters(){
-  if(qsFiltersReady) return;
-  qsFiltersReady = true;
+const selState = { book:"", q:"", limit:50 };
+let selFiltersReady = false;
+async function ensureSelectFilters(){
+  if(selFiltersReady) return;
+  selFiltersReady = true;
   try{
-    const has = await FmtImport.db.probeQuizSetsSource();
-    if(!has) return;   // 列が無い＝絞り込みUIを出さずに従来どおり動く、が正しい壊れ方
-    const books = await FmtImport.db.listSourceBooks();
-    const sel = $("qs-filter-book");
+    const cols = await probeQuizSetCols();
+    if(!cols.source) return;   // 列が無い環境では絞り込みUIを出さずに従来どおり動く
+    const books = await listSourceBooks();
+    const sel = $("sel-filter-book");
     sel.innerHTML = "<option value=''>すべての教材</option>" +
       books.map(b=>"<option value=\""+escHtml(b)+"\">"+escHtml(b)+"</option>").join("");
     sel.hidden = false;
   }catch(e){ /* 教材の絞り込みだけ諦める。検索・件数・もっと見るは列に関係なく動く */ }
 }
-$("qs-filter-book").onchange = ()=>{ qsListState.book = $("qs-filter-book").value; showQsList(true); };
-let qsSearchTimer = null;
-$("qs-filter-q").oninput = ()=>{
-  clearTimeout(qsSearchTimer);
-  // 押すたびに叩かない（日本語入力の変換中も含めて300msだけ待つ）
-  qsSearchTimer = setTimeout(()=>{ qsListState.q = $("qs-filter-q").value.trim(); showQsList(true); }, 300);
+$("sel-filter-book").onchange = ()=>{ selState.book = $("sel-filter-book").value; showSelectList(true); };
+let selSearchTimer = null;
+$("sel-filter-q").oninput = ()=>{
+  clearTimeout(selSearchTimer);
+  selSearchTimer = setTimeout(()=>{ selState.q = $("sel-filter-q").value.trim(); showSelectList(true); }, 300);
 };
-$("qs-btn-more").onclick = ()=>{ qsListState.limit += 50; showQsList(false); };
+$("sel-btn-more").onclick = ()=>{ selState.limit += 50; showSelectList(false); };
 
-/* resetLimit: true のときだけ「もっと見る」で広げた件数を50へ戻す。
-   引数なし（routeQsets からの遷移・公開/停止/削除のあとの読み直し）は現在の件数を保つ＝
-   「もっと見る」を押した直後に他の操作をしても、また50件に戻って見えなくなることを避ける。 */
-async function showQsList(resetLimit){
-  $("qs-pane-list").hidden=false; $("qs-pane-wizard").hidden=true;
-  await ensureQsFilters();
-  if(resetLimit) qsListState.limit = 50;
-  $("qs-list-note").textContent="読み込み中…";
+async function showSelectList(resetLimit){
+  await ensureSelectFilters();
+  if(resetLimit) selState.limit = 50;
+  $("sel-filter-note").textContent = "読み込み中…";
   try{
-    // 受験記録の件数も一緒に取る。★これが無いと「消す」を押して初めて断られることになる
-    //   （2026-09-11 に実際にそうなった＝押しても何も起きないように見える）。
-    //   埋め込み集計 attempts(count) がこのインスタンスで効くことは確認済み（2026-09-11・[{count:N}] が返る）。
-    //   ⚠ 返って来ない環境でも落ちないよう、下で「分からなければ数を出さず、止めもしない」形にしてある。
-    // questions(count) は消す確認ダイアログの「設問◯問」に使う（埋め込みなので追加の往復が要らない）。
-    // 🔴 quiz_sets→questions は2026-09-10のquiz_set_questions（設問バンクの器）のせいで経路が2つあり、
-    //   素の questions(count) だと PostgREST が「どちらか選べない」で300を返す（曖昧な埋め込み）。
-    //   FK名を明示してあいまいさを消す（quiz_set_questions は関係ないと伝える）。
-    // 🔴 絞り込み（教材・検索）は PostgREST 側でかける（searchQuizSets）。クライアントで全部取ってから
-    //   絞ると、437回になったときに毎回全件取得することになる。
-    const { rows: sets, total } = await FmtImport.db.searchQuizSets(
-      "id,title,lesson,is_open,attempts(count),questions!questions_quiz_set_id_fkey(count)",
-      { book: qsListState.book, q: qsListState.q, limit: qsListState.limit });
-    if(window.__e2e) window.__e2e.lastSets = sets;   // ブラウザ実操作テストの覗き口（画面の動作には使わない）
-    // ★毎回まるごと入れ替える。1行ずつ足す形だと、古い行が残っていないかを常に気にすることになる
-    //   ・操作は「公開/停止」と「消す」の2つだけ。行に置くのは、一覧を見ながら押せるようにするため
-    //     （ヨリソルは授業→クラス→タブと潜らないと状態を変えられなかった）
-    $("qs-list-body").innerHTML = sets.map(s=>{
-      // 受験記録の件数。★取れなかったときは null＝「分からない」。0 と混同しないこと
-      const n = (Array.isArray(s.attempts) && s.attempts[0] && typeof s.attempts[0].count === "number")
-                ? s.attempts[0].count : null;
-      // ★1件でもあれば消せない。**押す前に**ボタンを無効にして、理由をその場に出す
-      //   （押してから下のほうに理由が出る形だと、押しても何も起きないように見える）
-      const locked = n !== null && n > 0;
-      return "<tr data-qsid='"+esc(s.id)+"'><td>"+esc(s.title)+"</td><td>"+esc(s.lesson||"")+"</td>"+
-        "<td class='num'>"+(n===null ? "—" : n)+"</td>"+
-        "<td><span class='pill "+(s.is_open?"on":"off")+"'>"+(s.is_open?"公開中":"下書き")+"</span></td>"+
-        "<td class='qs-act'>"+
-          "<button class='btn ghost qs-start' type='button' title='クラスと時間を指定して、その時間だけ開きます（授業中はこちら推奨）'>はじめる</button>"+
-          /* ★「停止」→「公開をやめる」に変えた（2026-09-12）。
-             📅今日 にも「停止」があって**別のこと**（動いている回を早く終わらせる）をしていた。
-             こちらは時間と関係なく「学生に見せるかどうか」なので、そう読める言葉にする。 */
-          "<button class='btn ghost qs-toggle' type='button' data-open='"+(s.is_open?"1":"0")+"' "+
-            "title='"+(s.is_open ? "学生に見せるのをやめます（時間とは関係ありません）"
-                                 : "時間を決めずに、ずっと学生に見せます。授業中は「はじめる」のほうが向いています")+"'>"+
-            (s.is_open?"公開をやめる":"公開")+"</button>"+
-          "<button class='btn ghost qs-del' type='button'"+(locked?" disabled":"")+
-            " title='"+(locked ? "受験記録が "+n+" 件あるので消せません。停止を使ってください"
-                               : "受験記録が無いので消せます")+"'>消す</button>"+
-          (locked ? "<span class='qs-why'>受験ずみ</span>" : "")+
-        "</td></tr>";
-    }).join("");
-    const filtering = !!(qsListState.book || qsListState.q);
+    const [{ rows: sets, total }, live] = await Promise.all([
+      searchQuizSets("id,title,lesson", { book: selState.book, q: selState.q, limit: selState.limit }),
+      liveQuizSetIds(),
+    ]);
+    $("sel-list-body").innerHTML = sets.map(s=>
+      "<tr data-qsid='"+esc(s.id)+"'><td>"+esc(s.title)+"</td><td>"+esc(s.lesson||"")+"</td>"+
+      "<td class='actcell'><button class='btn btnsm sel-start' type='button'>はじめる</button>"+
+      (live.has(s.id) ? " <span class='pill live' title='いま学生の画面に出ています'>実施中</span>" : "")+
+      "</td></tr>"
+    ).join("");
+    const filtering = !!(selState.book || selState.q);
     if(!sets.length){
-      $("qs-list-note").textContent = filtering
-        ? "絞り込みの条件に合う小テストがありません。教材や検索語を変えてみてください。"
-        : "まだ何も登録されていません。「＋ Excelから取り込む」から始めます。";
+      $("sel-filter-note").textContent = filtering
+        ? "絞り込みの条件に合うテストがありません。教材や検索語を変えてみてください。"
+        : "登録されたテストがまだありません（登録はマスターの画面で行います）。";
     }else{
-      // ★「今いくつあるのか分からないまま50件だけ見えている」を無くすのがここの目的。
-      //   件数が数えられなかった（total===null）ときだけ「○件を表示」に落とす（0件と混同しない扱いと同じ考え方）。
-      $("qs-list-note").textContent = (total!=null ? (total+"件中 "+sets.length+"件を表示") : (sets.length+"件を表示"))
+      $("sel-filter-note").textContent = (total!=null ? (total+"件中 "+sets.length+"件を表示") : (sets.length+"件を表示"))
         + (filtering ? "（絞り込み中）" : "");
     }
-    // もっと見る: 総数が分かればそれと比較。分からなければ「取得数が上限と同じ＝まだあるかも」を目安にする
-    const canMore = total!=null ? sets.length < total : sets.length === qsListState.limit;
-    $("qs-list-more").hidden = !canMore;
-    wireQsListActions(sets);
-    markRunningRows();          // ★いま実施中の回に印を付ける（下）
-  }catch(e){ $("qs-list-note").textContent = "読み込みに失敗しました（"+e.message+"）"; }
+    const canMore = total!=null ? sets.length < total : sets.length === selState.limit;
+    $("sel-list-more").hidden = !canMore;
+    wireSelectListActions(sets);
+  }catch(e){ $("sel-filter-note").textContent = "読み込みに失敗しました（"+e.message+"）"; }
 }
 
-/* いま実施中の回に「実施中」の印を付ける（2026-09-12 きあ報告）。
- * ★一覧に戻ってきたとき「下書き」としか出ておらず、**動かしている最中かどうかが分からなかった**。
- *   「公開中／下書き」は<u>定義の状態</u>で、「実施中」は<u>いま学生に出ているか</u>＝別の話。
- *   下書きのまま実施回だけ開く、が普通の使い方なので、この2つは同時に出さないと意味が通らない。
- * 一覧の描画そのものは止めない（取れなくても印が付かないだけ）。 */
-async function markRunningRows(){
-  let runs;
-  try{
-    const nowIso = new Date().toISOString();
-    runs = await api.get("/rest/v1/quiz_runs?select=quiz_set_id,closes_at&is_void=eq.false"
-      + "&opens_at=lte."+nowIso+"&closes_at=gt."+nowIso);
-  }catch(e){ return; }           // 印が出ないだけ。一覧は使える
-  if(!Array.isArray(runs) || !runs.length) return;
-  const live = new Set(runs.map(r=>r.quiz_set_id));
-  $("qs-list-body").querySelectorAll("tr[data-qsid]").forEach(tr=>{
-    if(!live.has(tr.getAttribute("data-qsid"))) return;
-    const cell = tr.children[3];                       // 「状態」の列
-    if(!cell || cell.querySelector(".pill.live")) return;
-    cell.insertAdjacentHTML("beforeend",
-      " <span class='pill live' title='いま学生の画面に出ています。「📅 今日」で残り時間と提出数が見られます'>実施中</span>");
-  });
-}
-
-/* 一覧の「公開/停止」と「消す」。★押した行だけを触り、終わったら一覧を読み直す。 */
-function wireQsListActions(sets){
+function wireSelectListActions(sets){
   const byId = {}; sets.forEach(s=>byId[s.id]=s);
-  const msg = (text, ng)=>{ const m=$("qs-list-msg"); m.textContent=text; m.className = "msg"+(ng?" ng":" ok"); };
-
-  // 埋め込み集計 attempts(count) / questions(count) から件数を取り出す。取れなければ null
-  const embedN = (arr)=> (Array.isArray(arr) && arr[0] && typeof arr[0].count==="number") ? arr[0].count : null;
-
-  $("qs-list-tbl").querySelectorAll("tr[data-qsid]").forEach(tr=>{
-    const id = tr.getAttribute("data-qsid"), s = byId[id] || {};
-    const busy = (on)=>tr.querySelectorAll("button").forEach(b=>b.disabled=on);
-
-    // 実施回を「はじめる」（②2026-09-11・4月の本丸）。押す前の対象人数はダイアログの中で出す
-    tr.querySelector(".qs-start").onclick = async ()=>{
-      busy(true);
+  const msg = (text, ng)=>{ const m=$("sel-msg"); m.style.display="block"; m.textContent=text; m.className="msg"+(ng?" err":" info"); };
+  $("sel-list-tbl").querySelectorAll("tr[data-qsid]").forEach(tr=>{
+    const id = tr.getAttribute("data-qsid"), s = byId[id];
+    const btn = tr.querySelector(".sel-start");
+    btn.onclick = async ()=>{
+      btn.disabled = true;
       try{
         const r = await openRunDialog(s);
-        if(!r){ busy(false); return; }   // やめた
+        if(!r){ btn.disabled=false; return; }
         const cls = (r.class_names && r.class_names[0]) || "";
         const until = new Date(r.closes_at).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
         msg("「"+s.title+"」を「"+cls+"」で はじめました"
           + (r.target_count!=null ? "（"+r.target_count+"人対象・" : "（")+until+"まで）。");
-
-        /* 🔴 はじめたら「📅 今日」へ連れて行く（2026-09-12 きあ報告）。
-           きあが実際に授業の形で触って踏んだ： ダイアログが閉じたあと
-           **いま何を動かしているのか画面から分からなくなる**。
-           原因は2つ重なっていた:
-             ① 完了メッセージは出ているが、置き場が**ページの一番上**。
-                先生は50行の表を下へスクロールして「はじめる」を押すので、**画面の外**にある
-             ② 一覧の行は「下書き」のままで、実施中だと分かる印が何も付かない
-           ★文言を足すのではなく、**行き先を変える**のが正しい直し方。
-             授業中に先生が要るのは「残り時間」と「何人出したか」で、それは📅今日にしかない。 */
-        // ⚠ start_quiz_run が返すキーは **run_id**（id ではない）。db/2026-09-10_four_layers.sql の
-        //   jsonb_build_object を見て確かめること。ここを id にすると目印が静かに付かなくなる
+        // ⚠ start_quiz_run が返すキーは run_id（id ではない）。db/2026-09-10_four_layers.sql を見て確かめること
         justStartedRunId = r.run_id || null;
         setView("today");
         window.scrollTo(0, 0);
-      }catch(e){ msg("はじめられませんでした（"+e.message+"）", true); }
-      finally{ busy(false); }
-    };
-
-    tr.querySelector(".qs-toggle").onclick = async ()=>{
-      const open = tr.querySelector(".qs-toggle").getAttribute("data-open")==="1";
-      busy(true);
-      let ok;
-      if(open){
-        // 停止: 受験記録は残ることを数字つきで言っておく
-        const n = embedN(s.attempts);
-        ok = await askDialog({
-          title: "「"+s.title+"」を停止します",
-          body: "学生の画面からすぐに消えます。\n"+(n!=null ? "受験記録 "+n+"件はそのまま残ります。" : "受験記録は残ります。"),
-          okText: "停止する",
-        });
-      }else{
-        // 公開: 押す前に対象人数を出す＝人数が違えば押す前に気づける（今は is_open が全員対象）
-        let n = null;
-        try{ n = await api.rpc("run_target_count", {}); }catch(e){ /* 出せなくても止めない */ }
-        ok = await askDialog({
-          title: "「"+s.title+"」を公開します",
-          body: (n!=null ? "学生 "+n+"人に、すぐに見えるようになります。" : "学生の画面に、すぐに見えるようになります。"),
-          okText: "公開する",
-        });
-      }
-      if(!ok){ busy(false); return; }
-      // ★知らせを出すのは**一覧を読み直したあと**。先に出すと、画面がまだ古いのに
-      //   「公開しました」と言うことになる（押した先生はもう一度押す）。
-      try{ await FmtImport.db.setOpen(id, !open); await showQsList(); msg((open?"停止":"公開")+"しました：" + s.title); }
-      catch(e){ msg("できませんでした（"+e.message+"）", true); busy(false); }
-    };
-
-    tr.querySelector(".qs-del").onclick = async ()=>{
-      busy(true);
-      try{
-        // ★押す前に受験記録を数える。0件でなければ、そもそも確認を出さずに断る
-        //   （最終判断はサーバー側の delete_quiz_set。ここは説明を出すための先読み）
-        const n = await FmtImport.db.attemptCount(id);
-        if(n > 0){
-          msg("「"+s.title+"」は受験記録が "+n+" 件あるので消せません。「停止」を使ってください。", true);
-          busy(false); return;
-        }
-        const qn = embedN(s.questions);
-        const ok = await askDialog({
-          title: "「"+s.title+"」を消します",
-          body: "設問"+(qn!=null ? " "+qn+"問" : "")+"も一緒に消えます。元に戻せません。",
-          okText: "消す", danger: true,
-        });
-        if(!ok){ busy(false); return; }
-        const r = await FmtImport.db.deleteSet(id);
-        msg("消しました：" + s.title + "（設問 " + (r && r.questions!=null ? r.questions : "?") + "問）");
-        await showQsList();
-      }catch(e){ msg("消せませんでした（"+e.message+"）", true); busy(false); }
+      }catch(e){ msg("はじめられませんでした（"+e.message+"）", true); btn.disabled=false; }
     };
   });
 }
 
-function showQsWizard(){ $("qs-pane-list").hidden=true; $("qs-pane-wizard").hidden=false; }
-
-function showQsStep(n){
-  document.querySelectorAll("#qs-steps .wizstep").forEach(el=>{
-    const s = Number(el.getAttribute("data-step"));
-    el.classList.toggle("on", s===n); el.classList.toggle("done", s<n);
-  });
-  document.querySelectorAll("[data-step-pane]").forEach(p=>{ p.hidden = (p.id!=="qs-step-"+n); });
-  if(n===2) renderQsPreview();
-  if(n===3) renderQsEdit();
-  if(n===4) renderQsPublish();
+/* ══════════════════════════════════════════════════════════════════
+   タブ切替・2秒ごとの自動更新。
+   ══════════════════════════════════════════════════════════════════ */
+function setView(v){
+  if(activeView==="today" && v!=="today") justStartedRunId = null;
+  activeView = v;
+  document.querySelectorAll("#tabsbar [data-view]").forEach(b=>b.classList.toggle("on", b.getAttribute("data-view")===v));
+  document.querySelectorAll("[data-viewpane]").forEach(p=>{ p.hidden = (p.id!=="view-"+v); });
+  if(v==="today") tick();
+  else if(v==="select") showSelectList(true);
+  else if(v==="quiz") openQuizView();
 }
-function goQsStep(n){ location.hash = "#qsets/import/"+n; }
-
-$("qs-btn-new").onclick = ()=>{
-  wizard.wb=null; wizard.filename=""; wizard.sets=null;
-  $("qs-file").value=""; $("qs-sheetpick").innerHTML=""; $("qs-step1-msg").style.display="none";
-  $("qs-btn-to2").disabled=true;
-  goQsStep(1);
-};
-$("qs-btn-cancel1").onclick = ()=>{ location.hash="#qsets"; };
-$("qs-btn-to1").onclick = ()=>goQsStep(1);
-$("qs-btn-to2").onclick = ()=>{
-  const {sets, warn} = FmtImport.build(wizard.wb, {only: qsCheckedSheets(), prefix: $("qs-prefix").value.trim()});
-  wizard.sets = sets; wizard.globalWarn = warn;
-  goQsStep(2);
-};
-$("qs-btn-to2b").onclick = ()=>goQsStep(2);
-$("qs-btn-to3").onclick = ()=>goQsStep(3);
-$("qs-btn-to3b").onclick = ()=>goQsStep(3);
-$("qs-btn-to4").onclick = ()=>goQsStep(4);
-
-/* ---- ①取り込み: ファイル選択 → シート選択 ---- */
-$("qs-file").onchange = async ()=>{
-  const f = $("qs-file").files[0];
-  if(!f) return;
-  try{
-    const buf = await f.arrayBuffer();
-    loadWorkbook(XLSX.read(buf,{type:"array"}), f.name);
-  }catch(e){
-    $("qs-step1-msg").className="msg err"; $("qs-step1-msg").style.display="block";
-    $("qs-step1-msg").textContent = "Excelとして読めませんでした（"+e.message+"）。課題登録FMTの.xlsxか確かめてください。";
-  }
-};
-/* ★e2eテスト用の入口。合成の File を <input type=file> に注入できないので、
-   SheetJSで組み立てたワークブックをここへ直接渡してファイル選択を飛ばす。 */
-function loadWorkbook(wb, filename){
-  wizard.wb = wb; wizard.filename = filename||"";
-  renderQsSheetPicker();
-}
-function renderQsSheetPicker(){
-  const names = FmtImport.listImportableSheets(wizard.wb);
-  $("qs-sheetpick").innerHTML = "<div class='field'><label>取り込むシート（"+names.length+"枚。テンプレート本体は除いてあります）</label>"+
-    names.map(n=>"<label class='chk'><input type='checkbox' class='qs-sheet-chk' value=\""+escHtml(n)+"\" checked> <span>"+escHtml(n)+"</span></label>").join("")+
-    "</div>";
-  document.querySelectorAll(".qs-sheet-chk").forEach(cb=>cb.onchange=validateQsSheetPick);
-  validateQsSheetPick();
-}
-function qsCheckedSheets(){ return [...document.querySelectorAll(".qs-sheet-chk:checked")].map(cb=>cb.value); }
-function validateQsSheetPick(){
-  const chosen = qsCheckedSheets();
-  const msg = $("qs-step1-msg");
-  if(!chosen.length){
-    msg.className="msg info"; msg.style.display="block"; msg.textContent="取り込むシートを1つ以上選んでください。";
-    $("qs-btn-to2").disabled=true; return;
-  }
-  // ★同じ課の範囲のシートが2枚あると二重登録になる（scripts/import_fmt_xlsx.py と同じ判定）
-  const byLesson = {};
-  chosen.forEach(n=>{ const l=FmtImport.lessonOf(n); (byLesson[l]=byLesson[l]||[]).push(n); });
-  const dupGroups = Object.entries(byLesson).filter(([,v])=>v.length>1);
-  if(dupGroups.length){
-    msg.className="msg err"; msg.style.display="block";
-    msg.textContent = "🔴 同じ課の範囲のシートが複数選ばれています（二重登録になるため進めません）。どちらか一方だけ選んでください： "+
-      dupGroups.map(([l,v])=>"「"+l+"課」: "+v.join(" / ")).join("　");
-    $("qs-btn-to2").disabled=true; return;
-  }
-  msg.style.display="none";
-  $("qs-btn-to2").disabled=false;
-}
-
-/* ---- ②プレビュー ---- */
-function renderQsPreview(){
-  const sets = wizard.sets||[];
-  const nSheet=sets.length, nQ=sets.reduce((a,s)=>a+s.questions.length,0),
-        nDropped=sets.reduce((a,s)=>a+s.dropped.length,0), nUnwritten=sets.reduce((a,s)=>a+s.unwritten.length,0);
-  $("qs-preview-kpi").innerHTML =
-    "<div class='stat'><div class='v'>"+nSheet+"</div><div class='l'>シート（回）</div></div>"+
-    "<div class='stat'><div class='v'>"+nQ+"</div><div class='l'>取り込める設問</div></div>"+
-    "<div class='stat'><div class='v' style='color:"+(nDropped?"var(--ng)":"inherit")+"'>"+nDropped+"</div><div class='l'>不備で取り込めない</div></div>"+
-    "<div class='stat'><div class='v'>"+nUnwritten+"</div><div class='l'>まだ書かれていない</div></div>";
-
-  const gw = (wizard.globalWarn||[]).filter(w=>w.startsWith("★"));
-  const note = $("qs-preview-note");
-  if(gw.length){ note.hidden=false; note.innerHTML = gw.map(w=>escHtml(w)).join("<br>"); }
-  else note.hidden=true;
-
-  $("qs-preview-list").innerHTML = sets.map(s=>{
-    const head = "<div class='dashhead' style='margin:14px 0 6px;'><span class='t' style='font-size:.95rem;'>"+
-      esc(s.title)+"　<span style='color:var(--sub);font-weight:400;font-size:.8rem;'>（"+esc(s.sheet)+"）</span></span>"+
-      (s.error? "<span class='pill warn'>"+esc(s.error)+"</span>" :
-        "<span class='pill "+(s.dropped.length?"warn":"on")+"'>"+s.questions.length+"問"+(s.dropped.length?"／🔴"+s.dropped.length+"件":"")+"</span>")+
-      "</div>";
-    const dropped = s.dropped.map(d=>
-      "<div class='qs-q ng'><div class='qno'>問"+d.seq+"（Excel "+d.row+"行目）</div>"+
-      "<div class='qp'>🔴 取り込めませんでした — "+esc(d.reason)+"</div></div>").join("");
-    const qs = s.questions.map(q=>{
-      const choices = q.choices.map((c,i)=>"<li"+(i+1===q.correctIdx?" class='ok'":"")+">"+(i+1)+". "+rubyHtml(c)+"</li>").join("");
-      return "<div class='qs-q'><div class='qno'>問"+q.seq+"</div><div class='qp'>"+rubyHtml(q.prompt)+"</div>"+
-        "<ul class='qs-choices'>"+choices+"</ul></div>";
-    }).join("");
-    return "<details style='margin-bottom:10px;'><summary>"+head+"</summary>"+dropped+qs+"</details>";
-  }).join("") || "<div class='note'>選んだシートに取り込める内容がありません。①へ戻ってシートを選び直してください。</div>";
-}
-
-/* ---- ③1問ずつ修正 ---- */
-function qsFlat(){
-  const flat=[];
-  (wizard.sets||[]).forEach((s,si)=>s.questions.forEach((q,qi)=>flat.push({si,qi})));
-  return flat;
-}
-function renderQsEdit(){
-  wizard.editFlat = qsFlat();
-  if(!wizard.editFlat.length){
-    $("qs-edit-nav").textContent="1問ずつ修正できる設問がありません（②プレビューで不備を確認してください）。";
-    $("qs-edit-form").innerHTML=""; return;
-  }
-  if(wizard.editIdx>=wizard.editFlat.length) wizard.editIdx=0;
-  renderQsEditAt(wizard.editIdx);
-}
-function renderQsEditAt(i){
-  const flat = wizard.editFlat, pos = flat[i];
-  const set = wizard.sets[pos.si], q = set.questions[pos.qi];
-  $("qs-edit-nav").innerHTML = esc(set.title)+"（"+esc(set.sheet)+"） — 問"+q.seq+"　["+(i+1)+" / "+flat.length+"問目]";
-  $("qs-edit-form").innerHTML =
-    "<div class='field'><label>設問文（改行そのまま。${漢字}(よみ) と書くとルビになります）</label>"+
-    "<textarea id='qs-ef-prompt' rows='3'>"+escHtml(q.prompt)+"</textarea></div>"+
-    "<div id='qs-ef-choices'>"+q.choices.map((c,idx)=>
-      "<div class='field' style='display:flex;gap:10px;align-items:center;'>"+
-      "<input type='radio' name='qs-ef-correct' value='"+(idx+1)+"' "+(idx+1===q.correctIdx?"checked":"")+">"+
-      "<input type='text' class='qs-ef-choice' data-i='"+idx+"' value=\""+escHtml(c)+"\" style='flex:1;font-size:1rem;padding:10px 12px;border:1px solid var(--line);border-radius:10px;'>"+
-      "</div>").join("")+"</div>"+
-    "<div class='note' style='margin:4px 0 14px;'>ラジオボタンで正解を選びます。選択肢は2〜12個。</div>"+
-    "<div class='btnrow'><button class='btn ghost' type='button' id='qs-ef-addchoice'>＋選択肢を足す</button>"+
-    "<button class='btn ghost' type='button' id='qs-ef-delchoice'>－最後の選択肢を消す</button></div>"+
-    "<div class='form2'>"+
-    "<div class='field'><label>カテゴリ</label><input type='text' id='qs-ef-cat' value=\""+escHtml(q.category||"")+"\"></div>"+
-    "<div class='field'><label>配点</label><input type='text' id='qs-ef-pts' value=\""+(q.points==null?"":q.points)+"\"></div>"+
-    "</div>"+
-    "<div class='field'><label>解説（学生には提出したあとだけ見えます）</label>"+
-    "<textarea id='qs-ef-expl' rows='2'>"+escHtml(q.explanation||"")+"</textarea></div>"+
-    (q.imageName? "<div class='note'>画像: "+esc(q.imageName)+"（いまの画面は画像を出しません）</div>" : "");
-  wireQsEditForm();
-}
-function saveQsEditForm(){
-  if(!wizard.editFlat || !wizard.editFlat.length) return;
-  const pos = wizard.editFlat[wizard.editIdx];
-  const q = wizard.sets[pos.si].questions[pos.qi];
-  q.prompt = $("qs-ef-prompt").value;
-  q.choices = [...document.querySelectorAll(".qs-ef-choice")].map(inp=>inp.value);
-  const picked = document.querySelector("input[name='qs-ef-correct']:checked");
-  q.correctIdx = picked ? Number(picked.value) : 1;
-  q.category = $("qs-ef-cat").value.trim() || null;
-  const pts = $("qs-ef-pts").value.trim();
-  q.points = pts==="" ? null : (Number.isFinite(Number(pts)) ? Number(pts) : q.points);
-  q.explanation = $("qs-ef-expl").value.trim() || null;
-}
-function wireQsEditForm(){
-  $("qs-ef-addchoice").onclick = ()=>{
-    saveQsEditForm();
-    const q = wizard.sets[wizard.editFlat[wizard.editIdx].si].questions[wizard.editFlat[wizard.editIdx].qi];
-    if(q.choices.length<12){ q.choices.push(""); renderQsEditAt(wizard.editIdx); }
-  };
-  $("qs-ef-delchoice").onclick = ()=>{
-    saveQsEditForm();
-    const q = wizard.sets[wizard.editFlat[wizard.editIdx].si].questions[wizard.editFlat[wizard.editIdx].qi];
-    if(q.choices.length>2){
-      q.choices.pop();
-      if(q.correctIdx>q.choices.length) q.correctIdx=q.choices.length;
-      renderQsEditAt(wizard.editIdx);
-    }
-  };
-}
-$("qs-ef-prev").onclick = ()=>{
-  if(!wizard.editFlat || !wizard.editFlat.length) return;
-  saveQsEditForm();
-  wizard.editIdx = (wizard.editIdx - 1 + wizard.editFlat.length) % wizard.editFlat.length;
-  renderQsEditAt(wizard.editIdx);
-};
-$("qs-ef-next").onclick = ()=>{
-  if(!wizard.editFlat || !wizard.editFlat.length) return;
-  saveQsEditForm();
-  wizard.editIdx = (wizard.editIdx + 1) % wizard.editFlat.length;
-  renderQsEditAt(wizard.editIdx);
-};
-
-/* ---- ④公開 ---- */
-function renderQsPublish(){
-  if(wizard.editFlat && wizard.editFlat.length) saveQsEditForm();   // 直前の修正を取りこぼさない
-  const publishable = (wizard.sets||[]).filter(s=>s.questions.length);
-  $("qs-publish-summary").innerHTML = publishable.length ?
-    ("<div class='kpi'><div class='stat'><div class='v'>"+publishable.length+"</div><div class='l'>公開される回</div></div>"+
-     "<div class='stat'><div class='v'>"+publishable.reduce((a,s)=>a+s.questions.length,0)+"</div><div class='l'>設問（合計）</div></div></div>"+
-     "<div class='tblwrap'><table class='tbl'><tr><th>テスト名</th><th>課</th><th class='num'>問題数</th></tr>"+
-     publishable.map(s=>"<tr><td>"+esc(s.title)+"</td><td>"+esc(s.lesson)+"</td><td class='num'>"+s.questions.length+"</td></tr>").join("")+
-     "</table></div>") :
-    "<div class='note'>公開できる回がありません（設問が1件も無い回は公開しません）。②へ戻って確認してください。";
-  $("qs-btn-publish").disabled = !publishable.length;
-}
-let qsPublishing=false;
-$("qs-btn-publish").onclick = async ()=>{
-  if(qsPublishing) return;
-  qsPublishing=true; $("qs-btn-publish").disabled=true;
-  const msg=$("qs-publish-msg"); msg.className="msg info"; msg.style.display="block"; msg.textContent="登録しています…";
-  const publishable = (wizard.sets||[]).filter(s=>s.questions.length);
-  const results=[];
-  try{
-    for(const s of publishable){
-      const r = await FmtImport.db.publishSet(s);
-      results.push({title:s.title, ...r});
-    }
-    msg.className="msg info";
-    msg.textContent = "登録しました（下書き）： "+results.map(r=>r.title+"（"+r.questionCount+"問）").join("、")
-      + " ／ 学生に見せるときは、一覧で「公開」を押してください";
-    setTimeout(()=>{ location.hash="#qsets"; }, 900);
-  }catch(e){
-    msg.className="msg err";
-    msg.textContent = "途中で失敗しました（"+e.message+"）。登録できた回もあるかもしれません。一覧で確認してください。";
-    qsPublishing=false; $("qs-btn-publish").disabled=false;
-  }
-};
-
-/* 「集計するテスト」の絞り込み（2026-09-11）。一覧①と同じ理由＝テストが増えると
-   直近だけでは目当てのものが埋もれる（入れた設問が実際には選べない）。
-   ここは<select>1つなので「もっと見る」は無い。代わりに実測上限437回に余裕を持たせ、
-   候補は上限500件まで一度に出す（絞り込めばさらに絞れる）。 */
-const qpState = { book:"", q:"" };
-let qpFiltersReady = false;
-async function ensureQpFilters(){
-  if(qpFiltersReady) return;
-  qpFiltersReady = true;
-  try{
-    const has = await FmtImport.db.probeQuizSetsSource();
-    if(!has) return;   // 列が無い＝絞り込みUIを出さずに従来どおり動く
-    const books = await FmtImport.db.listSourceBooks();
-    const sel = $("qp-filter-book");
-    sel.innerHTML = "<option value=''>すべての教材</option>" +
-      books.map(b=>"<option value=\""+escHtml(b)+"\">"+escHtml(b)+"</option>").join("");
-    sel.hidden = false;
-  }catch(e){ /* 教材の絞り込みだけ諦める。検索・選択そのものは従来どおり動く */ }
-}
-function renderQuizPickOptions(sets){
-  $("quiz-pick").innerHTML = sets.map(s=>
-    "<option value='"+esc(s.id)+"'>"+esc(s.title)+(s.lesson?"（"+esc(s.lesson)+"）":"")+"</option>").join("");
-}
-async function loadQuizPickOptions(){
-  const { rows: sets, total } = await FmtImport.db.searchQuizSets("id,title,lesson",
-    { book: qpState.book, q: qpState.q, limit: 500 });
-  $("qp-filter-note").textContent = sets.length
-    ? (total!=null ? (total+"件中 "+sets.length+"件を候補に表示") : (sets.length+"件"))
-    : "条件に合うテストがありません。";
-  return sets;
-}
-
-async function start(){
-  await ensureQpFilters();
-  const sets = await loadQuizPickOptions();
-  if(!sets.length){ err("login-msg","クイズセットがありません"); return; }
-  quizSets = sets;
-  quizSet = sets[0];
-  renderQuizPickOptions(sets);
-  $("quiz-pick").value = quizSet.id;
-  $("scr-login").hidden=true; $("scr-dash").hidden=false;
-  await tick();
-  timer=setInterval(tick, 2000);
-}
-$("quiz-pick").onchange = ()=>{
-  const id = $("quiz-pick").value;
-  quizSet = quizSets.find(s=>s.id===id) || quizSet;
-  lastCount = 0;   // フィードの「新着」演出（pulse）をこのテストの最初の描画では出さない
-  $("qrates").innerHTML = "<div style='color:var(--sub)'>読み込み中…</div>";
-  $("feed").innerHTML = "<div style='color:var(--sub)'>読み込み中…</div>";
-  // 範囲（実施回）の選択肢はテストごとに違うので作り直す
-  $("csv-run-pick").innerHTML = "<option value=''>全クラスまとめて（横断）</option>";
-  $("csv-run-pick").dataset.html = "";
-  tickQuiz().catch(()=>{});
-};
-/* 絞り込みが変わったら候補を作り直す。いま選んでいるテストが新しい候補にまだあれば選び直す
-   （無ければ先頭＝新しい順の1件目。start() が最初にやることと同じ）。 */
-async function refreshQuizPick(){
-  const keepId = quizSet && quizSet.id;
-  const sets = await loadQuizPickOptions();
-  quizSets = sets;
-  if(!sets.length){ $("quiz-pick").innerHTML = ""; return; }
-  renderQuizPickOptions(sets);
-  quizSet = (keepId && sets.find(s=>s.id===keepId)) || sets[0];
-  $("quiz-pick").value = quizSet.id;
-  lastCount = 0;
-  $("qrates").innerHTML = "<div style='color:var(--sub)'>読み込み中…</div>";
-  $("feed").innerHTML = "<div style='color:var(--sub)'>読み込み中…</div>";
-  $("csv-run-pick").innerHTML = "<option value=''>全クラスまとめて（横断）</option>";
-  $("csv-run-pick").dataset.html = "";
-  await tickQuiz().catch(()=>{});
-}
-$("qp-filter-book").onchange = ()=>{ qpState.book = $("qp-filter-book").value; refreshQuizPick(); };
-let qpSearchTimer = null;
-$("qp-filter-q").oninput = ()=>{
-  clearTimeout(qpSearchTimer);
-  qpSearchTimer = setTimeout(()=>{ qpState.q = $("qp-filter-q").value.trim(); refreshQuizPick(); }, 300);
-};
+document.querySelectorAll("#tabsbar [data-view]").forEach(b=>{ b.onclick = ()=>setView(b.getAttribute("data-view")); });
 
 async function tick(){
   try{
-    if(activeView==="today") await tickToday();
+    if(activeView==="today") await renderTodayRuns();
     else if(activeView==="quiz") await tickQuiz();
-    else if(activeView==="survey") await Promise.all([ tickSurvey(), renderSurveyRounds() ]);
   }catch(e){ /* 一時的な失敗は次のtickで回復 */ }
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   📅今日（入口・2026-09-11）: いま開いている実施回 と 今日登録した回だけを見せる。
-   ヨリソルの失敗analysis 1番目「入口は授業ではなく今日やること」への実装。
-   ★個人別は出さない。中身が無いときは空白にせず、次にやることへの導線を出す。
+   📅今日: いま開いている実施回だけを見せる。master.html の renderTodayRuns() と同じ動き。
    ══════════════════════════════════════════════════════════════════ */
-const runTargetCache = {};   // run_id → 対象人数（クラス名簿は授業中に変わらない前提。取れるまでは"…"）
-function todayRunsMsg(text, ng){ const m=$("today-runs-msg"); m.style.display="block"; m.textContent=text; m.className="msg"+(ng?" err":" info"); }
-
-/* いま「はじめる」を押して作った回のid。📅今日 で目印を付けるためだけに使う。
-   ★複数の回が同時に開いていることは普通にある（クラスごと）ので、
-     連れて来ただけでは「さっき自分が始めたのはどれか」が分からない。 */
+const runTargetCache = {};
 let justStartedRunId = null;
+function todayRunsMsg(text, ng){ const m=$("today-runs-msg"); m.style.display="block"; m.textContent=text; m.className="msg"+(ng?" err":" info"); }
 function fmtRemain(closesAt){
   const ms = new Date(closesAt) - Date.now();
   if(ms<=0) return "まもなく終了";
   const m = Math.floor(ms/60000), s = Math.floor((ms%60000)/1000);
   return m+"分"+String(s).padStart(2,"0")+"秒";
 }
-async function tickToday(){
-  await Promise.all([ renderTodayRuns(), renderTodaySets() ]);
-}
-
 async function renderTodayRuns(){
   const nowIso = new Date().toISOString();
   let runs;
@@ -1424,12 +536,10 @@ async function renderTodayRuns(){
     return;
   }
   if(!runs.length){
-    // ★空のときも空白にしない。次にやること（②で足した「はじめる」）への導線を出す
     $("today-runs").innerHTML = "<div style='color:var(--sub);'>いま開いている回はありません。"
-      + "「✏️ 問題の登録・解放」の一覧から「はじめる」を押すと、ここに出ます。</div>";
+      + "「▶ テストを選んではじめる」から はじめると、ここに出ます。</div>";
     return;
   }
-  // ★対象人数はクラス名簿が授業中に変わらない前提でキャッシュする（毎tickRPCを呼ばない）
   await Promise.all(runs.filter(r=>runTargetCache[r.id]===undefined).map(async r=>{
     try{ runTargetCache[r.id] = await api.rpc("run_target_count",
       {p_class_names:r.class_names||[], p_student_ids:r.student_ids||[]}); }
@@ -1452,13 +562,10 @@ async function renderTodayRuns(){
           + "<td>"+esc(cls)+"</td>"
           + "<td class='num'>"+fmtRemain(r.closes_at)+"</td>"
           + "<td class='num'>"+submitted+" / "+(target==null?"—":target)+"</td>"
-          + "<td class='qs-act'>"
-          /* ★名前を「停止」から「おわる」に変えた（2026-09-12 きあ「停止と取り消しの違いがわからない」）。
-             一覧にも「停止」があって**別のこと**（学生に見せる/見せないの切り替え）をするので、
-             同じ言葉を2か所で違う意味に使わない。 */
-          +   "<button class='btn ghost run-stop' type='button' "
+          + "<td class='actcell'>"
+          +   "<button class='btn ghost btnsm run-stop' type='button' "
           +     "title='いま終わりにします。出た答えは集計に入ります'>おわる</button>"
-          +   "<button class='btn ghost run-void' type='button' "
+          +   "<button class='btn ghost btnsm run-void' type='button' "
           +     "title='この回を無かったことにします。答えは消えませんが集計から外れます'>取り消す</button>"
           + "</td></tr>";
       }).join("")
@@ -1492,33 +599,83 @@ async function renderTodayRuns(){
   });
 }
 
-async function renderTodaySets(){
-  let sets;
+/* ══════════════════════════════════════════════════════════════════
+   📝 小テスト ライブ集計。テストの選び方（教材で絞る・検索）は master.html の quiz-pick と同じ形。
+   ══════════════════════════════════════════════════════════════════ */
+const qpState = { book:"", q:"" };
+let qpFiltersReady = false;
+async function ensureQpFilters(){
+  if(qpFiltersReady) return;
+  qpFiltersReady = true;
   try{
-    sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson,is_open,created_at&order=created_at.desc&limit=50");
-  }catch(e){
-    $("today-sets").innerHTML = "<div class='msg err' style='display:block;'>読み込みに失敗しました（"+esc(e.message)+"）</div>";
-    return;
+    const cols = await probeQuizSetCols();
+    if(!cols.source) return;
+    const books = await listSourceBooks();
+    const sel = $("qp-filter-book");
+    sel.innerHTML = "<option value=''>すべての教材</option>" +
+      books.map(b=>"<option value=\""+escHtml(b)+"\">"+escHtml(b)+"</option>").join("");
+    sel.hidden = false;
+  }catch(e){ /* 絞り込みだけ諦める */ }
+}
+function renderQuizPickOptions(sets){
+  $("quiz-pick").innerHTML = sets.map(s=>
+    "<option value='"+esc(s.id)+"'>"+esc(s.title)+(s.lesson?"（"+esc(s.lesson)+"）":"")+"</option>").join("");
+}
+async function loadQuizPickOptions(){
+  const { rows: sets, total } = await searchQuizSets("id,title,lesson",
+    { book: qpState.book, q: qpState.q, limit: 500 });
+  $("qp-filter-note").textContent = sets.length
+    ? (total!=null ? (total+"件中 "+sets.length+"件を候補に表示") : (sets.length+"件"))
+    : "条件に合うテストがありません。";
+  return sets;
+}
+async function refreshQuizPick(){
+  const keepId = quizSet && quizSet.id;
+  const sets = await loadQuizPickOptions();
+  quizSets = sets;
+  if(!sets.length){ $("quiz-pick").innerHTML = ""; quizSet=null; $("qrates").innerHTML=""; $("feed").innerHTML=""; return; }
+  renderQuizPickOptions(sets);
+  quizSet = (keepId && sets.find(s=>s.id===keepId)) || sets[0];
+  $("quiz-pick").value = quizSet.id;
+  lastCount = 0;
+  $("qrates").innerHTML = "<div style='color:var(--sub)'>読み込み中…</div>";
+  $("feed").innerHTML = "<div style='color:var(--sub)'>読み込み中…</div>";
+  $("csv-run-pick").innerHTML = "<option value=''>全クラスまとめて（横断）</option>";
+  $("csv-run-pick").dataset.html = "";
+  await tickQuiz().catch(()=>{});
+}
+$("qp-filter-book").onchange = ()=>{ qpState.book = $("qp-filter-book").value; refreshQuizPick(); };
+let qpSearchTimer = null;
+$("qp-filter-q").oninput = ()=>{
+  clearTimeout(qpSearchTimer);
+  qpSearchTimer = setTimeout(()=>{ qpState.q = $("qp-filter-q").value.trim(); refreshQuizPick(); }, 300);
+};
+$("quiz-pick").onchange = ()=>{
+  const id = $("quiz-pick").value;
+  quizSet = quizSets.find(s=>s.id===id) || quizSet;
+  lastCount = 0;
+  $("qrates").innerHTML = "<div style='color:var(--sub)'>読み込み中…</div>";
+  $("feed").innerHTML = "<div style='color:var(--sub)'>読み込み中…</div>";
+  $("csv-run-pick").innerHTML = "<option value=''>全クラスまとめて（横断）</option>";
+  $("csv-run-pick").dataset.html = "";
+  tickQuiz().catch(()=>{});
+};
+
+async function openQuizView(){
+  await ensureQpFilters();
+  if(!quizSets.length){
+    const sets = await loadQuizPickOptions().catch(()=>[]);
+    quizSets = sets;
+    if(sets.length){ quizSet = sets[0]; renderQuizPickOptions(sets); $("quiz-pick").value = quizSet.id; }
   }
-  const todayStr = new Date().toDateString();
-  const todaySets = sets.filter(s=>new Date(s.created_at).toDateString()===todayStr);
-  if(!todaySets.length){
-    $("today-sets").innerHTML = "<div style='color:var(--sub);'>今日はまだ何も登録していません。"
-      + "「✏️ 問題の登録・解放」の「＋ Excelから取り込む」から始めます。</div>";
-    return;
-  }
-  $("today-sets").innerHTML = todaySets.map(s=>{
-    const t = new Date(s.created_at).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
-    return "<div class='frow'><span class='fname'>"+esc(s.title)+(s.lesson?"（"+esc(s.lesson)+"）":"")+"</span>"
-      + "<span class='pill "+(s.is_open?"on":"off")+"'>"+(s.is_open?"公開中":"下書き")+"</span>"
-      + "<span class='ftime'>"+t+"</span></div>";
-  }).join("");
+  if(quizSet) await tickQuiz().catch(()=>{});
 }
 
 async function tickQuiz(){
+  if(!quizSet) return;
   const s = await api.rpc("quiz_stats",{p_quiz_set_id:quizSet.id});
   if(s.error) return;
-  updateRunPick(s.runs);   // 結果の書き出しの「範囲」選択肢（実施回ごと／横断）
+  updateRunPick(s.runs);
   const n = s.attempts.length;
   $("st-count").textContent = n;
   $("st-avg").textContent = n ? (s.attempts.reduce((a,x)=>a+x.score,0)/n).toFixed(1) : "–";
@@ -1531,8 +688,6 @@ async function tickQuiz(){
         "<span class='pct'>"+pct+"%</span></div>";
     }).join("");
   }
-  /* 画面を離れた記録。★誰が、は出さない（そういう使い方をしないと決めた）。
-     読み方は「不正が◯件」ではなく「この回の数字は、その分だけ割り引いて見る」。 */
   const f = s.focus;
   if(f && f.students > 0){
     $("focus-note").hidden = false;
@@ -1555,15 +710,9 @@ async function tickQuiz(){
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   結果の書き出し（台帳へ流す用・2026-09-11・完成の条件4「クラスの到達度が分かり、成績の台帳に流れる」）
-   ★点数の正本は学生マスタDB（このアプリには置かない）。学籍番号つきのCSVを書き出し、
-     きあがあちらへ取り込む。サーバーは使わず、ブラウザの中で作ってそのまま保存させる。
-   🔴 個票（1行1学生）と問題ごとの集計（1行1問）は別ファイル＝ヨリソルの失敗6番目「同じ表に混ぜない」。
-   🔴 離席の記録（画面を離れた回数）はどちらにも出さない＝小テストは成績に反映しない方針が崩れるため。
+   結果の書き出し（CSV）。master.html と同じ形。個票と問題ごとの集計は別ファイル。
+   離席の記録（画面を離れた回数）はどちらにも出さない＝成績に反映しない方針が崩れるため。
    ══════════════════════════════════════════════════════════════════ */
-
-/* 「範囲」の選択肢＝quiz_stats が返す runs（その回のセットに立った実施回、新しい順）。
-   ★中身が変わっていなければ作り直さない＝2秒ごとのtickで選択中の範囲が消えないように。 */
 function updateRunPick(runs){
   const sel = $("csv-run-pick");
   const cur = sel.value;
@@ -1573,29 +722,22 @@ function updateRunPick(runs){
       const when = new Date(r.opens_at).toLocaleString("ja-JP",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
       return "<option value=\""+escHtml(r.run_id)+"\">"+escHtml(cls)+"　"+when+(r.is_void?"（取消）":"")+"</option>";
     }).join("");
-  if(sel.dataset.html === html) return;   // 前回と同じなら触らない（選択中の値を保つ）
+  if(sel.dataset.html === html) return;
   sel.innerHTML = html;
   sel.dataset.html = html;
   if([...sel.options].some(o=>o.value===cur)) sel.value = cur;
 }
-
-/* 学籍番号 → クラス名。quiz_stats の attempts は student_no までしか返さない
-  （どの実施回で受けたかは run_id 経由で分かるが、実施回が無い・複数クラス対象だと引けないため、
-   本人のクラスは profiles から別引きする）。★件数は小さいので毎回取り直してよい（キャッシュしない＝
-   卒業・クラス替えのタイミングを気にしなくて済む）。 */
 async function fetchStudentClassByNo(){
   const rows = await api.get("/rest/v1/profiles?select=student_no,class_name&role=eq.student");
   const map = {};
   rows.forEach(r=>{ map[r.student_no] = r.class_name || ""; });
   return map;
 }
-
 function csvCell(v){
   const s = v==null ? "" : String(v);
   return /[",\r\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
 }
-/* 🔴 BOM付きUTF-8。付けないとExcelで日本語が化ける（既定の「UTF-8（BOM無し）」の罠）。
-   改行はCRLF（Excelの既定に合わせる）。ダウンロードはブラウザの中だけ＝送信しない。 */
+/* BOM付きUTF-8。付けないとExcelで日本語が化ける。ダウンロードはブラウザの中だけ＝送信しない。 */
 function downloadCsv(filename, rows){
   const text = "\uFEFF" + rows.map(r=>r.map(csvCell).join(",")).join("\r\n") + "\r\n";
   const blob = new Blob([text], {type:"text/csv;charset=utf-8;"});
@@ -1609,7 +751,6 @@ function todayCompact(){
   const d = new Date();
   return d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");
 }
-/* ファイル名にテスト名と日付を入れる（あとで探せるように）。Windowsで使えない文字は_に置き換える */
 function csvFilename(kind){
   const safe = (quizSet.title||"小テスト").replace(/[\\/:*?"<>|]/g,"_");
   return safe+"_"+kind+"_"+todayCompact()+".csv";
@@ -1617,6 +758,7 @@ function csvFilename(kind){
 function csvMsg(text, ng){ const m=$("csv-msg"); m.style.display="block"; m.textContent=text; m.className="msg"+(ng?" err":" info"); }
 
 async function exportQuizCsv(kind){
+  if(!quizSet) return;
   const runId = $("csv-run-pick").value || null;
   $("csv-btn-student").disabled = true; $("csv-btn-question").disabled = true;
   csvMsg("書き出しています…");
@@ -1657,122 +799,7 @@ async function exportQuizCsv(kind){
 $("csv-btn-student").onclick   = ()=>exportQuizCsv("student");
 $("csv-btn-question").onclick  = ()=>exportQuizCsv("question");
 
-/* どのアンケートを見るか（定義は assets/surveys.js・学生画面と共通。先生向けなので日本語の名前で出す） */
-let svKey = SURVEYS[0].key;
-function svDef(){ return SURVEYS.find(s=>s.key===svKey) || SURVEYS[0]; }
-$("sv-pick").innerHTML = SURVEYS.map(s=>"<option value='"+s.key+"'>"+esc(s.title.ja)+"</option>").join("");
-$("sv-pick").onchange = ()=>{
-  svKey = $("sv-pick").value;
-  $("sv-list").innerHTML = "<div style='color:var(--sub)'>読み込み中…</div>";
-  tickSurvey().catch(()=>{});
-  renderSurveyRounds().catch(()=>{});
-};
-async function tickSurvey(){
-  // 学生総数（初回だけ取得）: 未提出数 = 次に支援する人 の算出用
-  // デモではA①クラス（成基太郎1〜20）を対象クラスとして数える。本番はクラス選択UIに置き換える
-  if(studentTotal===null){
-    const all = await api.get("/rest/v1/profiles?select=id&role=eq.student&class_name=eq."+encodeURIComponent("A①クラス"));
-    studentTotal = all.length;
-  }
-  const rows = await api.get("/rest/v1/survey_responses?select=answers,submitted_at,profiles(student_no,display_name)&survey_key=eq."+svKey+"&order=submitted_at.desc");
-  $("sv-count").textContent = rows.length;
-  $("sv-rest").textContent = Math.max(0, studentTotal - rows.length);
-  if(rows.length){
-    const def = svDef();
-    $("sv-list").innerHTML = rows.map(r=>{
-      const t = new Date(r.submitted_at).toLocaleString("ja-JP",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
-      const a = r.answers||{};
-      return "<div class='svrow'><div class='svhead'>"+
-        "<span class='fname'>"+esc(r.profiles.display_name)+"（"+esc(r.profiles.student_no)+"）</span>"+
-        "<span class='ftime'>"+t+"</span></div>"+
-        "<div class='svans'>"+
-        def.q.map(q=>"<span>"+esc(q.sl)+": <b>"+esc(optLabel(q, a[q.k]))+"</b></span>").join("")+
-        "</div></div>";
-    }).join("");
-  }else{
-    $("sv-list").innerHTML = "<div style='color:var(--sub)'>回答待ち…</div>";
-  }
-}
-
-/* アンケートの回の一覧・操作（余力枠・2026-09-11）。小テストの「今日」パネルと同じ考え方だが、
-   締切が無い回（常設）もあるので残り時間の表現はしない。teacher は survey_rounds を直接読める
-  （RLS「teacher manage rounds」が for all）。 */
-function svRoundsMsg(text, ng){ const m=$("sv-rounds-msg"); m.style.display="block"; m.textContent=text; m.className="msg"+(ng?" err":" info"); }
-
-async function renderSurveyRounds(){
-  const box = $("sv-rounds-list");
-  let rounds;
-  try{
-    rounds = await api.get("/rest/v1/survey_rounds?select=id,title,class_names,opens_at,closes_at,is_void"
-      + "&survey_key=eq."+encodeURIComponent(svKey)+"&order=opens_at.desc&limit=30");
-  }catch(e){
-    box.innerHTML = "<div class='msg err' style='display:block;'>読み込みに失敗しました（"+esc(e.message)+"）</div>";
-    return;
-  }
-  if(!rounds.length){
-    box.innerHTML = "<div style='color:var(--sub);'>まだ回がありません。「＋ 新しい回を はじめる」から作れます。</div>";
-    return;
-  }
-  const now = Date.now();
-  box.innerHTML = "<div class='tblwrap'><table class='tbl'><thead><tr>"
-    + "<th>回の名前</th><th>クラス</th><th>締切</th><th>状態</th><th>操作</th>"
-    + "</tr></thead><tbody>"
-    + rounds.map(r=>{
-        const cls = (r.class_names && r.class_names.length) ? r.class_names.join("・") : "全員";
-        const closed = !!r.closes_at && new Date(r.closes_at).getTime() <= now;
-        const live = !r.is_void && !closed;
-        const closesTxt = r.closes_at ? new Date(r.closes_at).toLocaleDateString("ja-JP") : "ずっと開いたまま";
-        const stateTxt = r.is_void ? "取り消し済み" : (closed ? "終了" : "受付中");
-        return "<tr data-roundid='"+esc(r.id)+"'><td>"+esc(r.title||"（無題）")+"</td><td>"+esc(cls)+"</td>"
-          + "<td>"+closesTxt+"</td>"
-          + "<td><span class='pill "+(live?"on":"off")+"'>"+stateTxt+"</span></td>"
-          + "<td class='qs-act'>"
-          +   (live ? "<button class='btn ghost svr-close' type='button'>閉じる</button>"
-                     + "<button class='btn ghost svr-void' type='button'>取り消し</button>" : "")
-          + "</td></tr>";
-      }).join("")
-    + "</tbody></table></div>";
-
-  box.querySelectorAll("tr[data-roundid]").forEach(tr=>{
-    const id = tr.getAttribute("data-roundid");
-    const label = tr.children[0].textContent.trim();
-    const closeBtn = tr.querySelector(".svr-close"), voidBtn = tr.querySelector(".svr-void");
-    if(closeBtn) closeBtn.onclick = async ()=>{
-      const ok = await askDialog({
-        title: "「"+label+"」を閉じます",
-        body: "今すぐ締め切ります。ここまでの回答はそのまま残ります。",
-        okText: "閉じる",
-      });
-      if(!ok) return;
-      try{ await api.rpc("close_survey_round",{p_round_id:id}); await renderSurveyRounds(); }
-      catch(e){ svRoundsMsg("閉じられませんでした（"+e.message+"）", true); }
-    };
-    if(voidBtn) voidBtn.onclick = async ()=>{
-      const ok = await askDialog({
-        title: "「"+label+"」を取り消します",
-        body: "学生の画面からすぐに消えます。\n🔴 回答は消えません（集計から外れるだけです）。",
-        okText: "取り消す", danger: true,
-      });
-      if(!ok) return;
-      try{ await api.rpc("close_survey_round",{p_round_id:id, p_void:true}); await renderSurveyRounds(); }
-      catch(e){ svRoundsMsg("取り消せませんでした（"+e.message+"）", true); }
-    };
-  });
-}
-
-$("sv-btn-newround").onclick = async ()=>{
-  const r = await openSurveyRoundDialog(svKey);
-  if(!r) return;
-  await renderSurveyRounds();
-  svRoundsMsg("「"+r.title+"」を はじめました"+(r.target_count!=null ? "（"+r.target_count+"人対象）" : "")+"。");
-};
-
-/* イメージ「アンケートの作成」の一覧は本物の定義から出す（定義を足せばここにも出る） */
-$("svbuild-list").insertAdjacentHTML("beforeend", SURVEYS.map(s=>
-  "<tr><td>"+esc(s.title.ja)+"</td><td>"+esc(s.title.en||"")+"</td><td class='num'>"+s.q.length+"</td><td>全クラス</td><td><span class='pill on'>公開中</span></td></tr>"
-).join(""));
-
-/* QR */
+/* QR（学生用の入口を表示するだけ）。master.html の btn-qr と同じ形。 */
 let qrDone=false;
 $("btn-qr").onclick = ()=>{
   $("qrov").classList.add("on");
@@ -1785,22 +812,43 @@ $("btn-qr").onclick = ()=>{
 };
 $("qrclose").onclick = ()=>$("qrov").classList.remove("on");
 
-/* ★e2eテスト用の窓口だけ。`api`はconst宣言なのでiframe外からは `contentWindow.api` で拾えない
-   （varと違いconst/letはwindowのプロパティにならないため）。テスト（run_e2e_qsets_import.py の
-   片付け）が本物のデモDBを読み書きしてダミーを消すために、ここだけ window に出しておく。 */
-/* ブラウザ実操作テストの窓口。★api も FmtImport も const 宣言なので、iframe の外からは拾えない。
-   ここに出したものだけがテストから呼べる。**画面の動作には使わない**（テスト専用）。 */
-window.__e2e = {
-  get:(p)=>api.get(p),
-  del:(p)=>api._authed(p,{method:"DELETE"}),
-  // 🔴 後片付けは必ずこちらを使う。quiz_sets を直接 DELETE すると cascade で受験記録まで消える
-  delSet:(id)=>FmtImport.db.deleteSet(id),
-  attemptCount:(id)=>FmtImport.db.attemptCount(id),
+/* ══════════════════════════════════════════════════════════════════
+   ログイン。role で入口を分ける（2026-09-12・きあ提案で画面を3つにした）。
+     学生     → src/index.html（ここでは断る）
+     先生     → ここ
+     マスター → 入れる（マスターは先生の画面も見られる）。ただし案内を1行出す
+   ★これは案内であって、権限ではない。権限は RLS が持っている（いまは先生とマスターで同じ）。
+     だから「先生を締め出した」つもりにならないこと。
+   ══════════════════════════════════════════════════════════════════ */
+function applyRoleNotice(role){ $("master-notice").hidden = (role!=="master"); }
+
+async function start(){
+  $("scr-login").hidden=true; $("scr-dash").hidden=false;
+  setView("today");
+  timer = setInterval(tick, 2000);
+}
+
+$("btn-login").onclick = async () => {
+  const no=$("in-no").value.trim(), pw=$("in-pw").value;
+  if(!no || !pw) return;
+  $("btn-login").disabled=true;
+  try{
+    const p = await api.login(no,pw);
+    if(p.role!=="teacher" && p.role!=="master"){
+      api.logout();
+      throw new Error("ここは先生用の画面です。学生は「学生ポータル」（index.html）を開いてください。");
+    }
+    applyRoleNotice(p.role);
+    await start();
+  }catch(e){ err("login-msg", e.message); }
+  finally{ $("btn-login").disabled=false; }
 };
+$("in-pw").addEventListener("keydown",e=>{ if(e.key==="Enter") $("btn-login").click(); });
+$("btn-logout").onclick = ()=>{ clearInterval(timer); api.logout(); location.reload(); };
 
 (async ()=>{
-  if(api.token && api.profile && api.profile.role==="teacher"){
-    try{ await start(); return; }catch(e){ api.logout(); }
+  if(api.token && api.profile && (api.profile.role==="teacher" || api.profile.role==="master")){
+    try{ applyRoleNotice(api.profile.role); await start(); return; }catch(e){ api.logout(); }
   }
   $("scr-login").hidden=false;
 })();

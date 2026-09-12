@@ -59,6 +59,16 @@ def get_teacher_pw():
     return get("SP_TEACHER_PW")
 
 
+def get_master_no():
+    return get("SP_MASTER_NO")
+
+
+def get_master_pw():
+    """マスター（m001〜）。2026-09-12 に画面を3つに分けたときに増えた。
+    ★master.html は先生を断るので、あちらを操作する検査はこちらを使うこと。"""
+    return get("SP_MASTER_PW")
+
+
 def get_student_no():
     return get("SP_STUDENT_NO")
 
@@ -81,6 +91,8 @@ def write_e2e_creds_js(path):
     creds = {
         "teacherNo": get_teacher_no(),
         "teacherPw": get_teacher_pw(),
+        "masterNo": get_master_no(),
+        "masterPw": get_master_pw(),
         "studentNo": get_student_no(),
         "studentPw": get_student_pw(),
     }

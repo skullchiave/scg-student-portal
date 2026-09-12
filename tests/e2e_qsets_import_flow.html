@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>e2e qsets import flow</title></head>
 <body>
-<iframe id="f" src="../src/teacher.html" width="1100" height="900"></iframe>
+<iframe id="f" src="../src/master.html" width="1100" height="900"></iframe>
 <pre id="out">RUNNING</pre>
 <!-- 資格情報は file:// から .env を読めないので、run_e2e_qsets_import.py が書き出した tmp/e2e_creds.js から取る。
      ★無ければ window.__E2E_CREDS が undefined のままになる＝下の分岐で気づいて止まる（黙って落ちない）。 -->
@@ -36,7 +36,7 @@ function qrow(no, t2, choices, ans) {
 const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
 
 (async () => {
-  if (!CREDS || !CREDS.teacherPw) {
+  if (!CREDS || !CREDS.masterPw) {
     log.error = "資格情報が読めません（tmp/e2e_creds.js が無いか不完全）。tests/run_e2e_qsets_import.py から起動してください。";
     out.textContent = "E2E_RESULT " + JSON.stringify(log);
     return;
@@ -59,8 +59,11 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
   const $ = id => d.getElementById(id);
 
   // ---- ログイン ----
-  $("in-no").value = "t001"; $("in-pw").value = CREDS.teacherPw; $("btn-login").click();
-  step("教師としてログインできる", await until(() => !$("scr-dash").hidden), $("login-msg").textContent);
+  /* ★2026-09-12 に画面を3つに分けたので、**マスター**でログインする。
+     master.html は先生（t001）を断って teacher.html へ案内する作りになった。
+     ここを t001 のままにすると「教師としてログインできる」から先が全部落ちる（実際に落ちた）。 */
+  $("in-no").value = CREDS.masterNo; $("in-pw").value = CREDS.masterPw; $("btn-login").click();
+  step("マスターとしてログインできる", await until(() => !$("scr-dash").hidden), $("login-msg").textContent);
 
   // ---- 「問題の登録・解放」タブへ ----
   d.querySelector('.nav [data-view="qsets"]').click();
@@ -281,7 +284,7 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
   }
 
   // ---- 片付け（ダミーを消す。消せたことまで確認する）----
-  // ★w.api は const 宣言なので iframe外から拾えない。teacher.html が窓口として出している __e2e を使う。
+  // ★w.api は const 宣言なので iframe外から拾えない。master.html が窓口として出している __e2e を使う。
   // 🔴 **見つかった全部を消して、残りが0件であることをタイトルで確かめる。**
   //   以前は rowsFound[0] の1件だけ消し、その1件のIDで確認していた。
   //   前の実行が残したダミーがあると「古いほうを消して、今回作ったぶんを残す」のに

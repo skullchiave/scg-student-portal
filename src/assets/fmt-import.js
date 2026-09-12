@@ -1,7 +1,7 @@
 /* scg-student-portal 教師画面 — 課題登録FMT Excel の取り込み（2026-09-10）
  *
- * teacher.html の「問題の登録・解放」から使う。ライブラリは xlsx.js（SheetJS・CDN）のみ、
- * これは teacher.html だけで読み込む（学生画面 index.html の「ライブラリ依存ゼロ」は守る）。
+ * master.html の「問題の登録・解放」から使う。ライブラリは xlsx.js（SheetJS・CDN）のみ、
+ * これは master.html だけで読み込む（学生画面 index.html の「ライブラリ依存ゼロ」は守る）。
  *
  * 🔴 ★ここが肝: 取り込みの規則は scripts/import_fmt_xlsx.py と**意図して同じにそろえてある**。
  *   列の位置・見出しの検査・拾わない行・ルビ記法・選択肢の飛び/重複・同じ課の重複・ブック破損の
@@ -314,7 +314,7 @@ const FmtImport = (() => {
 })();
 
 /* ---------------------------------------------------------------- DB への書き込み（公開時のみ）
- * teacher.html だけで使う。api.js の api オブジェクト（ログイン・自動再送つきfetch）をそのまま使う。
+ * master.html だけで使う。api.js の api オブジェクト（ログイン・自動再送つきfetch）をそのまま使う。
  * api.js は「既存・変更が要るならリードへ」のファイルなので、ここでは変更せず
  * api._authed()（再送・トークン失効の自動リフレッシュつき）をそのまま呼ぶだけにしてある。
  */
@@ -370,7 +370,7 @@ FmtImport.db = (() => {
     return cols.quizSetsSource;
   }
 
-  /* 教材（source_book）の一覧。fetchClassNames()（teacher.html）と同じ考え方＝
+  /* 教材（source_book）の一覧。fetchClassNames()（master.html）と同じ考え方＝
      固定リストを持たず、実在の値から毎回引く。
      ⚠ 列が無い環境で呼ぶと PostgREST が 400 を返す。呼ぶ側は probeQuizSetsSource() で確かめてから呼ぶこと。 */
   async function listSourceBooks() {

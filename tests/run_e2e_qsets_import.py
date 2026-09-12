@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """教師画面「問題の登録・解放」の取り込み〜公開往復を、ヘッドレスChromeで実際に操作して確かめる回帰テスト。
 
-tests/e2e_qsets_import_flow.html が src/teacher.html を iframe で開き、本物のデモDB（Supabase）に対して
+tests/e2e_qsets_import_flow.html が src/master.html を iframe で開き、本物のデモDB（Supabase）に対して
   教師ログイン(t001) → ①取り込み(重複シートのブロックも確認) → ②プレビュー → ③1問ずつ修正
   → ②へ戻って修正が反映されているか → ④公開 → 一覧に出るか → 片付け（消す）
 を順に実行し、各段階の結果を JSON で返す。手本: run_e2e_quiz.py（学生画面の小テスト往復）。
@@ -37,7 +37,8 @@ if not chrome:
 # e2e_qsets_import_flow.html は file:// で開くので .env を直接読めない。
 # ここで .env を読んで tmp/e2e_creds.js に書き出し、HTML側はそれを読む（値は標準出力に出さない）。
 creds = write_e2e_creds_js(os.path.join(HERE, "..", "tmp", "e2e_creds.js"))
-if not creds.get("teacherPw"):
+# ★このテストは master.html を操作するので、要るのは**マスター**の資格情報（2026-09-12）
+if not creds.get("masterPw"):
     print(f"🔴 {NO_ENV_MSG}"); sys.exit(2)
 
 prof = tempfile.mkdtemp(prefix="e2e-qsets-chrome-")

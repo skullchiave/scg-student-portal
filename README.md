@@ -6,7 +6,7 @@
 | | |
 |---|---|
 | 学生用URL | https://skullchiave.github.io/scg-student-portal/ |
-| 教師モニター | https://skullchiave.github.io/scg-student-portal/teacher.html |
+| 教師モニター | https://skullchiave.github.io/scg-student-portal/master.html |
 | 裏方 | Supabase（無料枠・東京リージョン・project ref: `egdcbxzpgwenmfabpodd`） |
 | 状態 | **デモ**（2026-09-04 MTG用。データは全部ダミー・実在の学生情報ゼロ） |
 
@@ -51,7 +51,7 @@
 ## 起動方法・使い方
 
 - 学生: 学生用URLを開く → 学籍番号＋パスワードでログイン → テストを選んで回答 → 送信で即採点
-- 教師（管理画面 teacher.html）: t001でログイン → **ログイン直後は「📅 今日」**
+- 教師（管理画面 master.html）: t001でログイン → **ログイン直後は「📅 今日」**
   （いま開いている実施回・今日 登録した回）。左メニューから「問題の登録・解放」
   「小テスト ライブ集計」「アンケート 回答一覧」（いずれも本物）、「学生用QRを表示」で教室投影用のQR。
   「これから作る画面（イメージ）」はアンケート作成・学生アカウント・お知らせ・点検
@@ -100,7 +100,7 @@ python -m unittest discover -s tests -p "test_ruby.py"             # ルビ表�
 
 ## 問題を登録する（先生の画面・Excelから取り込み）
 
-`teacher.html` の「✏️ 問題の登録・解放」から、課題登録FMT の Excel を**直接読み込んで登録**できる。
+`master.html` の「✏️ 問題の登録・解放」から、課題登録FMT の Excel を**直接読み込んで登録**できる。
 **①Excelを選ぶ → ②プレビューで確認 → ③1問ずつ修正 → ④登録** の4段。
 ★**アップロードはしない**（ブラウザの中だけで読む）。DBに書き込むのは「④登録」を押したときだけ。
 

@@ -3,8 +3,8 @@ r"""test_qsets_import.py — 教師画面「問題の登録・解放」（src/as
 
 **DB不要・実物のExcel不要**。見ているのは次の3つ。
 
-  ① 構造（DB不要・常に実行）: teacher.html の読み込み・置き場所の決まりが崩れていないか
-     （xlsx.js は teacher.html だけ／index.html の「ライブラリ依存ゼロ」を破っていないか／
+  ① 構造（DB不要・常に実行）: master.html の読み込み・置き場所の決まりが崩れていないか
+     （xlsx.js は master.html だけ／index.html の「ライブラリ依存ゼロ」を破っていないか／
       innerHTML に流す前に rubyHtml()・setRuby() を通しているか／解説は question_answers 側か）
   ② JS の取り込みルール（Node で実行・DB不要）: fmt-import.js が
      `scripts/import_fmt_xlsx.py` と**同じ規則**で読めているか。列の位置・見出し検査・
@@ -28,7 +28,7 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TEACHER = os.path.join(ROOT, "src", "teacher.html")
+TEACHER = os.path.join(ROOT, "src", "master.html")
 INDEX = os.path.join(ROOT, "src", "index.html")
 FMTJS = os.path.join(ROOT, "src", "assets", "fmt-import.js")
 
@@ -63,9 +63,9 @@ class StructureTest(CheckMixin, unittest.TestCase):
         print("=== 1. 読み込み場所（DB不要）===")
         tea, idx, js = read(TEACHER), read(INDEX), read(FMTJS)
         self.check("fmt-import.js がある", bool(js), FMTJS)
-        self.check("teacher.html が fmt-import.js を読む", 'assets/fmt-import.js' in tea)
-        self.check("teacher.html が ruby.js を読む（設問文・選択肢をinnerHTMLに出すため）", 'assets/ruby.js' in tea)
-        self.check("xlsx.js（SheetJS）は teacher.html だけ", "xlsx" in tea.lower() and "xlsx" not in idx.lower())
+        self.check("master.html が fmt-import.js を読む", 'assets/fmt-import.js' in tea)
+        self.check("master.html が ruby.js を読む（設問文・選択肢をinnerHTMLに出すため）", 'assets/ruby.js' in tea)
+        self.check("xlsx.js（SheetJS）は master.html だけ", "xlsx" in tea.lower() and "xlsx" not in idx.lower())
         self.check("★学生画面はライブラリ依存ゼロのまま（index.html に xlsx を足していない）",
               "cdnjs.cloudflare.com/ajax/libs/xlsx" not in idx)
         self.check("xlsx のCDN読み込みはバージョンを固定して書いてある",
@@ -98,7 +98,7 @@ class StructureTest(CheckMixin, unittest.TestCase):
         print("\n=== 4. 同じ課の重複への言及（DB不要）===")
         js, tea = read(FMTJS), read(TEACHER)
         self.check("fmt-import.js が「同じ範囲」の重複を検出している", "同じ範囲" in js and "★同じ範囲" in js)
-        self.check("teacher.html 側が重複を理由に次へを止める作りになっている",
+        self.check("master.html 側が重複を理由に次へを止める作りになっている",
               "disabled" in tea and ("同じ課の範囲" in tea or "同じ範囲" in tea))
 
     def test_05_graceful_column_degrade(self):
@@ -185,10 +185,10 @@ class StructureTest(CheckMixin, unittest.TestCase):
               "async function probeQuizSetsSource" in js)
         self.check("probeColumns が quiz_sets の新3列も確かめている",
               "quizSetsSource" in js and "source_book,source_file,source_sheet" in js)
-        self.check("公開APIとして export している（teacher.html から呼べる）",
+        self.check("公開APIとして export している（master.html から呼べる）",
               "searchQuizSets," in js and "listSourceBooks," in js and "probeQuizSetsSource," in js)
 
-        # ---- teacher.html 側: ①一覧 ----
+        # ---- master.html 側: ①一覧 ----
         self.check("一覧に教材の絞り込みセレクトがある（qs-filter-book）", 'id="qs-filter-book"' in tea)
         self.check("★教材セレクトは既定で隠してある（列が無い環境では出さない）",
               bool(re.search(r'id="qs-filter-book"\s+hidden\b', tea)))
@@ -203,7 +203,7 @@ class StructureTest(CheckMixin, unittest.TestCase):
         self.check("絞り込みが変わったら件数の上限を50へ戻す作りがある（もっと見るで広げた分を保たない）",
               "qsListState.limit = 50" in tea)
 
-        # ---- teacher.html 側: ②「はじめる」の下敷き（集計するテスト選択・1168行目あたり）----
+        # ---- master.html 側: ②「はじめる」の下敷き（集計するテスト選択・1168行目あたり）----
         self.check("「集計するテスト」にも教材の絞り込みセレクトがある（qp-filter-book）",
               'id="qp-filter-book"' in tea)
         self.check("★同じく既定で隠してある", bool(re.search(r'id="qp-filter-book"\s+hidden\b', tea)))
@@ -669,12 +669,12 @@ class AfterStartTest(unittest.TestCase):
       ★文言を足すのではなく**行き先を変える**のが直し方だった。
         授業中に要るのは「残り時間」と「何人出したか」で、それは📅今日にしかない。
 
-    DB には触らない（teacher.html の中身を読むだけ）。
+    DB には触らない（master.html の中身を読むだけ）。
     """
 
     @classmethod
     def setUpClass(cls):
-        with io.open(os.path.join(ROOT, "src", "teacher.html"), encoding="utf-8") as f:
+        with io.open(os.path.join(ROOT, "src", "master.html"), encoding="utf-8") as f:
             cls.src = f.read()
 
     def check(self, name, cond, detail=""):
