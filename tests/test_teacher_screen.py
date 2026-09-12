@@ -309,5 +309,51 @@ class CrossLinkTest(unittest.TestCase):
         self.assertNotIn("master.html", idx)
 
 
+class LoginScreenSwitchTest(unittest.TestCase):
+    """🔴 ログイン画面にも切り替えを置く（2026-09-12 きあ報告）。
+
+    ★最初は**ログイン後にしか**切り替えを出していなかった。
+      ところが、いちばん要るのは「開いたら、ここじゃなかった」と気づく瞬間＝**ログイン画面**。
+      ログインしないと行き先が分からない作りは、行き先を探している人には届かない。
+
+    ⚠ 同時に見つかった件: master.html のログインが「教師ログイン／教師ID／t001」のままだった
+      （改名前の名残）。**画面の名前と、聞く相手の名前は必ず揃える**。
+      揃っていないと、開いた人は自分がどっちにいるのか分からない。
+    """
+
+    def test_teacher_login_links_to_master(self):
+        s = read()
+        self.assertIn("whichscreen", s)
+        self.assertRegex(s, r'whichscreen[\s\S]{0,400}href="master\.html"')
+
+    def test_master_login_links_to_teacher(self):
+        m = MASTER.read_text(encoding="utf-8")
+        self.assertIn("whichscreen", m)
+        self.assertRegex(m, r'whichscreen[\s\S]{0,400}href="teacher\.html"')
+
+    def test_each_login_says_which_screen_it_is(self):
+        """自分が何の画面かを名乗る。"""
+        self.assertIn("ここは <b>先生の画面</b>です", read())
+        self.assertIn("ここは <b>マスターの画面</b>です", MASTER.read_text(encoding="utf-8"))
+
+    def test_master_login_asks_for_a_master_id(self):
+        """🔴 マスター画面が「教師ID／t001」を聞かないこと。
+
+        ⚠ 否定条件なので **strip_comments を通す**。
+          「教師ID のままだった」という**直した理由の説明**がコメントに書いてあり、
+          生のまま見ると説明そのものに当たって落ちる（この案件で3度目の同じ罠）。
+        """
+        m = strip_comments(MASTER.read_text(encoding="utf-8"))
+        self.assertIn("マスターID", m)
+        self.assertIn('placeholder="m001"', m)
+        self.assertNotIn("教師ログイン", m)
+        self.assertNotIn("教師ID", m)
+
+    def test_teacher_login_asks_for_a_teacher_id(self):
+        s = read()
+        self.assertIn("先生ID", s)
+        self.assertIn('placeholder="t001"', s)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

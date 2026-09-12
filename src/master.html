@@ -24,6 +24,14 @@
   .nav button:hover,.nav a:hover{background:color-mix(in srgb,var(--blue) 6%,transparent);}
   .nav button.on{background:color-mix(in srgb,var(--blue) 11%,transparent);color:var(--blue-d);}
   .nav button .ico,.nav a .ico{width:1.5em;text-align:center;}
+
+  /* ログイン画面での「反対側の画面へ」（2026-09-12）。
+     🔴 切り替えは**ログイン後だけ**に出していたが、いちばん要るのは
+        「開いたら、ここじゃなかった」と気づく瞬間＝ログイン画面。 */
+  .whichscreen{max-width:520px;margin:14px auto 0;padding:12px 16px;border-radius:12px;
+    background:#eef5fb;border:1px solid #d3e5f2;font-size:.88rem;line-height:1.7;color:#1f4c73;}
+  .whichscreen b{font-weight:800;}
+  .whichscreen a{display:inline-block;margin-top:6px;font-weight:800;color:#0d5a96;}
   .nav a{text-decoration:none;color:inherit;font:inherit;cursor:pointer;}
   .nav button .soon{margin-left:auto;font-size:.62rem;font-weight:800;color:var(--sub);border:1px solid var(--line);border-radius:99px;padding:1px 7px;}
   .content .stats,.content .panel,.content .list{margin-left:0;margin-right:0;}
@@ -152,10 +160,13 @@
 
   <section id="scr-login" hidden>
     <div class="panel" style="max-width:520px;margin-left:auto;margin-right:auto;">
-      <h2>教師ログイン</h2>
+      <h2>マスター ログイン</h2>
       <div class="field">
-        <label for="in-no">教師ID</label>
-        <input id="in-no" type="text" autocapitalize="none" placeholder="t001">
+        <!-- ⚠ ここは「教師ログイン／教師ID／t001」のままだった（改名前の名残）。
+             マスターの画面なのに教師と名乗っていて、開いた人が見分けられなかった
+             （2026-09-12 きあ報告）。画面の名前と、聞く相手の名前を必ず揃えること。 -->
+        <label for="in-no">マスターID</label>
+        <input id="in-no" type="text" autocapitalize="none" placeholder="m001">
       </div>
       <div class="field">
         <label for="in-pw">パスワード</label>
@@ -163,6 +174,10 @@
       </div>
       <button class="btn" id="btn-login">ログイン</button>
       <div class="msg" id="login-msg"></div>
+    </div>
+    <div class="whichscreen">
+      ここは <b>マスターの画面</b>です（問題の登録・アンケートの作成・お知らせ・点検）。<br>
+      授業中に使う画面は別です。<a href="teacher.html">🍎 先生の画面へ</a>
     </div>
   </section>
 

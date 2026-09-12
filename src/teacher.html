@@ -17,6 +17,14 @@
     background:var(--bg);color:var(--ink);}
   #tabsbar button[data-view].on{background:var(--blue);border-color:var(--blue);color:#fff;}
   #tabsbar .sp{flex:1 1 auto;}
+
+  /* ログイン画面での「反対側の画面へ」（2026-09-12）。
+     🔴 切り替えは**ログイン後だけ**に出していたが、いちばん要るのは
+        「開いたら、ここじゃなかった」と気づく瞬間＝ログイン画面。 */
+  .whichscreen{max-width:520px;margin:14px auto 0;padding:12px 16px;border-radius:12px;
+    background:#eef5fb;border:1px solid #d3e5f2;font-size:.88rem;line-height:1.7;color:#1f4c73;}
+  .whichscreen b{font-weight:800;}
+  .whichscreen a{display:inline-block;margin-top:6px;font-weight:800;color:#0d5a96;}
   #tabsbar a{text-decoration:none;}
   #tabsbar .ghostbtn{background:var(--surface);color:var(--sub);}
   .notice{margin:0 22px 14px;background:#eef5fb;color:var(--blue-d);border:1px solid #d3e5f2;
@@ -90,6 +98,10 @@
       </div>
       <button class="btn" id="btn-login">ログイン</button>
       <div class="msg" id="login-msg"></div>
+    </div>
+    <div class="whichscreen">
+      ここは <b>先生の画面</b>です（授業中に使うものだけ）。<br>
+      問題の登録など、机の仕事は別の画面です。<a href="master.html">🗂 マスターの画面へ</a>
     </div>
   </section>
 

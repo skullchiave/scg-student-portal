@@ -21,8 +21,18 @@
 (function () {
   "use strict";
 
-  var SHOWN = "\u{1F441}";     // 👁 いま見えている
-  var HIDDEN = "\u{1F576}";    // 🕶 いま伏せている
+  /* ★絵文字ではなく SVG で描く（2026-09-12 に描き直した）。
+     最初は目とサングラスの絵文字を使ったが、きあに「切り替えが見当たらない」と言われた。
+     原因は3つ: ①端末によって見た目が違う ②小さく薄い ③サングラスは「目」に見えない。
+     → 太さも色も自分で決められる SVG にし、ボタンらしい下地も付けた。 */
+  var EYE = '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" ' +
+    'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M1.8 12S5.5 5 12 5s10.2 7 10.2 7-3.7 7-10.2 7S1.8 12 1.8 12z"/>' +
+    '<circle cx="12" cy="12" r="3.1"/></svg>';
+  var EYE_OFF = '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" ' +
+    'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M1.8 12S5.5 5 12 5s10.2 7 10.2 7-3.7 7-10.2 7S1.8 12 1.8 12z"/>' +
+    '<circle cx="12" cy="12" r="3.1"/><line x1="3.5" y1="3.5" x2="20.5" y2="20.5"/></svg>';
 
   function label(on) {
     var key = on ? "pw.hide" : "pw.show";
@@ -38,7 +48,8 @@
 
   function paint(btn, input) {
     var on = input.type === "text";
-    btn.textContent = on ? SHOWN : HIDDEN;
+    // 見えているときは「隠す」を示す＝スラッシュ入りの目。押したらどうなるかを見せる
+    btn.innerHTML = on ? EYE_OFF : EYE;
     btn.setAttribute("aria-label", label(on));
     btn.setAttribute("title", label(on));
     btn.setAttribute("aria-pressed", on ? "true" : "false");
