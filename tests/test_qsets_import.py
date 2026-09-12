@@ -21,6 +21,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -34,6 +35,19 @@ FMTJS = os.path.join(ROOT, "src", "assets", "fmt-import.js")
 
 def read(p):
     return io.open(p, encoding="utf-8").read() if os.path.exists(p) else ""
+
+
+def count_calls(src, needle):
+    """行頭が // や * のコメント行を除いて needle の出現回数を数える。
+    ⚠ 文字列の出現回数はコメントの中の同じ文字列にも当たって「たまたま通る」ことがある
+    （2026-09-11 に askDialog の検査で実際に踏んだ罠）。実際の呼び出しだけを数えるための道具。"""
+    n = 0
+    for line in src.splitlines():
+        s = line.strip()
+        if s.startswith("//") or s.startswith("*") or s.startswith("/*"):
+            continue
+        n += line.count(needle)
+    return n
 
 
 class CheckMixin:
@@ -142,12 +156,63 @@ class StructureTest(CheckMixin, unittest.TestCase):
         print("\n=== 6. 公開以外でDBに書き込まない（DB不要）===")
         js = read(FMTJS)
         # build() / buildSheet() はブラウザ内のメモリ処理だけ。fetch や api を呼んでいないこと
-        import re
         m = re.search(r"function build\([\s\S]*?\n  \}\n\n  return \{", js)
         self.check("build() 本体が読める", m is not None)
         if m:
             self.check("★パース処理（build）は fetch も api も呼んでいない（プレビューはDBに触らない）",
                   "fetch(" not in m.group(0) and "api." not in m.group(0))
+
+    def test_07_list_filter_search_and_count(self):
+        """一覧「①」の絞り込み・検索・件数・もっと見る（2026-09-11・きあ決定「教材で絞る＋名前で検索」）。
+
+        🔴 教材（source_book）は quiz_sets にまだ無い環境もある（DBは別担当が進めている）。
+           **列が無くても検索・件数・もっと見るは動き、教材フィルタだけ隠れる**のが正しい壊れ方。
+        """
+        print("\n=== 7. 一覧の絞り込み・検索・件数・もっと見る（DB不要）===")
+        js, tea = read(FMTJS), read(TEACHER)
+
+        # ---- fmt-import.js 側: 絞り込み検索の土台 ----
+        self.check("PostgREST側で絞る検索口がある（searchQuizSets）", "async function searchQuizSets" in js)
+        self.check("★件数は Prefer: count=exact で取っている（自前で数えていない）", "count=exact" in js)
+        self.check("★件数は Content-Range ヘッダから読んでいる", "content-range" in js.lower())
+        self.check("教材（source_book）で絞る条件を組み立てている", "source_book=eq." in js)
+        self.check("タイトルの部分一致で検索する条件を組み立てている", "title=ilike.*" in js)
+        self.check("★検索語は encodeURIComponent を通す（日本語対応）",
+              "encodeURIComponent(opts.q)" in js)
+        self.check("教材の候補は実在の値から引く（listSourceBooks・固定リストにしない）",
+              "async function listSourceBooks" in js)
+        self.check("列があるか確かめてから絞り込みUIを出す（probeQuizSetsSource）",
+              "async function probeQuizSetsSource" in js)
+        self.check("probeColumns が quiz_sets の新3列も確かめている",
+              "quizSetsSource" in js and "source_book,source_file,source_sheet" in js)
+        self.check("公開APIとして export している（teacher.html から呼べる）",
+              "searchQuizSets," in js and "listSourceBooks," in js and "probeQuizSetsSource," in js)
+
+        # ---- teacher.html 側: ①一覧 ----
+        self.check("一覧に教材の絞り込みセレクトがある（qs-filter-book）", 'id="qs-filter-book"' in tea)
+        self.check("★教材セレクトは既定で隠してある（列が無い環境では出さない）",
+              bool(re.search(r'id="qs-filter-book"\s+hidden\b', tea)))
+        self.check("一覧に名前検索の入力欄がある（qs-filter-q）", 'id="qs-filter-q"' in tea)
+        self.check("★検索欄は既定で隠していない（列に関係なく使える）",
+              not bool(re.search(r'id="qs-filter-q"[^>]*\bhidden\b', tea)))
+        self.check("「もっと見る」ボタンがある（qs-btn-more）", 'id="qs-btn-more"' in tea)
+        self.check("件数表示が「○件中 ○件を表示」の書式を持つ", "件中 " in tea and "件を表示" in tea)
+        self.check("一覧の読み込みが searchQuizSets を実際に呼んでいる（コメントではなく本物の呼び出し）",
+              count_calls(tea, "FmtImport.db.searchQuizSets(") >= 1,
+              "count=" + str(count_calls(tea, "FmtImport.db.searchQuizSets(")))
+        self.check("絞り込みが変わったら件数の上限を50へ戻す作りがある（もっと見るで広げた分を保たない）",
+              "qsListState.limit = 50" in tea)
+
+        # ---- teacher.html 側: ②「はじめる」の下敷き（集計するテスト選択・1168行目あたり）----
+        self.check("「集計するテスト」にも教材の絞り込みセレクトがある（qp-filter-book）",
+              'id="qp-filter-book"' in tea)
+        self.check("★同じく既定で隠してある", bool(re.search(r'id="qp-filter-book"\s+hidden\b', tea)))
+        self.check("「集計するテスト」にも名前検索の入力欄がある（qp-filter-q）", 'id="qp-filter-q"' in tea)
+        self.check("こちらも searchQuizSets を実際に呼んでいる",
+              count_calls(tea, "FmtImport.db.searchQuizSets(") >= 2,
+              "count=" + str(count_calls(tea, "FmtImport.db.searchQuizSets(")))
+        self.check("旧・上位50件固定の取得（limit=50 決め打ち）が quiz-pick の初期化に残っていない",
+              'quiz_sets?select=id,title,lesson&order=created_at.desc&limit=50' not in tea)
 
 
 # ------------------------------------------------------------------ ② 取り込みルール（Node）

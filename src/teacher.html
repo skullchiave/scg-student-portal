@@ -85,6 +85,19 @@
   .qs-act .btn{width:auto;padding:5px 12px;font-size:.8rem;margin:0 4px 0 0;}
   .qs-act .btn:disabled{opacity:.4;cursor:not-allowed;}
   .qs-why{font-size:.72rem;color:var(--sub);white-space:nowrap;}
+  /* 一覧・「はじめる」の絞り込みバー（2026-09-11）。
+     🔴 .field は使わない。app.css:70-71 の .field label{display:block} / .field input{width:100%} と
+     衝突する（チェックボックスで一度踏んだ罠＝ここでは最初から .field の外に置いて避ける）。
+     幅400pxでも横スクロールしないよう flex-wrap で縦積みに逃がす。 */
+  .qs-filterbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+  .qs-filterbar select,.qs-filterbar input{font-family:inherit;font-size:.9rem;padding:9px 12px;
+    border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);
+    height:38px;box-sizing:border-box;}
+  .qs-filterbar select{flex:1 1 180px;min-width:0;}
+  .qs-filterbar input[type=search]{flex:2 1 220px;min-width:0;}
+  .qs-filterbar select:focus,.qs-filterbar input:focus{outline:2px solid var(--blue);border-color:var(--blue);}
+  .qs-more{margin-top:10px;}
+  .qs-more .btn{width:auto;padding:9px 20px;font-size:.85rem;}
   /* 確認ダイアログの自前化（2026-09-11）: ブラウザ標準の confirm() は
      Chrome が「このページの内容」という見出しを勝手に付け、消せない・変えられない。
      色も先生のブラウザ／OSの設定なので、先生ごとに見た目が違う＝うちの画面に見えない。
@@ -107,7 +120,10 @@
   #svround-classes .chk{margin-bottom:0;}
   @media (max-width:900px){
     .adm{grid-template-columns:1fr;}
-    .side{position:static;}
+    /* 🔴 min-width:0 が要る。grid の子は既定が min-width:auto なので、
+       中のボタンの幅ぶんだけ .side が広がり、.nav の overflow-x が効く前に
+       **ページ全体が横スクロール**していた（2026-09-11 に発見。先生の画面の全ページで発生）。 */
+    .side{position:static;min-width:0;}
     .nav{flex-direction:row;overflow-x:auto;gap:4px;}
     .nav button{white-space:nowrap;width:auto;}
     .side .sechead{display:none;}
@@ -190,6 +206,13 @@
       <div id="view-quiz" data-viewpane hidden>
         <div class="dashhead"><span class="t">📝 小テスト ライブ集計</span></div>
         <div class="panel">
+          <!-- 絞り込み・検索（2026-09-11）: 一覧①と同じ理由・同じ考え方。テストが増えると
+               「はじめる」の下敷きになるこの選択肢からも目当てのテストが見えなくなるため。 -->
+          <div class="qs-filterbar" id="qp-filterbar">
+            <select id="qp-filter-book" hidden aria-label="教材で絞る"><option value="">すべての教材</option></select>
+            <input type="search" id="qp-filter-q" placeholder="テスト名で検索" aria-label="テスト名で検索">
+          </div>
+          <div class="note" id="qp-filter-note" style="margin:0 0 10px;"></div>
           <div class="field" style="max-width:460px;margin-bottom:0;">
             <label for="quiz-pick">集計するテスト（新しい順）</label>
             <select id="quiz-pick"></select>
@@ -266,6 +289,14 @@
           </div>
           <div class="panel">
             <h2>小テスト一覧</h2>
+            <!-- 絞り込み・検索（2026-09-11）: 本物の設問が入ると99回→437回になり、上位50件だけでは
+                 古いものに手が届かなくなるため。教材（source_book）は quiz_sets にまだ無い環境もあるので、
+                 列が無ければ非表示のまま（既定 hidden）＝JS側の ensureQsFilters が列の有無を確かめてから出す。
+                 検索・件数・もっと見るは列の有無に関係なく動く。 -->
+            <div class="qs-filterbar" id="qs-filterbar">
+              <select id="qs-filter-book" hidden aria-label="教材で絞る"><option value="">すべての教材</option></select>
+              <input type="search" id="qs-filter-q" placeholder="テスト名で検索" aria-label="テスト名で検索">
+            </div>
             <!-- 🔴 thead と tbody を明示する。table に insertAdjacentHTML("beforeend") で <tr> を足すと、
                  ブラウザが**そのたびに新しい tbody を作る**。すると「先頭以外の行を消す」掃除が
                  tbody ごとに効いて、**再描画のたびに古い行が1行ずつ生き残る**。
@@ -276,6 +307,9 @@
               <tbody id="qs-list-body"></tbody>
             </table></div>
             <div class="note" id="qs-list-note">読み込み中…</div>
+            <div class="qs-more" id="qs-list-more" hidden>
+              <button class="btn ghost" id="qs-btn-more" type="button">もっと見る</button>
+            </div>
             <div class="note"><b>はじめる</b>はクラスと時間を指定して、その時間だけ学生の画面に出します
               （授業中の小テストはこちら推奨。「📅 今日」で残り時間・提出数が見られます）。<br>
               <b>公開</b>を押すと、その回が<u>クラスを問わず</u>ずっと学生の画面に出ます。<b>停止</b>で引っ込みます。<br>
@@ -807,8 +841,43 @@ function routeQsets(){
   else showQsList();
 }
 
-async function showQsList(){
+/* 一覧の絞り込み状態（2026-09-11）。教材・検索語・今出す件数の上限を持つ。
+   ★filter/search が変わったときだけ limit を50へ戻す（「もっと見る」で広げた分を、
+   公開/停止や削除のあとの読み直しでは保たない=保つ、を分けるため→showQsList(resetLimit) 参照）。 */
+const qsListState = { book:"", q:"", limit:50 };
+let qsFiltersReady = false;
+
+/* 教材フィルタの初期化。★列が無い環境でも一覧そのものは動かす＝失敗を握りつぶして「出さない」側に倒す。
+   一度だけでよい（教材の顔ぶれは操作中に増減しない前提。fetchClassNames と同じ考え方）。 */
+async function ensureQsFilters(){
+  if(qsFiltersReady) return;
+  qsFiltersReady = true;
+  try{
+    const has = await FmtImport.db.probeQuizSetsSource();
+    if(!has) return;   // 列が無い＝絞り込みUIを出さずに従来どおり動く、が正しい壊れ方
+    const books = await FmtImport.db.listSourceBooks();
+    const sel = $("qs-filter-book");
+    sel.innerHTML = "<option value=''>すべての教材</option>" +
+      books.map(b=>"<option value=\""+escHtml(b)+"\">"+escHtml(b)+"</option>").join("");
+    sel.hidden = false;
+  }catch(e){ /* 教材の絞り込みだけ諦める。検索・件数・もっと見るは列に関係なく動く */ }
+}
+$("qs-filter-book").onchange = ()=>{ qsListState.book = $("qs-filter-book").value; showQsList(true); };
+let qsSearchTimer = null;
+$("qs-filter-q").oninput = ()=>{
+  clearTimeout(qsSearchTimer);
+  // 押すたびに叩かない（日本語入力の変換中も含めて300msだけ待つ）
+  qsSearchTimer = setTimeout(()=>{ qsListState.q = $("qs-filter-q").value.trim(); showQsList(true); }, 300);
+};
+$("qs-btn-more").onclick = ()=>{ qsListState.limit += 50; showQsList(false); };
+
+/* resetLimit: true のときだけ「もっと見る」で広げた件数を50へ戻す。
+   引数なし（routeQsets からの遷移・公開/停止/削除のあとの読み直し）は現在の件数を保つ＝
+   「もっと見る」を押した直後に他の操作をしても、また50件に戻って見えなくなることを避ける。 */
+async function showQsList(resetLimit){
   $("qs-pane-list").hidden=false; $("qs-pane-wizard").hidden=true;
+  await ensureQsFilters();
+  if(resetLimit) qsListState.limit = 50;
   $("qs-list-note").textContent="読み込み中…";
   try{
     // 受験記録の件数も一緒に取る。★これが無いと「消す」を押して初めて断られることになる
@@ -819,9 +888,11 @@ async function showQsList(){
     // 🔴 quiz_sets→questions は2026-09-10のquiz_set_questions（設問バンクの器）のせいで経路が2つあり、
     //   素の questions(count) だと PostgREST が「どちらか選べない」で300を返す（曖昧な埋め込み）。
     //   FK名を明示してあいまいさを消す（quiz_set_questions は関係ないと伝える）。
-    const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson,is_open,attempts(count),"
-                               + "questions!questions_quiz_set_id_fkey(count)"
-                               + "&order=created_at.desc&limit=50");
+    // 🔴 絞り込み（教材・検索）は PostgREST 側でかける（searchQuizSets）。クライアントで全部取ってから
+    //   絞ると、437回になったときに毎回全件取得することになる。
+    const { rows: sets, total } = await FmtImport.db.searchQuizSets(
+      "id,title,lesson,is_open,attempts(count),questions!questions_quiz_set_id_fkey(count)",
+      { book: qsListState.book, q: qsListState.q, limit: qsListState.limit });
     if(window.__e2e) window.__e2e.lastSets = sets;   // ブラウザ実操作テストの覗き口（画面の動作には使わない）
     // ★毎回まるごと入れ替える。1行ずつ足す形だと、古い行が残っていないかを常に気にすることになる
     //   ・操作は「公開/停止」と「消す」の2つだけ。行に置くのは、一覧を見ながら押せるようにするため
@@ -846,7 +917,20 @@ async function showQsList(){
           (locked ? "<span class='qs-why'>受験ずみ</span>" : "")+
         "</td></tr>";
     }).join("");
-    $("qs-list-note").textContent = sets.length? (sets.length+"件（新しい順・上位50）") : "まだ何も登録されていません。「＋ Excelから取り込む」から始めます。";
+    const filtering = !!(qsListState.book || qsListState.q);
+    if(!sets.length){
+      $("qs-list-note").textContent = filtering
+        ? "絞り込みの条件に合う小テストがありません。教材や検索語を変えてみてください。"
+        : "まだ何も登録されていません。「＋ Excelから取り込む」から始めます。";
+    }else{
+      // ★「今いくつあるのか分からないまま50件だけ見えている」を無くすのがここの目的。
+      //   件数が数えられなかった（total===null）ときだけ「○件を表示」に落とす（0件と混同しない扱いと同じ考え方）。
+      $("qs-list-note").textContent = (total!=null ? (total+"件中 "+sets.length+"件を表示") : (sets.length+"件を表示"))
+        + (filtering ? "（絞り込み中）" : "");
+    }
+    // もっと見る: 総数が分かればそれと比較。分からなければ「取得数が上限と同じ＝まだあるかも」を目安にする
+    const canMore = total!=null ? sets.length < total : sets.length === qsListState.limit;
+    $("qs-list-more").hidden = !canMore;
     wireQsListActions(sets);
   }catch(e){ $("qs-list-note").textContent = "読み込みに失敗しました（"+e.message+"）"; }
 }
@@ -1162,15 +1246,45 @@ $("qs-btn-publish").onclick = async ()=>{
   }
 };
 
+/* 「集計するテスト」の絞り込み（2026-09-11）。一覧①と同じ理由＝テストが増えると
+   直近だけでは目当てのものが埋もれる（入れた設問が実際には選べない）。
+   ここは<select>1つなので「もっと見る」は無い。代わりに実測上限437回に余裕を持たせ、
+   候補は上限500件まで一度に出す（絞り込めばさらに絞れる）。 */
+const qpState = { book:"", q:"" };
+let qpFiltersReady = false;
+async function ensureQpFilters(){
+  if(qpFiltersReady) return;
+  qpFiltersReady = true;
+  try{
+    const has = await FmtImport.db.probeQuizSetsSource();
+    if(!has) return;   // 列が無い＝絞り込みUIを出さずに従来どおり動く
+    const books = await FmtImport.db.listSourceBooks();
+    const sel = $("qp-filter-book");
+    sel.innerHTML = "<option value=''>すべての教材</option>" +
+      books.map(b=>"<option value=\""+escHtml(b)+"\">"+escHtml(b)+"</option>").join("");
+    sel.hidden = false;
+  }catch(e){ /* 教材の絞り込みだけ諦める。検索・選択そのものは従来どおり動く */ }
+}
+function renderQuizPickOptions(sets){
+  $("quiz-pick").innerHTML = sets.map(s=>
+    "<option value='"+esc(s.id)+"'>"+esc(s.title)+(s.lesson?"（"+esc(s.lesson)+"）":"")+"</option>").join("");
+}
+async function loadQuizPickOptions(){
+  const { rows: sets, total } = await FmtImport.db.searchQuizSets("id,title,lesson",
+    { book: qpState.book, q: qpState.q, limit: 500 });
+  $("qp-filter-note").textContent = sets.length
+    ? (total!=null ? (total+"件中 "+sets.length+"件を候補に表示") : (sets.length+"件"))
+    : "条件に合うテストがありません。";
+  return sets;
+}
+
 async function start(){
-  // ★上位50件・新しい順。既定は最新（従来どおり）だが、集計はあとから他のテストにも切り替えられる
-  //   （結果の書き出しは「今日の最新」だけでなく、終わったテストにも要るため）。
-  const sets = await api.get("/rest/v1/quiz_sets?select=id,title,lesson&order=created_at.desc&limit=50");
+  await ensureQpFilters();
+  const sets = await loadQuizPickOptions();
   if(!sets.length){ err("login-msg","クイズセットがありません"); return; }
   quizSets = sets;
   quizSet = sets[0];
-  $("quiz-pick").innerHTML = sets.map(s=>
-    "<option value='"+esc(s.id)+"'>"+esc(s.title)+(s.lesson?"（"+esc(s.lesson)+"）":"")+"</option>").join("");
+  renderQuizPickOptions(sets);
   $("quiz-pick").value = quizSet.id;
   $("scr-login").hidden=true; $("scr-dash").hidden=false;
   await tick();
@@ -1186,6 +1300,29 @@ $("quiz-pick").onchange = ()=>{
   $("csv-run-pick").innerHTML = "<option value=''>全クラスまとめて（横断）</option>";
   $("csv-run-pick").dataset.html = "";
   tickQuiz().catch(()=>{});
+};
+/* 絞り込みが変わったら候補を作り直す。いま選んでいるテストが新しい候補にまだあれば選び直す
+   （無ければ先頭＝新しい順の1件目。start() が最初にやることと同じ）。 */
+async function refreshQuizPick(){
+  const keepId = quizSet && quizSet.id;
+  const sets = await loadQuizPickOptions();
+  quizSets = sets;
+  if(!sets.length){ $("quiz-pick").innerHTML = ""; return; }
+  renderQuizPickOptions(sets);
+  quizSet = (keepId && sets.find(s=>s.id===keepId)) || sets[0];
+  $("quiz-pick").value = quizSet.id;
+  lastCount = 0;
+  $("qrates").innerHTML = "<div style='color:var(--sub)'>読み込み中…</div>";
+  $("feed").innerHTML = "<div style='color:var(--sub)'>読み込み中…</div>";
+  $("csv-run-pick").innerHTML = "<option value=''>全クラスまとめて（横断）</option>";
+  $("csv-run-pick").dataset.html = "";
+  await tickQuiz().catch(()=>{});
+}
+$("qp-filter-book").onchange = ()=>{ qpState.book = $("qp-filter-book").value; refreshQuizPick(); };
+let qpSearchTimer = null;
+$("qp-filter-q").oninput = ()=>{
+  clearTimeout(qpSearchTimer);
+  qpSearchTimer = setTimeout(()=>{ qpState.q = $("qp-filter-q").value.trim(); refreshQuizPick(); }, 300);
 };
 
 async function tick(){

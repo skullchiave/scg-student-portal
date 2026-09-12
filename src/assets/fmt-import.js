@@ -343,7 +343,8 @@ FmtImport.db = (() => {
   /* questions.image_name/category/points と question_answers.explanation は
      db/2026-09-10_question_columns.sql が本番DBに流れるまで存在しない。
      ★無ければ落ちずに、その4つを insert から外して警告に留める（きあのOK待ちの間の橋渡し）。
-     判定は軽い読み取りだけ（1行 select）＝書き込みを試して失敗を拾うより安全。 */
+     判定は軽い読み取りだけ（1行 select）＝書き込みを試して失敗を拾うより安全。
+     quiz_sets.source_book/source_file/source_sheet も同じ考え方で足す（2026-09-11・一覧の絞り込み用）。 */
   async function probeColumns() {
     if (colsProbed) return colsProbed;
     const probe = async (table, cols) => {
@@ -353,11 +354,54 @@ FmtImport.db = (() => {
     colsProbed = {
       questionExtra: await probe("questions", "image_name,category,points"),
       explanation: await probe("question_answers", "explanation"),
+      quizSetsSource: await probe("quiz_sets", "source_book,source_file,source_sheet"),
     };
     return colsProbed;
   }
 
   function resetProbeCache() { colsProbed = null; }   // テスト・やり直し用
+
+  /* quiz_sets に source_book 等があるか（一覧・「はじめる」の絞り込みUIを出す・出さないの分岐に使う）。
+     ★列が無い環境でも呼び出し側が落ちないよう、真偽値だけを返す薄いラッパー。 */
+  async function probeQuizSetsSource() {
+    const cols = await probeColumns();
+    return cols.quizSetsSource;
+  }
+
+  /* 教材（source_book）の一覧。fetchClassNames()（teacher.html）と同じ考え方＝
+     固定リストを持たず、実在の値から毎回引く。
+     ⚠ 列が無い環境で呼ぶと PostgREST が 400 を返す。呼ぶ側は probeQuizSetsSource() で確かめてから呼ぶこと。 */
+  async function listSourceBooks() {
+    const rows = await authedGet("/rest/v1/quiz_sets?select=source_book&source_book=not.is.null");
+    return [...new Set(rows.map(r => r.source_book).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ja"));
+  }
+
+  /* 一覧（showQsList）と「はじめる」画面（quiz-pick）が共通で使う絞り込み検索（2026-09-11）。
+     🔴 **PostgREST 側で絞る。**クライアントで全部取ってから絞る書き方をこのリポに増やさない
+     （99回→437回になると全件取得そのものが遅くなる・無駄なため）。
+     🔴 件数は Prefer: count=exact と Content-Range ヘッダから取る。
+        api.get() は res.json() しか返さない（ヘッダを読めない）ので、ここだけ api._authed を直に呼ぶ。
+     戻り値: { rows, total }。total は数えられなかったときだけ null（0件と混同しないため）。 */
+  async function searchQuizSets(select, opts) {
+    opts = opts || {};
+    const params = [
+      "select=" + select,
+      "order=" + (opts.order || "created_at.desc"),
+      "limit=" + (opts.limit || 50),
+      "offset=" + (opts.offset || 0),
+    ];
+    if (opts.book) params.push("source_book=eq." + encodeURIComponent(opts.book));
+    // ★日本語が入るので必ず encodeURIComponent を通す（教師の入力をそのままURLへ差し込まない）
+    if (opts.q) params.push("title=ilike.*" + encodeURIComponent(opts.q) + "*");
+    const res = await api._authed("/rest/v1/quiz_sets?" + params.join("&"), {
+      headers: { "Prefer": "count=exact" },
+    });
+    if (!res.ok) throw new Error("読み込みに失敗しました（" + res.status + "）");
+    const rows = await res.json();
+    const cr = res.headers.get("content-range");   // 例 "0-49/162"。数えられないと "0-49/*"
+    const m = cr && cr.match(/\/(\d+)$/);
+    return { rows, total: m ? Number(m[1]) : null };
+  }
 
   /* 1セット（1シートぶん）を登録する。quiz_sets → questions → question_choices → question_answers の順。
      ★解説は question_answers 側（学生が受験前に読めないように）。
@@ -428,6 +472,6 @@ FmtImport.db = (() => {
     return rows.length;
   }
 
-  return { probeColumns, resetProbeCache, publishSet, setOpen, deleteSet, attemptCount,
-           authedGet, authedWrite };
+  return { probeColumns, resetProbeCache, probeQuizSetsSource, listSourceBooks, searchQuizSets,
+           publishSet, setOpen, deleteSet, attemptCount, authedGet, authedWrite };
 })();
