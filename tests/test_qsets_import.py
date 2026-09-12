@@ -657,5 +657,67 @@ class NodeParityTest(CheckMixin, unittest.TestCase):
               r["title_of"] == ["つなぐ まとめテスト 1-3 （新）", "1-3"])
 
 
+class AfterStartTest(unittest.TestCase):
+    """「はじめる」を押したあと、いま何を動かしているか画面から分かること（2026-09-12）。
+
+    ★きあが実際に授業の形でデモを触って踏んだ:
+      「はじめたら…その画面が消えました。今どこのテストをはじめたのかわかりません」
+      原因は2つ重なっていた。
+        ① 完了メッセージは出ていたが、置き場が**ページの一番上**。
+           先生は50行の表を下へスクロールして押すので、**画面の外**にあった
+        ② 一覧の行は「下書き」のままで、実施中だと分かる印が付かなかった
+      ★文言を足すのではなく**行き先を変える**のが直し方だった。
+        授業中に要るのは「残り時間」と「何人出したか」で、それは📅今日にしかない。
+
+    DB には触らない（teacher.html の中身を読むだけ）。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        with io.open(os.path.join(ROOT, "src", "teacher.html"), encoding="utf-8") as f:
+            cls.src = f.read()
+
+    def check(self, name, cond, detail=""):
+        print(("  OK  " if cond else "  NG  ") + name + (("  " + str(detail)) if detail else ""))
+        self.assertTrue(cond, detail or name)
+
+    def test_01_goes_to_today_after_start(self):
+        print("\n=== はじめたあとの行き先 ===")
+        # 「はじめる」の処理の中で 今日 へ切り替えていること
+        i = self.src.find(".qs-start\").onclick")
+        self.assertGreater(i, 0, "「はじめる」の処理が見つからない")
+        block = self.src[i:i + 2500]
+        self.check("はじめたら 📅今日 へ移る", 'setView("today")' in block)
+        self.check("上まで戻す（メッセージが画面の外に出ないように）", "scrollTo(0, 0)" in block)
+
+    def test_02_uses_run_id_not_id(self):
+        """🔴 start_quiz_run が返すキーは run_id。id と書くと目印が**静かに**付かなくなる。"""
+        i = self.src.find(".qs-start\").onclick")
+        block = self.src[i:i + 2500]
+        self.check("返り値から run_id を取っている", "r.run_id" in block)
+        self.check("r.id と書いていない（そのキーは存在しない）", "justStartedRunId = r.id" not in self.src)
+
+    def test_03_marks_the_new_run(self):
+        self.check("「いま はじめた回」の目印を出す", "いま はじめた回" in self.src)
+        self.check("目印用の id を持っている", "justStartedRunId" in self.src)
+        self.check("今日を離れたら目印を消す",
+                   'activeView==="today" && v!=="today"' in self.src.replace(" ", "")
+                   or 'activeView==="today"' in self.src)
+
+    def test_04_list_shows_running(self):
+        print("\n=== 一覧に戻ったときに実施中と分かる ===")
+        self.check("実施中の印を付ける処理がある", "function markRunningRows" in self.src)
+        self.check("一覧を描いたあとに呼んでいる", "markRunningRows();" in self.src)
+        self.check("「実施中」と出す", "実施中</span>" in self.src)
+        # ★「公開中／下書き」は定義の状態、「実施中」はいま学生に出ているか。別物なので両方出す
+        self.check("下書きのままでも実施中を出せる（状態欄に足す形）", "pill live" in self.src)
+
+    def test_05_marking_failure_does_not_break_the_list(self):
+        """印が取れなくても一覧は使えること（黙って壊さない）。"""
+        i = self.src.find("async function markRunningRows")
+        block = self.src[i:i + 900]
+        self.check("取れなければ何もせず戻る", "catch(e){ return; }" in block)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

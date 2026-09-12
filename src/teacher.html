@@ -34,6 +34,12 @@
   .tblwrap{overflow-x:auto;}
   .pill{display:inline-block;border-radius:99px;padding:2px 10px;font-size:.74rem;font-weight:800;white-space:nowrap;}
   .pill.on{background:#eaf6ed;color:var(--ok);} .pill.off{background:#eef1f5;color:var(--sub);} .pill.warn{background:#fdf3e3;color:#c77700;}
+  /* いま「はじめる」を押して作った回の目印（2026-09-12）。同時に何本も開いていることがあるので、
+     連れて来ただけでは「さっき自分が始めたのはどれか」が分からない。★色は青系＝警告に読ませない */
+  .pill.live{background:#e7effd;color:var(--blue-d);}
+  tr.just-started{background:#f2f7ff;}
+  .nowtag{display:inline-block;border-radius:99px;padding:1px 9px;margin-right:2px;
+    font-size:.7rem;font-weight:800;background:var(--blue);color:#fff;white-space:nowrap;}
   .sw{display:inline-block;width:38px;height:22px;border-radius:99px;background:#cfd6df;position:relative;vertical-align:middle;}
   .sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;}
   .sw.on{background:var(--ok);} .sw.on::after{left:19px;}
@@ -814,6 +820,8 @@ $("btn-logout").onclick = ()=>{ clearInterval(timer); api.logout(); location.rel
 /* 左の一覧 → 右の中身。動く2つはタブ切替のたびに最新を取りにいく */
 document.querySelectorAll(".nav [data-view]").forEach(b=>{ b.onclick = ()=>setView(b.getAttribute("data-view")); });
 function setView(v){
+  // 「いま はじめた回」の目印は、📅今日 を離れたら消す（次に戻ったとき古い印が残らないように）
+  if(activeView==="today" && v!=="today") justStartedRunId = null;
   activeView=v;
   document.querySelectorAll(".nav [data-view]").forEach(b=>b.classList.toggle("on", b.getAttribute("data-view")===v));
   document.querySelectorAll("[data-viewpane]").forEach(p=>{ p.hidden = (p.id!=="view-"+v); });
@@ -932,7 +940,31 @@ async function showQsList(resetLimit){
     const canMore = total!=null ? sets.length < total : sets.length === qsListState.limit;
     $("qs-list-more").hidden = !canMore;
     wireQsListActions(sets);
+    markRunningRows();          // ★いま実施中の回に印を付ける（下）
   }catch(e){ $("qs-list-note").textContent = "読み込みに失敗しました（"+e.message+"）"; }
+}
+
+/* いま実施中の回に「実施中」の印を付ける（2026-09-12 きあ報告）。
+ * ★一覧に戻ってきたとき「下書き」としか出ておらず、**動かしている最中かどうかが分からなかった**。
+ *   「公開中／下書き」は<u>定義の状態</u>で、「実施中」は<u>いま学生に出ているか</u>＝別の話。
+ *   下書きのまま実施回だけ開く、が普通の使い方なので、この2つは同時に出さないと意味が通らない。
+ * 一覧の描画そのものは止めない（取れなくても印が付かないだけ）。 */
+async function markRunningRows(){
+  let runs;
+  try{
+    const nowIso = new Date().toISOString();
+    runs = await api.get("/rest/v1/quiz_runs?select=quiz_set_id,closes_at&is_void=eq.false"
+      + "&opens_at=lte."+nowIso+"&closes_at=gt."+nowIso);
+  }catch(e){ return; }           // 印が出ないだけ。一覧は使える
+  if(!Array.isArray(runs) || !runs.length) return;
+  const live = new Set(runs.map(r=>r.quiz_set_id));
+  $("qs-list-body").querySelectorAll("tr[data-qsid]").forEach(tr=>{
+    if(!live.has(tr.getAttribute("data-qsid"))) return;
+    const cell = tr.children[3];                       // 「状態」の列
+    if(!cell || cell.querySelector(".pill.live")) return;
+    cell.insertAdjacentHTML("beforeend",
+      " <span class='pill live' title='いま学生の画面に出ています。「📅 今日」で残り時間と提出数が見られます'>実施中</span>");
+  });
 }
 
 /* 一覧の「公開/停止」と「消す」。★押した行だけを触り、終わったら一覧を読み直す。 */
@@ -956,7 +988,22 @@ function wireQsListActions(sets){
         const cls = (r.class_names && r.class_names[0]) || "";
         const until = new Date(r.closes_at).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
         msg("「"+s.title+"」を「"+cls+"」で はじめました"
-          + (r.target_count!=null ? "（"+r.target_count+"人対象・" : "（")+until+"まで）。「📅 今日」で確認できます。");
+          + (r.target_count!=null ? "（"+r.target_count+"人対象・" : "（")+until+"まで）。");
+
+        /* 🔴 はじめたら「📅 今日」へ連れて行く（2026-09-12 きあ報告）。
+           きあが実際に授業の形で触って踏んだ： ダイアログが閉じたあと
+           **いま何を動かしているのか画面から分からなくなる**。
+           原因は2つ重なっていた:
+             ① 完了メッセージは出ているが、置き場が**ページの一番上**。
+                先生は50行の表を下へスクロールして「はじめる」を押すので、**画面の外**にある
+             ② 一覧の行は「下書き」のままで、実施中だと分かる印が何も付かない
+           ★文言を足すのではなく、**行き先を変える**のが正しい直し方。
+             授業中に先生が要るのは「残り時間」と「何人出したか」で、それは📅今日にしかない。 */
+        // ⚠ start_quiz_run が返すキーは **run_id**（id ではない）。db/2026-09-10_four_layers.sql の
+        //   jsonb_build_object を見て確かめること。ここを id にすると目印が静かに付かなくなる
+        justStartedRunId = r.run_id || null;
+        setView("today");
+        window.scrollTo(0, 0);
       }catch(e){ msg("はじめられませんでした（"+e.message+"）", true); }
       finally{ busy(false); }
     };
@@ -1340,6 +1387,11 @@ async function tick(){
    ══════════════════════════════════════════════════════════════════ */
 const runTargetCache = {};   // run_id → 対象人数（クラス名簿は授業中に変わらない前提。取れるまでは"…"）
 function todayRunsMsg(text, ng){ const m=$("today-runs-msg"); m.style.display="block"; m.textContent=text; m.className="msg"+(ng?" err":" info"); }
+
+/* いま「はじめる」を押して作った回のid。📅今日 で目印を付けるためだけに使う。
+   ★複数の回が同時に開いていることは普通にある（クラスごと）ので、
+     連れて来ただけでは「さっき自分が始めたのはどれか」が分からない。 */
+let justStartedRunId = null;
 function fmtRemain(closesAt){
   const ms = new Date(closesAt) - Date.now();
   if(ms<=0) return "まもなく終了";
@@ -1383,7 +1435,10 @@ async function renderTodayRuns(){
         const cls = (r.class_names && r.class_names.length) ? r.class_names.join("・") : "全員";
         const submitted = (Array.isArray(r.attempts) && r.attempts[0] && typeof r.attempts[0].count==="number") ? r.attempts[0].count : 0;
         const target = runTargetCache[r.id];
-        return "<tr data-runid='"+esc(r.id)+"'><td>"+esc(title)+(lesson?"　<span style='color:var(--sub);font-size:.8rem;'>（"+esc(lesson)+"）</span>":"")+"</td>"
+        const isNew = (r.id === justStartedRunId);
+        return "<tr data-runid='"+esc(r.id)+"'"+(isNew?" class='just-started'":"")+">"
+          + "<td>"+(isNew?"<span class='nowtag'>いま はじめた回</span> ":"")
+          + esc(title)+(lesson?"　<span style='color:var(--sub);font-size:.8rem;'>（"+esc(lesson)+"）</span>":"")+"</td>"
           + "<td>"+esc(cls)+"</td>"
           + "<td class='num'>"+fmtRemain(r.closes_at)+"</td>"
           + "<td class='num'>"+submitted+" / "+(target==null?"—":target)+"</td>"
