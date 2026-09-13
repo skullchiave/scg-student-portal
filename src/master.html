@@ -337,7 +337,7 @@
             <!-- 正本が壊れたときに戻すための控え（2026-09-13 きあ依頼）。
                  ★取り込みと同じ「課題登録FMT」の形で出すので、そのまま取り込み直せる。 -->
             <button class="btn ghost" id="qs-btn-export" type="button" style="width:auto;"
-              title="教科書（教材）をえらんで、課題登録FMT の形の Excel にまとめます（そのまま取り込み直せます）"
+              title="教科書（教材）をえらんで、作問シートの形の Excel にまとめます（そのまま取り込み直せます）"
               >⬇ Excelに書き出す</button>
             <button class="btn ghost" id="qs-btn-delmany" type="button" style="width:auto;"
               title="いましぼり込んでいる条件に当てはまる回のうち、受験記録が0件のものをまとめて消します"
@@ -375,7 +375,7 @@
               ⓘ「受験」が <b>—</b> のときは件数が取れなかったという意味です（0 ではありません）<br>
 
               <b>⬇ Excelに書き出す</b>は<b>教科書（教材）でえらびます</b>
-              （<u>1つも選ばなければ全部</u>）。えらんだ教科書を<b>課題登録FMT の形</b>で1ファイルにします。
+              （<u>1つも選ばなければ全部</u>）。えらんだ教科書を<b>作問シートの形</b>で1ファイルにします。
               ★<u>出したファイルは、そのまま「Excelから取り込む」で戻せます</u>＝
               <b>DBが壊れたときの戻し道</b>です<br>
 
@@ -387,7 +387,8 @@
               消さずに引っ込めたいときは<b>公開をやめる</b>を使ってください</div>
             <div class="msg" id="qs-list-msg"></div>
           </div>
-          <div class="note">Excelは「課題登録FMT」の形式だけ読めます（先生が問題を書く1枚もの）。
+          <div class="note">Excelは<b>「作問シート」</b>の形だけ読めます（先生が問題を書く1枚もの。
+            もとの名前は「課題登録FMT」で、<u>中身は同じもの</u>です）。
             アップロードはしません。選んだファイルはブラウザの中だけで読み、そのままDBに送るのは
             「④登録」を押したときだけです。★登録しても<b>学生にはまだ見えません（下書き）</b>。見せるときは一覧の「公開」を押します。</div>
         </div>
@@ -403,7 +404,7 @@
           <!-- ① 取り込み -->
           <div class="panel" id="qs-step-1" data-step-pane hidden>
             <h2>①Excelを選ぶ</h2>
-            <div class="field"><label>Excelファイル（課題登録FMT・.xlsx）</label>
+            <div class="field"><label>Excelファイル（作問シート・.xlsx）</label>
               <input type="file" id="qs-file" accept=".xlsx"></div>
             <div class="field"><label>テスト名の頭に付ける文字（省略可）</label>
               <input type="text" id="qs-prefix" placeholder="れい: つなぐ日本語初級 まとめテスト"></div>
@@ -644,7 +645,7 @@
   <form method="dialog" class="cfmform">
     <h3>⬇ Excelに書き出す</h3>
     <div class="cfm-body">えらんだ教科書を<b>1つのファイル</b>にまとめます。
-      1シート＝1回で、取り込みと同じ「課題登録FMT」の形です。
+      1シート＝1回で、取り込みと同じ<b>「作問シート」</b>の形です。
       <b>そのまま「Excelから取り込む」に入れれば戻せます</b>。<br>
       ★<b>1つも選ばなければ全部</b>です。
       ⓘ サーバーには何も送りません。この端末の中だけで作ります。</div>
@@ -1068,7 +1069,10 @@ function xlsxName(label){
   const d = new Date(), z = n=>String(n).padStart(2,"0");
   const stamp = d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate());
   const safe = String(label||"書き出し").replace(/[\\\/:*?"<>|]/g,"_").slice(0,40);
-  return "課題登録FMT_"+safe+"_"+stamp+".xlsx";
+  /* ★2026-09-13 きあ決定: 呼び名を「作問シート」にした。
+     「課題登録」はヨリソルに登録するための名前で、ヨリソルが無くなると意味を失うため。
+     形は【作問シート】教科書名（英語名は付けない）。 */
+  return "【作問シート】"+safe+"_"+stamp+".xlsx";
 }
 
 /* いま一覧に出ている回を、まとめて1つのブックにする（2026-09-13 きあ依頼）。
@@ -1447,7 +1451,7 @@ $("qs-file").onchange = async ()=>{
     loadWorkbook(XLSX.read(buf,{type:"array"}), f.name);
   }catch(e){
     $("qs-step1-msg").className="msg err"; $("qs-step1-msg").style.display="block";
-    $("qs-step1-msg").textContent = "Excelとして読めませんでした（"+e.message+"）。課題登録FMTの.xlsxか確かめてください。";
+    $("qs-step1-msg").textContent = "Excelとして読めませんでした（"+e.message+"）。作問シート（もとの課題登録FMT）の.xlsxか確かめてください。";
   }
 };
 /* ★e2eテスト用の入口。合成の File を <input type=file> に注入できないので、

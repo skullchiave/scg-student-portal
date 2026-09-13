@@ -105,8 +105,62 @@ DEFAULT_ANSWER_COL = "correct_idx"
 SCHEMA_NEW, SCHEMA_OLD = "2026-09-10", "2026-09-06"
 # 1設問あたりの選択肢の上限。question_choices の check (idx between 1 and 12) と合わせること
 MAX_CHOICES = 12
-# テンプレート本体とみなすシート名の目印
+# テンプレート本体らしいシート名の目印。★これは**手がかり**であって、判定そのものではない（下を見よ）
 TEMPLATE_MARK = "FMT"
+TEMPLATE_MARK2 = "コピーして"          # 「…_コピーして使用」「作問シート（コピーして使う）」
+
+# ---------------------------------------------------------------- 見本かどうかは「中身」で決める
+# 🔴 2026-09-13 に見つけた不具合。それまでは **シート名に FMT が入っていたら取り込まない** としていた。
+#    ところが実データでは、作問した人が **新しいシートにコピーせず、テンプレートのシートに直接書いて**
+#    いた。結果:
+#      ・009.文型チェックシート  13枚 130問 が、名前のせいで **黙って捨てられていた**
+#        （この教材は取り込めていたのが50問。つまり大半が落ちていた）
+#      ・001.つなぐ日本語初級     1枚  10問 も同じ理由で落ちていた
+#    逆に、判定を「コピー」という語に広げようとしたら、今度は
+#      ・008.JapanGo_スピードマスター 13枚 199問（本物）を新しく捨てるところだった
+#    ＝**名前では決まらない。** 中身が見本と同じかどうかで決める。
+#
+# TEMPLATE_SAMPLE_KEYS は「白紙のテンプレートに入っている見本の設問」の指紋。
+# ★見分け方＝**複数の教材にまたがって同じ中身**であること。
+#   「同じものが複数ある」だけでは足りない（同じ教材の中の重複＝本物、を巻き込む）。
+# 🔴 指紋は FNV-1a 32bit で、本文には戻せない。**このリポは public なので本文は置かない。**
+#    作り直すときは scripts/make_sample_keys.py（同じ計算を JS 側 fmt-import.js とそろえること）。
+TEMPLATE_SAMPLE_KEYS = {
+    "05f66d46", "166e479a", "20e458bd", "2e430831", "2f77e1a1", "36205745",
+    "38fc6776", "420e2a0f", "513be979", "7f55aabb", "a67e5013", "aaa0d3ca",
+    "b492fcfe", "c0315902", "ca0a73d7", "ddc14b7c", "ea10d188", "f9ce8ff7",
+    "fd5f3472", "ff00d85c",
+}
+
+
+def fnv1a(text: str) -> str:
+    """FNV-1a 32bit。★JS 側（fmt-import.js）と**まったく同じ計算**にすること。"""
+    h = 0x811c9dc5
+    for b in text.encode("utf-8"):
+        h ^= b
+        h = (h * 0x01000193) & 0xFFFFFFFF
+    return format(h, "08x")
+
+
+def question_key(prompt: str, choices: list[str]) -> str:
+    """設問の指紋。★ルビ記法は外してから作る（ルビあり版／なし版で同じ指紋になるように）。"""
+    txt = RUBY.sub(r"\1", prompt or "")
+    chs = [RUBY.sub(r"\1", c or "") for c in choices]
+    return fnv1a(txt + "\u0001" + "\u0001".join(chs))
+
+
+def looks_like_template(sheet_name: str) -> bool:
+    """名前が「白紙のテンプレートっぽい」か。★あくまで手がかり。捨てる判断はしない。"""
+    return TEMPLATE_MARK in sheet_name or TEMPLATE_MARK2 in sheet_name
+
+
+def sample_share(items: list[dict]) -> float:
+    """設問のうち、見本と同じものの割合（0.0〜1.0）。設問が無ければ 1.0（＝白紙とみなす）。"""
+    if not items:
+        return 1.0
+    hit = sum(1 for q in items
+              if question_key(q.get("prompt", ""), q.get("choices", [])) in TEMPLATE_SAMPLE_KEYS)
+    return hit / len(items)
 # シート名の頭に付く丸数字（順序を表すだけなので、タイトルからは外す）
 CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
 
@@ -397,8 +451,6 @@ def build(path: Path, only: list[str] | None, exclude: list[str] | None,
             continue
         if exclude and name in exclude:
             continue
-        if not include_template and TEMPLATE_MARK in name:
-            continue                      # テンプレート本体（見本10問）は取り込まない
         stale = stale_cache(wb[name], wbf[name], name, anchor_offset(wb[name]))
         if stale:
             # ★黙って0問にしない。原因を名指しして、そのシートは触らない
@@ -408,6 +460,19 @@ def build(path: Path, only: list[str] | None, exclude: list[str] | None,
                          "error": "計算結果が入っていない"})
             continue
         s, w = build_sheet(wb[name], name, prefix, ruby)
+
+        # 🔴 テンプレートかどうかは**中身**で決める（2026-09-13。上の TEMPLATE_SAMPLE_KEYS を見よ）
+        if not include_template and looks_like_template(name):
+            share = sample_share(s.get("questions") or [])
+            if share >= 1.0:
+                continue                  # 全部が見本＝本当に白紙のテンプレート。取り込まない
+            # ★1問でも見本と違えば取り込む。**捨てるより、要らないものが混じるほうがまし**
+            #   （混じっていれば画面のプレビューで見えるが、捨てたものは見えない）
+            w.append(f"[{name}] ★テンプレートの名前のシートに問題が書かれています"
+                     f"（{len(s['questions'])}問中 見本と同じなのは"
+                     f"{round(share * len(s['questions']))}問）＝取り込みます。"
+                     f"見本が混ざっていないか、プレビューで確かめてください")
+
         warn += w
         if not s["questions"]:
             warn.append(f"[{name}] 取り込めた設問が 0 件")

@@ -382,9 +382,47 @@ class OffsetTest(Tmp):
 
 # ------------------------------------------------------------------ シートの選び方
 class SheetTest(Tmp):
-    def test_template_sheet_is_skipped_by_default(self):
-        sets, _ = self.build({"250507から_課題登録FMT_コピーして使用": [qrow(1)], "①1-3": [qrow(1)]})
-        self.assertEqual([s["sheet"] for s in sets], ["①1-3"])
+    def test_template_sheet_is_skipped_when_content_is_the_sample(self):
+        """白紙のテンプレート（中身が見本そのもの）は取り込まない。
+
+        ★2026-09-13 に判定を「名前」から「中身」へ変えた。
+          見本の本文はリポに置けない（public）ので、**この行の指紋を見本として登録して**確かめる。
+          仕組みそのものを見ているので、見本が差し替わっても検査は生き続ける。
+        """
+        row = qrow(1)
+        sheet = {"250507から_課題登録FMT_コピーして使用": [row], "①1-3": [qrow(2)]}
+        # この行の指紋を「見本」として一時的に登録する
+        built, _ = self.build({"tmp": [row]}, include_template=True)
+        q = built[0]["questions"][0]
+        key = fx.question_key(q["prompt"], q["choices"])
+        saved = set(fx.TEMPLATE_SAMPLE_KEYS)
+        try:
+            fx.TEMPLATE_SAMPLE_KEYS.add(key)
+            sets, _ = self.build(sheet)
+            self.assertEqual([s["sheet"] for s in sets], ["①1-3"])
+        finally:
+            fx.TEMPLATE_SAMPLE_KEYS.clear()
+            fx.TEMPLATE_SAMPLE_KEYS.update(saved)
+
+    def test_template_named_sheet_with_written_questions_is_imported(self):
+        """🔴 テンプレートの名前でも、中身が見本と違えば**取り込む**。
+
+        ★これが 2026-09-13 に見つけた不具合。名前だけで捨てていたので、
+          009.文型チェックシート の 12枚 120問 が黙って落ちていた
+          （この教材は取り込めていたのが50問。大半が落ちていた）。
+          **捨てたものは画面に出ない**ので、誰も気づけなかった。
+        """
+        sets, warn = self.build(
+            {"250507から_課題登録FMT_コピーして使用": [qrow(1)], "①1-3": [qrow(1)]})
+        self.assertEqual(sorted(s["sheet"] for s in sets),
+                         sorted(["250507から_課題登録FMT_コピーして使用", "①1-3"]))
+        self.assertTrue(any("テンプレートの名前のシートに問題が書かれています" in w for w in warn),
+                        f"黙って取り込まないこと: {warn}")
+
+    def test_sample_key_is_ruby_independent(self):
+        """ルビあり版／なし版で同じ指紋になること（見本の判定がルビで揺れない）。"""
+        self.assertEqual(fx.question_key("${昨日}(きのう)は", ["${本}(ほん)"]),
+                         fx.question_key("昨日は", ["本"]))
 
     def test_template_sheet_with_flag(self):
         sets, _ = self.build({"250507から_課題登録FMT_コピーして使用": [qrow(1)], "①1-3": [qrow(1)]},

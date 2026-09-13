@@ -28,9 +28,59 @@ const FmtImport = (() => {
   const N_EXPECTED = Object.keys(EXPECTED).length;
 
   const MAX_CHOICES = 12;
-  const TEMPLATE_MARK = "FMT";           // シート名にこれを含むものはテンプレート本体
+  // テンプレート本体らしいシート名の目印。★これは**手がかり**であって、判定そのものではない
+  const TEMPLATE_MARK = "FMT";
+  const TEMPLATE_MARK2 = "コピーして";    // 「…_コピーして使用」「作問シート（コピーして使う）」
+
+  /* 🔴 テンプレートかどうかは **中身** で決める（2026-09-13）。
+     それまでは「シート名に FMT が入っていたら取り込まない」だった。ところが実データでは、
+     作問した人が **新しいシートにコピーせず、テンプレートのシートに直接書いて** いた。
+       ・009.文型チェックシート 12枚 120問 が、名前のせいで黙って捨てられていた
+         （この教材は取り込めていたのが50問。つまり大半が落ちていた）
+     逆に判定を「コピー」という語に広げると、今度は
+       ・008.JapanGo_スピードマスター 13枚 199問（本物）を新しく捨てることになった
+     ＝**名前では決まらない。**
+     🔴 指紋は FNV-1a 32bit で本文には戻せない（このリポは public）。
+        scripts/import_fmt_xlsx.py の TEMPLATE_SAMPLE_KEYS と **同じ値・同じ計算**にすること。 */
+  const TEMPLATE_SAMPLE_KEYS = new Set([
+    "05f66d46", "166e479a", "20e458bd", "2e430831", "2f77e1a1", "36205745",
+    "38fc6776", "420e2a0f", "513be979", "7f55aabb", "a67e5013", "aaa0d3ca",
+    "b492fcfe", "c0315902", "ca0a73d7", "ddc14b7c", "ea10d188", "f9ce8ff7",
+    "fd5f3472", "ff00d85c",
+  ]);
+
+  function fnv1a(text) {
+    const bytes = new TextEncoder().encode(text);
+    let h = 0x811c9dc5;
+    for (let i = 0; i < bytes.length; i++) {
+      h ^= bytes[i];
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h.toString(16).padStart(8, "0");
+  }
+
+  /* 設問の指紋。★ルビ記法は外してから作る（ルビあり版／なし版で同じ指紋になるように）。 */
+  function questionKey(prompt, choices) {
+    const strip = t => String(t || "").replace(RUBY_G, "$1");
+    return fnv1a(strip(prompt) + "\u0001" + (choices || []).map(strip).join("\u0001"));
+  }
+
+  function looksLikeTemplate(sheetName) {
+    return sheetName.indexOf(TEMPLATE_MARK) !== -1 || sheetName.indexOf(TEMPLATE_MARK2) !== -1;
+  }
+
+  /* 設問のうち見本と同じものの割合（0〜1）。設問が無ければ 1（＝白紙とみなす）。 */
+  function sampleShare(items) {
+    if (!items || !items.length) return 1;
+    let hit = 0;
+    items.forEach(q => { if (TEMPLATE_SAMPLE_KEYS.has(questionKey(q.prompt, q.choices))) hit++; });
+    return hit / items.length;
+  }
   const CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳";
   const RUBY = /\$\{([^}]*)\}\(([^)]*)\)/g;
+  /* ★指紋を作るときのルビ外し用。RUBY をそのまま使い回すと lastIndex が残って
+     2回目以降の replace が食い違う（/g 付きの正規表現を共有したときの定番の罠）。 */
+  const RUBY_G = /\$\{([^}]*)\}\(([^)]*)\)/g;
 
   // ---------------------------------------------------------------- 小道具
   function zenkakuToHan(s) {
@@ -239,9 +289,17 @@ const FmtImport = (() => {
   }
 
   // ---------------------------------------------------------------- 変換（ブック全体）
+  /* 取り込み候補のシート。★白紙のテンプレートだけ出さない。
+     名前がテンプレートっぽくても、**中身が見本と違えば出す**（書き込まれているため）。 */
   function listImportableSheets(workbook) {
-    // テンプレート本体（シート名に FMT を含む）は最初から出さない
-    return workbook.SheetNames.filter(n => n.indexOf(TEMPLATE_MARK) === -1);
+    return workbook.SheetNames.filter(n => {
+      if (!looksLikeTemplate(n)) return true;
+      try {
+        const s = buildSheet(workbook.Sheets[n], n, "", "keep");
+        if (s.error) return false;
+        return sampleShare(s.questions) < 1;
+      } catch (e) { return false; }       // 読めないテンプレは出さない（取り込みようがない）
+    });
   }
 
   function build(workbook, opts) {
@@ -267,6 +325,17 @@ const FmtImport = (() => {
         continue;
       }
       const s = buildSheet(ws, name, prefix, ruby);
+      /* ★テンプレートの名前なのに中身が見本と違う＝書き込まれている。
+         listImportableSheets が候補に残しているので取り込むが、**黙って入れない**。
+         （2026-09-13。名前で捨てていたせいで、文型チェックシートの120問が落ちていた） */
+      if (looksLikeTemplate(name) && s.questions.length) {
+        const sh = sampleShare(s.questions);
+        if (sh < 1) {
+          warn.push("[" + name + "] ★テンプレートの名前のシートに問題が書かれています（" +
+            s.questions.length + "問中 見本と同じなのは" + Math.round(sh * s.questions.length) +
+            "問）＝取り込みます。見本が混ざっていないか、プレビューで確かめてください");
+        }
+      }
       warn.push(...(s.warn || []));
       delete s.warn;
       if (!s.questions.length) warn.push(`[${name}] 取り込めた設問が 0 件`);
@@ -310,6 +379,8 @@ const FmtImport = (() => {
     EXPECTED, MAX_CHOICES, TEMPLATE_MARK,
     // 関数
     asInt, lessonOf, titleOf, applyRuby, anchorOffset, staleCache, buildSheet, build, listImportableSheets,
+    // ★テンプレ判定（2026-09-13）。Python 側と値が一致することを検査で見ている
+    fnv1a, questionKey, looksLikeTemplate, sampleShare, TEMPLATE_SAMPLE_KEYS,
   };
 })();
 

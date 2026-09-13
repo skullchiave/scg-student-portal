@@ -25,6 +25,14 @@ import re
 import subprocess
 import sys
 import tempfile
+
+# ★JS 側の指紋が Python 側とぴったり同じかを見るための入口（2026-09-13）。
+#   ここがずれると「見本かどうか」の判定が画面とスクリプトで食い違う＝いちばん危ない。
+def _py_key():
+    import sys as _s, os as _o
+    _s.path.insert(0, _o.path.join(_o.path.dirname(_o.path.dirname(_o.path.abspath(__file__))), "scripts"))
+    import import_fmt_xlsx as _fx
+    return _fx.question_key("昨日は", ["本"])
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -463,8 +471,17 @@ const R = {};
 
 // ---- シートの選び方 ----
 {
+  /* ★2026-09-13: テンプレかどうかは**中身**で決めるようになった。
+     名前がテンプレでも、書き込まれていれば候補に残す（＝捨てない）。 */
   const wb = book({ "250507から_課題登録FMT_コピーして使用": [qrow(1)], "①1-3": [qrow(1)] });
-  R.template_excluded = FmtImport.listImportableSheets(wb);
+  R.template_named_kept = FmtImport.listImportableSheets(wb);
+  R.template_named_warned = FmtImport.build(wb).warn
+    .some(w => w.includes("テンプレートの名前のシートに問題が書かれています"));
+  // 中身が見本そのものなら候補から外れる（見本の指紋をこの行で一時登録して確かめる）
+  const q0 = FmtImport.build(book({ "tmp": [qrow(1)] })).sets[0].questions[0];
+  R.sample_key_ruby_independent =
+    FmtImport.questionKey("${昨日}(きのう)は", ["${本}(ほん)"]) === FmtImport.questionKey("昨日は", ["本"]);
+  R.key_of_fixed = FmtImport.questionKey("昨日は", ["本"]);
 }
 {
   const { warn } = FmtImport.build(book({ "①1-3": [qrow(1)], "①1-3 （新）": [qrow(1)] }));
@@ -634,7 +651,15 @@ class NodeParityTest(CheckMixin, unittest.TestCase):
     def test_10_sheet_selection(self):
         print("\n=== Node: シートの選び方 ===")
         r = self.results
-        self.check("テンプレート本体（FMTを含む名前）は候補から除く", r["template_excluded"] == ["①1-3"])
+        # 🔴 2026-09-13: 名前で捨てるのをやめた。書き込まれていれば候補に残す
+        self.check("★テンプレートの名前でも、書き込まれていれば候補に残す（捨てない）",
+                   sorted(r["template_named_kept"]) ==
+                   sorted(["250507から_課題登録FMT_コピーして使用", "①1-3"]),
+                   str(r["template_named_kept"]))
+        self.check("★そのとき黙らず警告を出す", r["template_named_warned"] is True)
+        self.check("★指紋はルビあり／なしで同じ", r["sample_key_ruby_independent"] is True)
+        self.check("🔴★指紋の計算が Python 側とぴったり一致する",
+                   r["key_of_fixed"] == _py_key(), r["key_of_fixed"] + " / " + _py_key())
         self.check("同じ課の範囲が複数あれば警告", r["same_lesson_warned"] is True)
         self.check("only で選んだシートだけ取り込む", r["only_selected"] == ["②4-6"])
         self.check("★中身が同じなら別シート名でも別版として検出", r["variant_detected"] is True)
