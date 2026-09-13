@@ -292,6 +292,26 @@ const FmtImport = (() => {
   }
 
   // ---------------------------------------------------------------- 変換（ブック全体）
+  /* ───────── 配る「作問シート」のテンプレートの中身（2026-09-13 きあ指摘）─────────
+     ★きあ：「場所が散らばると混乱するから。テンプレを管理者画面からダウンロードできるようにすればよくない？」
+       それまではドライブのフォルダに置いていたが、**手順書と置き場が別だと片方だけ古くなる**。
+     🔴 見本の3行は scripts/make_sakumon_template.py の SAMPLES と **1文字も違えてはいけない。**
+        違うと指紋が変わり、見本が **本物の問題として取り込まれる**。
+        tests/test_qsets_import.py が「1セルも違わない」「見本として登録ずみ」を毎回見ている。 */
+  const TEMPLATE_SHEET_NAME = "作問シート（コピーして使う）";
+  const TEMPLATE_HEADERS = ["問題番号", "問題文1", "問題文2", "添付ファイル名",
+    "選択肢1", "選択肢2", "選択肢3", "選択肢4", "選択肢5", "解説", "解答", "カテゴリ", "配点"];
+  const TEMPLATE_ROWS = [
+    [1, "これは 見本です。この行を 消してから、問題を 書いてください。", "", "",
+      "はい", "いいえ", "", "", "", "", 1, "文法", 1],
+    [2, "つぎの ぶんの （  ）に 入る ことばは どれですか。",
+      "わたしは まいにち コーヒー（  ）のみます。", "",
+      "を", "が", "に", "で", "", "", 1, "文法", 1],
+    [3, "${昨日}(きのう)、なにを たべましたか。", "", "",
+      "たべました", "たべます", "", "", "",
+      "「きのう」は すぎた ことなので、「〜ました」を つかいます。", 1, "文法", 1],
+  ];
+
   /* 取り込み候補のシート。★白紙のテンプレートだけ出さない。
      名前がテンプレートっぽくても、**中身が見本と違えば出す**（書き込まれているため）。 */
   function listImportableSheets(workbook) {
@@ -384,6 +404,8 @@ const FmtImport = (() => {
     asInt, lessonOf, titleOf, applyRuby, anchorOffset, staleCache, buildSheet, build, listImportableSheets,
     // ★テンプレ判定（2026-09-13）。Python 側と値が一致することを検査で見ている
     fnv1a, questionKey, looksLikeTemplate, sampleShare, TEMPLATE_SAMPLE_KEYS,
+    // 配るテンプレートの中身（JS と Python で同じであることを検査で見ている）
+    TEMPLATE_SHEET_NAME, TEMPLATE_HEADERS, TEMPLATE_ROWS,
   };
 })();
 
@@ -960,6 +982,35 @@ FmtImport.db = (() => {
     return { wb, sheets: wb.SheetNames.length, questions, wideSets };
   }
 
+  /* ───────── 配る「作問シート」のテンプレートを、画面から落とせるようにする（2026-09-13）─────────
+   *
+   * ★きあ指摘：「場所が散らばると混乱するから。テンプレを管理者画面からダウンロードできるようにすればよくない？」
+   *   それまではドライブのフォルダに置いていた。**手順書と置き場が別だと、片方だけ古くなる。**
+   *   取り込む画面のすぐ隣に置けば、「ここから落として、ここに戻す」で1周する。
+   *
+   * 🔴 見本の3行は scripts/make_sakumon_template.py の SAMPLES と **1文字も違えてはいけない。**
+   *    違うと指紋が変わり、見本が **本物の問題として取り込まれる**。
+   *    tests/test_qsets_import.py が「Python 側の見本と一致するか」を毎回見ている。
+   */
+  /* ★見本のデータそのものは **外側の FmtImport** に置いてある。
+     api.js を読まなくても（＝検査のNodeからも）届くようにするため。
+     ここは Excel を組み立てるところだけ（XLSX が要る）。 */
+  function buildTemplateWorkbook() {
+    if (typeof XLSX === "undefined") throw new Error("Excelを作る部品（xlsx.js）が読み込まれていません");
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([FmtImport.TEMPLATE_HEADERS].concat(FmtImport.TEMPLATE_ROWS));
+    ws["!cols"] = [9, 38, 30, 16, 14, 14, 14, 14, 14, 32, 7, 12, 7].map(w => ({ wch: w }));
+    ws["!freeze"] = { xSplit: 0, ySplit: 1 };
+    XLSX.utils.book_append_sheet(wb, ws, FmtImport.TEMPLATE_SHEET_NAME);
+    return wb;
+  }
+
+  function downloadTemplate(filename) {
+    const wb = buildTemplateWorkbook();
+    XLSX.writeFile(wb, filename || "【作問シート】テンプレート.xlsx");
+    return { sheet: FmtImport.TEMPLATE_SHEET_NAME, samples: FmtImport.TEMPLATE_ROWS.length };
+  }
+
   /* そのままダウンロードさせる。★サーバーには何も送らない（ブラウザの中だけで作る）。 */
   function downloadWorkbook(sets, filename) {
     const r = buildWorkbook(sets);
@@ -978,6 +1029,7 @@ FmtImport.db = (() => {
   return { probeColumns, resetProbeCache, probeQuizSetsSource, listSourceBooks, searchQuizSets,
            publishSet, setOpen, deleteSet, attemptCount, loadSetForEdit, updateSetQuestions,
            buildWorkbook, downloadWorkbook, setToRows, safeSheetName,
+           buildTemplateWorkbook, downloadTemplate,
            listBooksWithCounts, listSetsOfBook,
            logEdit, readEditLog, authedGet, authedWrite };
 })();

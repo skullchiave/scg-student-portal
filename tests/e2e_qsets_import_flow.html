@@ -507,6 +507,22 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
       await backToList();
     }
 
+    // ---- ⑨ 画面から落とす「作問シート」のテンプレート（2026-09-13 きあ指摘）----
+    // 🔴 落としたテンプレを取り込むと **0件** になること。
+    //    ここが崩れると、見本の3行が **本物の問題として学生に出る**。
+    //    本物の SheetJS で組み立てて、本物の取り込み口に食わせる（スタブでは意味がない）。
+    {
+      const tpl = w.__e2e.buildTpl();
+      step("★テンプレートのブックを作れる", !!tpl && (tpl.SheetNames||[]).length === 1,
+           JSON.stringify(tpl && tpl.SheetNames));
+      step("★シート名が「作問シート（コピーして使う）」",
+           (tpl.SheetNames||[])[0] === "作問シート（コピーして使う）", (tpl.SheetNames||[])[0]);
+      const back = w.__e2e.reimport(tpl);
+      step("🔴★落としたテンプレートは、取り込むと0件になる（見本が本物にならない）",
+           (back.sets||[]).length === 0,
+           (back.sets||[]).length + "件 / " + JSON.stringify((back.warn||[]).slice(0,2)));
+    }
+
     step("編集に入り直す（片付け前）", await openEdit());
     $("qs-btn-editcancel").click();
     step("「保存せずに一覧へ戻る」で一覧に戻れる",

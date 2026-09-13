@@ -28,6 +28,13 @@ import tempfile
 
 # ★JS 側の指紋が Python 側とぴったり同じかを見るための入口（2026-09-13）。
 #   ここがずれると「見本かどうか」の判定が画面とスクリプトで食い違う＝いちばん危ない。
+def _add_scripts_path():
+    import sys as _s, os as _o
+    _p = _o.path.join(_o.path.dirname(_o.path.dirname(_o.path.abspath(__file__))), "scripts")
+    if _p not in _s.path:
+        _s.path.insert(0, _p)
+
+
 def _py_key():
     import sys as _s, os as _o
     _s.path.insert(0, _o.path.join(_o.path.dirname(_o.path.dirname(_o.path.abspath(__file__))), "scripts"))
@@ -484,6 +491,18 @@ const R = {};
   R.key_of_fixed = FmtImport.questionKey("昨日は", ["本"]);
 }
 {
+  /* 🔴 配るテンプレートの見本（2026-09-13）。
+     ここが scripts/make_sakumon_template.py の SAMPLES とずれると、
+     **見本が本物の問題として取り込まれる**。文字どおり1文字も違ってはいけない。 */
+  R.template_sheet_name = FmtImport.TEMPLATE_SHEET_NAME;
+  R.template_rows = FmtImport.TEMPLATE_ROWS;
+  R.template_rows_are_samples = FmtImport.TEMPLATE_ROWS.every(r => {
+    const prompt = [String(r[1] || ""), String(r[2] || "")].filter(Boolean).join("\n");
+    const choices = r.slice(4, 9).map(String).filter(c => c.trim());
+    return FmtImport.TEMPLATE_SAMPLE_KEYS.has(FmtImport.questionKey(prompt, choices));
+  });
+}
+{
   const { warn } = FmtImport.build(book({ "①1-3": [qrow(1)], "①1-3 （新）": [qrow(1)] }));
   R.same_lesson_warned = warn.some(w => w.includes("同じ範囲"));
 }
@@ -665,6 +684,32 @@ class NodeParityTest(CheckMixin, unittest.TestCase):
         self.check("★中身が同じなら別シート名でも別版として検出", r["variant_detected"] is True)
         self.check("正解が違えば別版扱いしない（誤検出しない）", r["variant_not_falsely_flagged"] is False)
         self.check("'1-①''1-②' は同じ範囲の重複と誤検出しない", r["check_test_not_dup"] is False)
+
+    def test_10b_template(self):
+        """配るテンプレートの見本が、JS と Python でぴったり同じか（2026-09-13）。
+
+        🔴 ここがずれると **見本が本物の問題として取り込まれる**。
+          きあ指摘でテンプレを画面から落とせるようにしたので、
+          「画面が作るテンプレ」と「スクリプトが作るテンプレ」の2つができた。
+          2つある以上、**同じであることを機械で見る**。
+        """
+        print("\n=== Node: 配るテンプレート ===")
+        r = self.results
+        _add_scripts_path()
+        import make_sakumon_template as mk
+        self.check("シート名が Python 側と同じ",
+                   r["template_sheet_name"] == mk.SHEET_NAME,
+                   f'{r["template_sheet_name"]} / {mk.SHEET_NAME}')
+        self.check("見本の行数が同じ", len(r["template_rows"]) == len(mk.SAMPLES),
+                   f'{len(r["template_rows"])} / {len(mk.SAMPLES)}')
+        # 1セルずつ突き合わせる（数と型のゆらぎを吸収するため文字にしてから比べる）
+        js = [[str(c) for c in row] for row in r["template_rows"]]
+        py = [[str(c) for c in row] for row in mk.SAMPLES]
+        self.check("🔴★見本の中身が1セルも違わない", js == py,
+                   next((f"{i}行目: {a} != {b}" for i, (a, b) in enumerate(zip(js, py), 1) if a != b),
+                        "行数が違う"))
+        self.check("🔴★見本の3行は「見本」として登録ずみ（取り込まれない）",
+                   r["template_rows_are_samples"] is True)
 
     def test_11_ruby(self):
         print("\n=== Node: ルビ ===")

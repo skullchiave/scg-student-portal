@@ -6,7 +6,7 @@ r"""make_sakumon_template.py — 配る「作問シート」のテンプレー�
   「作問」は工程の名前なので、行き先が変わっても古びない。
 
   py -X utf8 scripts\make_sakumon_template.py
-      … ドライブの配布先に 【作問シート】テンプレート（コピーして使う）.xlsx を書く
+      … tmp\ に見本のExcelを書く（目で見る用。**配るものはマスター画面から落とす**）
 
   py -X utf8 scripts\make_sakumon_template.py --out "どこか\ファイル.xlsx"
 
@@ -46,9 +46,14 @@ except ImportError:  # pragma: no cover
 
 import import_fmt_xlsx as fx  # noqa: E402
 
-DEFAULT_OUT = Path(
-    r"I:\マイドライブ\claude作業場\0.2 claude-work\【学生ポータル】 Student Portal"
-    r"\【作問シート】テンプレート（コピーして使う）.xlsx")
+# 🔴 **配るテンプレートは、マスター画面の「📄 作問シートのテンプレート」から落とす**（2026-09-13 きあ指摘）。
+#    ドライブにも同じファイルを置くと、どちらかだけ古くなって気づけない。
+#    このスクリプトの役目は2つに変わった:
+#      (1) 見本の行（SAMPLES）の **正本** を持つこと
+#          ＝ tests/test_qsets_import.py が「画面側の見本と1セルも違わないか」をここと突き合わせる
+#      (2) 見本を書き換えたときに、新しい指紋を --keys で出すこと
+#    書き出し先は tmp\（.gitignore 済み）。中身を目で見たいときに使う。
+DEFAULT_OUT = Path(__file__).resolve().parent.parent / "tmp" / "【作問シート】テンプレート（見本・目視用）.xlsx"
 
 SHEET_NAME = "作問シート（コピーして使う）"
 

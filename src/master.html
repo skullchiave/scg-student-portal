@@ -334,6 +334,12 @@
         <div id="qs-pane-list">
           <div class="dashhead"><span class="t">✏️ 問題の登録・解放</span>
             <button class="btn" id="qs-btn-new" type="button" style="width:auto;">＋ Excelから取り込む</button>
+            <!-- ★テンプレはここから落とす（2026-09-13 きあ指摘）。
+                 ドライブに置いていたが、**手順書と置き場が別だと片方だけ古くなる**。
+                 取り込む画面の隣にあれば「ここから落として、ここに戻す」で1周する。 -->
+            <button class="btn ghost" id="qs-btn-tpl" type="button" style="width:auto;"
+              title="問題を書くための空の作問シート（Excel）を保存します。見本が3行だけ入っています"
+              >📄 作問シートのテンプレート</button>
             <!-- 正本が壊れたときに戻すための控え（2026-09-13 きあ依頼）。
                  ★取り込みと同じ「課題登録FMT」の形で出すので、そのまま取り込み直せる。 -->
             <button class="btn ghost" id="qs-btn-export" type="button" style="width:auto;"
@@ -371,6 +377,8 @@
             <div class="note"><b>はじめる</b>はクラスと時間を指定して、その時間だけ学生の画面に出します
               （授業中の小テストはこちら推奨。「📅 今日」で残り時間・提出数が見られます）。<br>
               <b>公開</b>を押すと、その回が<u>クラスを問わず</u>ずっと学生の画面に出ます。<b>停止</b>で引っ込みます。<br>
+              <b>📄 作問シートのテンプレート</b>で、<u>問題を書くための空のExcel</u>が落とせます。
+              見本が3行だけ入っているので、<b>その行は消してから</b>書いてください。<br>
               <b>編集</b>で設問を直せます（<u>設問の追加・削除もできます</u>）。<br>
               ⓘ「受験」が <b>—</b> のときは件数が取れなかったという意味です（0 ではありません）<br>
 
@@ -1063,6 +1071,18 @@ $("qs-filter-q").oninput = ()=>{
   qsSearchTimer = setTimeout(()=>{ qsListState.q = $("qs-filter-q").value.trim(); showQsList(true); }, 300);
 };
 $("qs-btn-more").onclick = ()=>{ qsListState.limit += 50; showQsList(false); };
+
+/* 作問シートのテンプレートを落とす（2026-09-13 きあ指摘）。
+   ★サーバーには何も送らない。ブラウザの中で作って保存するだけ。 */
+$("qs-btn-tpl").onclick = ()=>{
+  const el=$("qs-list-msg");
+  const m=(t,ng)=>{ el.style.display="block"; el.textContent=t; el.className="msg"+(ng?" err":" info"); };
+  try{
+    const r = FmtImport.db.downloadTemplate("【作問シート】テンプレート.xlsx");
+    m("テンプレートを保存しました。ファイル名を「【作問シート】つなぐ日本語Ⅰ」のように"
+     + "変えてから、中のシートをコピーして使ってください（見本が"+r.samples+"行 入っています）。");
+  }catch(e){ m("保存できませんでした（"+e.message+"）", true); }
+};
 
 /* ファイル名。★日付を必ず入れる＝控えが何枚か溜まったとき、どれが新しいか分かるように */
 function xlsxName(label){
@@ -2321,6 +2341,7 @@ window.__e2e = {
   loadSet:(id)=>FmtImport.db.loadSetForEdit(id),
   buildWb:(sets)=>FmtImport.db.buildWorkbook(sets),
   reimport:(wb)=>FmtImport.build(wb, {}),
+  buildTpl:()=>FmtImport.db.buildTemplateWorkbook(),
 };
 
 (async ()=>{
