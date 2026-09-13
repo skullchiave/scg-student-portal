@@ -516,6 +516,10 @@
             <button class="btn ghost" id="rx-long" type="button" style="width:auto;">明細をCSVで書き出す</button>
           </div>
           <div class="note"><b>一覧</b>＝1行が1人の学生で、<u>テストが横に並びます</u>（台帳に貼る用）。
+            ★<b>しぼり込みに入る学生は全員出ます</b>（1回も受けていない人も行があります）＝
+            <u>貼ったときに行がずれないように</u>。<br>
+            ★<b>列はテストを実施した順</b>に並びます。見出しはテスト名（<code>2-③</code> など）＝
+            <u>「2回目」だけだと、あとから何のテストか分からなくなる</u>ため。<br>
             受けていないところは<b>空欄</b>です（★0点とは違うので、0を入れていません）。<br>
             <b>明細</b>＝1行が1回の受験です（数え直す用）。<br>
             🔴 <b>画面を離れた回数は、どちらにも出しません。</b>
@@ -1082,13 +1086,16 @@ $("rx-count").onclick = async ()=>{
     const r = await rxCollect(n=>rxMsg("数えています… "+n+"件"));
     const usedSets = new Set(r.attempts.map(a=>a.quiz_set_id));
     const usedStu  = new Set(r.attempts.map(a=>a.student_id));
+    // ★行になるのは**しぼり込みに入る学生ぜんぶ**（受けていない人も含む）
+    const rowStu = r.profs.length;
     $("rx-kpi").hidden = false;
     /* ★出す数字は「実際に書き出されるもの」に合わせる。
        いちど「一覧に並ぶ列＝92」と出していたが、列になるのは**受けられたテストだけ**（5）で、
        画面の数字が嘘になっていた（2026-09-13 に撮って気づいた）。 */
     $("rx-kpi").innerHTML =
-      "<div class='stat'><div class='v'>"+usedStu.size+"</div><div class='l'>書き出される学生（行）</div></div>"+
+      "<div class='stat'><div class='v'>"+rowStu+"</div><div class='l'>書き出される学生（行）</div></div>"+
       "<div class='stat'><div class='v'>"+usedSets.size+"</div><div class='l'>書き出されるテスト（列）</div></div>"+
+      "<div class='stat'><div class='v'>"+usedStu.size+"</div><div class='l'>うち1回でも受けた人</div></div>"+
       "<div class='stat'><div class='v'>"+r.attempts.length+"</div><div class='l'>受験の件数（明細の行）</div></div>";
     rxMsg(r.attempts.length ? "数えました。下のボタンで書き出せます。"
                             : "この範囲には受験記録がありません。", !r.attempts.length);
@@ -1113,9 +1120,18 @@ async function rxBuild(kind, onProgress){
     if(kind==="wide"){
       /* ★列に出すのは「実際に受けられたテスト」だけ。
          しぼり込みに入っているだけで誰も受けていない回まで列にすると、
-         87列のうち中身があるのが5列、という読みにくい表になる。 */
-      const used = new Set(r.attempts.map(a=>a.quiz_set_id));
-      const sets = r.sets.filter(s=>used.has(s.id));
+         87列のうち中身があるのが5列、という読みにくい表になる。
+         🔴 並びは **実施した順**（その回の最初の提出が早い順）。2026-09-13 きあ指摘。
+            教科書の順ではなく、**実際にやった順** でないと台帳と行き違う。
+            ★見出しはテスト名（例 2-③）。きあ＝「テストの名前はわかるように」
+              ＝「2回目」だけだと、あとから何のテストか分からなくなるため。 */
+      const firstAt = {};
+      r.attempts.forEach(a=>{
+        const t = a.submitted_at;
+        if(!firstAt[a.quiz_set_id] || t < firstAt[a.quiz_set_id]) firstAt[a.quiz_set_id] = t;
+      });
+      const sets = r.sets.filter(s=>firstAt[s.id])
+                         .sort((x,y)=> firstAt[x.id] < firstAt[y.id] ? -1 : firstAt[x.id] > firstAt[y.id] ? 1 : 0);
       /* 🔴 同じテストを2回受けていたら **1回目（いちばん古い提出）** を採る（2026-09-13 きあ決定）。
          きあ＝「最初でいいかも？ 1回目のやつじゃないと、アンフェアになるよ」。
          ★attempts は submitted_at の昇順で集めてあるので、**先に入ったほうを残す**だけでよい。
@@ -1126,9 +1142,11 @@ async function rxBuild(kind, onProgress){
       Object.keys(first).forEach(k=>{
         byPair[k] = { score: first[k].score, total: first[k].total };
       });
-      // 受けた学生だけ（1件も受けていない人の行は出さない）
-      const seen = new Set(r.attempts.map(a=>a.student_id));
-      const students = r.profs.filter(p=>seen.has(p.id))
+      /* 🔴 **しぼり込みに入る学生は全員出す**（1件も受けていない人も行を作る）。
+         2026-09-13 きあ指摘。受けた人だけにすると、台帳に貼ったときに
+         **欠席者の行が抜けて、以降が全部ずれる**。
+         受けていない人の行は、セルが全部空・受けた数0 になる。 */
+      const students = r.profs
         .map(p=>({student_no:p.student_no, name:p.display_name, class_name:p.class_name||""}));
       rows = FmtImport.wideRows(students, sets, byPair);
       n = students.length;

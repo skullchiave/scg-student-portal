@@ -634,6 +634,27 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
     const kpi = d.getElementById("rx-kpi").textContent.replace(/\s+/g," ");
     step("★★数字が「実際に書き出されるもの」になっている（行・列・件数）",
          kpi.includes("書き出される学生") && kpi.includes("書き出されるテスト") && kpi.includes("受験の件数"), kpi.slice(0,70));
+    /* 🔴 全学生が行になること（2026-09-13 きあ指摘）。
+       受けた人だけにすると、台帳に貼ったときに**欠席者の行が抜けて以降が全部ずれる**。
+       ★本物のDBに対して、行数が学生の数と合っているかを見る。 */
+    {
+      const built = await w.__e2e.rxBuild("wide");
+      const stu = await w.__e2e.get("/rest/v1/profiles?select=id&role=eq.student&limit=2000");
+      step("🔴★一覧の行数が、学生の数と同じ（受けていない人も行がある）",
+           !!built && built.rows.length - 1 === stu.length,
+           (built ? built.rows.length - 1 : "-") + " 行 / 学生 " + stu.length + " 人");
+      const head = built ? built.rows[0] : [];
+      step("★見出しの右端が「受けた数・合計点・合計満点」",
+           head.slice(-3).join(",") === "受けた数,合計点,合計満点", head.slice(-3).join(","));
+      step("★見出しの列はテスト名（「◯回目」ではない）",
+           head.length > 6 && !/^\d+回目$/.test(String(head[3])), String(head[3]).slice(0,30));
+      // 1回も受けていない人の行は、セルが空・受けた数0
+      const zero = built.rows.slice(1).filter(r=>r[r.length-3] === 0);
+      step("★受けていない人の行は 受けた数0・セルは空",
+           zero.length === 0 || zero.every(r=>r.slice(3, r.length-3).every(c=>c==="")),
+           zero.length + "人ぶん");
+    }
+
     d.getElementById("rx-wide").click();
     step("🔴★一覧を1ファイルで書き出せる（テストをまたいで）",
          await until(() => (d.getElementById("rx-msg").textContent||"").includes("書き出しました"), 90000),
