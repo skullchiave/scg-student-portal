@@ -454,13 +454,18 @@ FmtImport.db = (() => {
       if (cols.explanation) abody.explanation = q.explanation;
       await authedWrite("POST", "/rest/v1/question_answers", abody);
     }
-    return { quizSetId, questionCount: set.questions.length };
+    const logged = await logEdit({
+      quizSetId: quizSetId, title: set.title, action: "import",
+      summary: "Excelから取り込んだ（" + set.questions.length + "問・下書き）",
+      detail: { sheet: set.sheet || null, questions: set.questions.length },
+    });
+    return { quizSetId, questionCount: set.questions.length, logged };
   }
 
   /* 公開・停止の切り替え（2026-09-11）。
      ★これは学生に見えるかどうかを変えるだけで、中身には触らない。
        教師は quiz_sets のポリシー「teacher manage」で更新できるので、RPC は要らない。 */
-  async function setOpen(quizSetId, open) {
+  async function setOpen(quizSetId, open, opts) {
     const rows = await authedWrite(
       "PATCH", "/rest/v1/quiz_sets?id=eq." + encodeURIComponent(quizSetId) + "&select=id,is_open",
       { is_open: !!open });
@@ -473,6 +478,12 @@ FmtImport.db = (() => {
     if (rows[0].is_open !== !!open) {
       throw new Error("状態が変わりませんでした（いまは " + (rows[0].is_open ? "公開中" : "下書き") + "）");
     }
+    // ★履歴（2026-09-13）。失敗しても公開・停止そのものは成立している
+    rows[0].logged = await logEdit({
+      quizSetId: quizSetId, title: opts && opts.title,
+      action: open ? "publish" : "unpublish",
+      summary: open ? "学生に公開した" : "公開をやめた",
+    });
     return rows[0];
   }
 
@@ -481,8 +492,16 @@ FmtImport.db = (() => {
         その回の受験記録まで一緒に消える（しかも cascade は RLS を通らない）。
         delete_quiz_set は受験記録が1件でもあれば例外にする＝**消してよい範囲だけに閉じてある**。
         db/2026-09-11_delete_quiz_set.sql を見よ。 */
-  async function deleteSet(quizSetId) {
-    return await authedWrite("POST", "/rest/v1/rpc/delete_quiz_set", { p_quiz_set_id: quizSetId });
+  async function deleteSet(quizSetId, opts) {
+    const r = await authedWrite("POST", "/rest/v1/rpc/delete_quiz_set", { p_quiz_set_id: quizSetId });
+    /* ★消したあとに残す。quiz_edit_log は quiz_sets に外部キーを張っていないので、
+       回が消えても「だれが消したか」は残る（db/2026-09-13_edit_log.sql）。 */
+    await logEdit({
+      quizSetId: quizSetId, title: (opts && opts.title) || "（消された回）", action: "delete_set",
+      summary: "回ごと消した（設問 " + ((r && r.questions != null) ? r.questions : "?") + "問）",
+      detail: r || null,
+    });
+    return r;
   }
 
   /* その回に受験記録が何件あるか（消せるかどうかを押す前に出すため）。 */
@@ -502,11 +521,26 @@ FmtImport.db = (() => {
    *     「取り込みが主・編集が従」と決めたのは正しい。ただしそれは **ゼロから作る画面** の話で、
    *     **直す画面** まで要らないことにはならなかった。
    *
-   * ■ この版で直せるもの / 直せないもの
-   *   直せる   : 設問文・選択肢の文言・正解・カテゴリ・配点・解説
-   *   直せない : 設問そのものの追加・削除（seq の一意制約と受験記録の対応が絡むため）
-   *              → 受験0件なら「消す」→取り込み直し。受験があるなら停止して入れ直す
-   *   受験が1件でもある回は **選択肢の個数を変えられない**（呼ぶ側が allowChoiceCountChange で渡す）
+   * ■ 直せるもの（2026-09-13 にきあ判断で制限を外した）
+   *   設問文・選択肢（文言も個数も）・正解・カテゴリ・配点・解説、
+   *   そして **設問そのものの追加（末尾）と削除**。
+   *
+   * ■ なぜ制限を外したか
+   *   最初は「受験ずみなら選択肢の個数を変えさせない」「設問は増減させない」にしていた。
+   *   過去の受験記録とのズレを避けるためだったが、きあの前提を聞いて判断が変わった:
+   *     ・同じ学年が同じ日（午前・午後）に全員受ける。**再受験は無い**
+   *     ・過去の学生と比べる必要はほとんど無い
+   *     ・「あげたあとに直せる」ほうが、サイトとして使いやすい
+   *   そのうえで実際に何が動くかを確かめたら、心配していたほどではなかった:
+   *     attempts.score / total（点数）  → **動かない**（提出時に保存された数字）
+   *     学生の「これまでの伸び」・CSV  → **動かない**（上を見ている）
+   *     ライブ集計の設問ごとの正答率   → ここだけ変わる
+   *   ＝ **設問を消しても、誰の点数も変わらない。**
+   *
+   * ■ それでも残る影響（画面で必ず知らせること）
+   *   ・選択肢を入れ替えると、結果画面の「その学生が選んだ答え」の見え方がずれる
+   *     （attempt_answers.chosen は文言ではなく **何番目か** の番号で持っているため）
+   *   ・設問を消すと、その問の「何を選んだか」の記録も一緒に消える（点数は残る）
    */
 
   /* 1回ぶんを、取り込みウィザードと **同じ形** に組み立てて返す。
@@ -581,12 +615,15 @@ FmtImport.db = (() => {
     opts = opts || {};
     const cols = await probeColumns();
     const enc = encodeURIComponent;
-    const allowCount = !!opts.allowChoiceCountChange;
 
     /* ---- 先に全部検査する。★途中まで書いてから落とすと、直した回が半分だけ変わる ---- */
+    if (!set.id) throw new Error("内部エラー: どの回を直すのかが分かりません");
+    if (!set.questions.length) {
+      throw new Error("設問が1件も無くなります。回そのものを消すなら、一覧の「消す」を使ってください");
+    }
+    const seen = {};
     for (const q of set.questions) {
-      const at = "問" + q.seq + "：";
-      if (!q.id) throw new Error(at + "この設問には id がありません（登録済みの回ではありません）");
+      const at = "問" + (q.seq == null ? "（新しい設問）" : q.seq) + "：";
       const labels = (q.choices || []).map(c => (c == null ? "" : String(c).trim()));
       if (!String(q.prompt || "").trim()) throw new Error(at + "設問文が空です");
       if (labels.some(l => !l)) throw new Error(at + "空の選択肢があります（消すか、文字を入れてください）");
@@ -599,16 +636,45 @@ FmtImport.db = (() => {
       if (!(q.correctIdx >= 1 && q.correctIdx <= labels.length)) {
         throw new Error(at + "正解が選ばれていないか、選択肢の数と合っていません");
       }
-      const before = q.choicesBefore || [];
-      if (!allowCount && before.length && labels.length !== before.length) {
-        throw new Error(at + "受験記録があるので、選択肢の数は変えられません（文言と正解は変えられます）");
-      }
+      // 🔴 questions(quiz_set_id, seq) は一意。ぶつかると 409 になるので、ここで止める
+      if (seen[q.seq]) throw new Error(at + "問題番号が重なっています（" + q.seq + "）");
+      seen[q.seq] = true;
     }
 
-    let nQ = 0, nChoice = 0;
+    let nQ = 0, nChoice = 0, nAdd = 0, nDel = 0;
+
+    /* (0) 消す設問。★いちばん先に消す＝末尾に足した設問と問題番号がぶつからないように。
+       questions を消すと、外部キーの cascade で question_choices / question_answers /
+       attempt_answers（その問で何を選んだか）も一緒に消える。
+       ★消えないもの＝ attempts.score / total（点数）。提出時に保存された数字はそのまま残る。 */
+    for (const id of (set.removedIds || [])) {
+      await authedWrite("DELETE", "/rest/v1/questions?id=eq." + enc(id));
+      nDel++;
+    }
+    set.removedIds = [];
+
     for (const q of set.questions) {
       const labels = q.choices.map(c => String(c).trim());
       const before = q.choicesBefore || [];
+
+      /* 新しく足した設問（まだ id が無い）。publishSet と同じ順で入れる。
+         ⓘ quiz_set_questions（②と①をつなぐ表）はトリガ questions_sync_set_link が入れる。 */
+      if (!q.id) {
+        const nbody = { quiz_set_id: set.id, seq: q.seq, prompt: q.prompt };
+        if (cols.questionExtra) {
+          nbody.image_name = q.imageName; nbody.category = q.category; nbody.points = q.points;
+        }
+        const nr = await authedWrite("POST", "/rest/v1/questions", nbody);
+        const newId = nr[0].id;
+        await authedWrite("POST", "/rest/v1/question_choices",
+          labels.map((label, i) => ({ question_id: newId, idx: i + 1, label })));
+        const nab = { question_id: newId, correct_idx: q.correctIdx };
+        if (cols.explanation) nab.explanation = q.explanation;
+        await authedWrite("POST", "/rest/v1/question_answers", nab);
+        q.id = newId; q.choicesBefore = labels.slice();
+        nAdd++; nChoice += labels.length;
+        continue;
+      }
 
       // (1) 設問。★0行でも PostgREST は 200 を返すので、変わったことを確かめる
       const qbody = { prompt: q.prompt };
@@ -652,10 +718,157 @@ FmtImport.db = (() => {
       q.choicesBefore = labels.slice();
       nQ++;
     }
-    return { questions: nQ, choices: nChoice };
+    const logged = await logEdit({
+      quizSetId: set.id, title: set.title, action: "edit",
+      summary: "設問を直した（直した " + nQ + "問"
+             + (nAdd ? "／足した " + nAdd + "問" : "")
+             + (nDel ? "／消した " + nDel + "問" : "") + "）",
+      /* 🔴 キーの名前も「本文っぱく」しない。choices だと中身が選択肢の文字に見える。
+         実際は直した箇所の件数。検査（tests/test_security.py test_09）は
+         キーの名前で見ているので、緩めずにこちらを直した（2026-09-13）。 */
+      detail: { edited: nQ, added: nAdd, removed: nDel, choice_edits: nChoice,
+                seqs: set.questions.map(q => q.seq) },
+    });
+    return { questions: nQ, choices: nChoice, added: nAdd, removed: nDel, logged };
+  }
+
+  /* ───────── だれが・いつ・どの回を変えたかを残す（2026-09-13 きあ依頼）─────────
+   *
+   * ★記録に失敗しても、**元の操作は止めない**。
+   *   「履歴が残せなかった」ために公開や保存が失敗するのは割に合わない。
+   *   ただし **黙って飲み込まない**＝ ok:false を返して、呼んだ側が画面に出す。
+   *   （db/2026-09-13_edit_log.sql に、トリガにしなかった理由も書いてある）
+   *
+   * 🔴 detail には設問の本文を入れない。入れるのは問題番号と件数まで。
+   */
+  async function logEdit(entry) {
+    try {
+      await authedWrite("POST", "/rest/v1/quiz_edit_log", {
+        quiz_set_id: entry.quizSetId || null,
+        quiz_set_title: String(entry.title || "（題名なし）").slice(0, 300),
+        action: entry.action,
+        summary: String(entry.summary || "").slice(0, 500),
+        detail: entry.detail || null,
+      });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  /* 履歴を読む。★名前は profiles から引く（ログには id しか持たない）。 */
+  async function readEditLog(opts) {
+    opts = opts || {};
+    const enc = encodeURIComponent;
+    let q = "/rest/v1/quiz_edit_log?select=id,at,actor_id,quiz_set_id,quiz_set_title,action,summary,detail" +
+            "&order=at.desc&limit=" + (opts.limit || 100);
+    if (opts.quizSetId) q += "&quiz_set_id=eq." + enc(opts.quizSetId);
+    const rows = await authedGet(q);
+    const ids = [...new Set(rows.map(r => r.actor_id).filter(Boolean))];
+    const names = {};
+    if (ids.length) {
+      try {
+        const ps = await authedGet("/rest/v1/profiles?select=id,display_name,role&id=in.(" +
+                                   ids.map(enc).join(",") + ")");
+        ps.forEach(p => { names[p.id] = p.display_name + "（" + p.role + "）"; });
+      } catch (e) { /* 名前が引けなくても履歴そのものは出す */ }
+    }
+    rows.forEach(r => { r.actor_name = names[r.actor_id] || "（不明）"; });
+    return rows;
+  }
+
+  /* ───────── 課題登録FMT の形で Excel に書き出す（2026-09-13 きあ依頼）─────────
+   *
+   * ■ なぜ要るか（きあの言葉）
+   *   「正本をだれかが触って、問題のDBが壊れる可能性もあるが…それは仕方ない。
+   *     Excelをダウンロードできるようにもしておいて、万が一正本がぶっ壊れても復帰できるようにしたい」
+   *   ＝ 編集できるようにした以上、**戻す道**が要る。
+   *
+   * ■ 大事なところ: **取り込みと同じ形で出す**
+   *   出したファイルを、そのまま「①Excelから取り込む」に食わせて戻せる。
+   *   列も、見出しも、1シート＝1回、というところも取り込み口と同じ。
+   *   ★形を変えると、戻せるかどうかを別に確かめないといけなくなる。
+   *
+   * ■ 気をつけること
+   *   ・シート名は Excel の決まりで **31文字まで**、`[ ] : * ? / \` が使えない。
+   *     削ったせいで同じ名前になったら、後ろに (2) を付ける（黙って上書きしない）。
+   *   ・設問文は DB では「問題文1 と 問題文2 を改行でつないだ1つ」になっている。
+   *     書き戻すときは**最初の改行**で2つに割る。どこで割っても、取り込み口が
+   *     また改行でつなぐので **中身は元どおりになる**（往復しても変わらない）。
+   *   ・選択肢が6個以上ある設問があると、FMTの5列には収まらない。
+   *     そのときだけ列を右に伸ばし、**そのことを呼び出し側に返す**（黙って捨てない）。
+   */
+  const FMT_HEADERS = ["問題番号", "問題文1", "問題文2", "添付ファイル名",
+                       "選択肢1", "選択肢2", "選択肢3", "選択肢4", "選択肢5",
+                       "解説", "解答", "カテゴリ", "配点"];
+
+  function safeSheetName(name, used) {
+    let base = String(name || "無題").replace(/[\[\]:*?\/\\]/g, "_").trim().slice(0, 28) || "無題";
+    let n = base, i = 2;
+    while (used[n]) { n = base.slice(0, 28 - String(i).length - 2) + "(" + i + ")"; i++; }
+    used[n] = true;
+    return n;
+  }
+
+  /* 1回ぶんを、FMT の行（配列の配列）にする。戻り値に「選択肢の最大数」も返す。 */
+  function setToRows(set) {
+    const maxCh = set.questions.reduce((a, q) => Math.max(a, (q.choices || []).length), 0);
+    const nCh = Math.max(5, maxCh);                  // ★5未満でも FMT の5列は必ず出す
+    const head = FMT_HEADERS.slice(0, 4)
+      .concat(Array.from({ length: nCh }, (_, i) => "選択肢" + (i + 1)))
+      .concat(["解説", "解答", "カテゴリ", "配点"]);
+    const rows = [head];
+    for (const q of set.questions) {
+      const prompt = String(q.prompt || "");
+      const cut = prompt.indexOf("\n");
+      const t1 = cut < 0 ? prompt : prompt.slice(0, cut);
+      const t2 = cut < 0 ? "" : prompt.slice(cut + 1);
+      const chs = (q.choices || []).slice();
+      while (chs.length < nCh) chs.push("");
+      rows.push([q.seq, t1, t2, q.imageName || ""]
+        .concat(chs)
+        .concat([q.explanation || "", q.correctIdx, q.category || "", q.points == null ? "" : q.points]));
+    }
+    return { rows, maxCh };
+  }
+
+  /* 複数の回を1つのブックにして返す。{ wb, sheets, questions, wideSets } */
+  function buildWorkbook(sets) {
+    if (typeof XLSX === "undefined") throw new Error("Excelを書き出す部品（xlsx.js）が読み込まれていません");
+    const wb = XLSX.utils.book_new();
+    const used = {};
+    let questions = 0;
+    const wideSets = [];                              // 選択肢が6個以上あった回
+    for (const set of sets) {
+      if (!set.questions || !set.questions.length) continue;
+      const { rows, maxCh } = setToRows(set);
+      if (maxCh > 5) wideSets.push(set.title);
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      // ★シート名は元のシート名を優先する（取り込み元と同じ名前で戻せる）。無ければ題名
+      XLSX.utils.book_append_sheet(wb, ws, safeSheetName(set.sheet || set.title, used));
+      questions += set.questions.length;
+    }
+    if (!wb.SheetNames.length) throw new Error("書き出せる設問がありません");
+    return { wb, sheets: wb.SheetNames.length, questions, wideSets };
+  }
+
+  /* そのままダウンロードさせる。★サーバーには何も送らない（ブラウザの中だけで作る）。 */
+  function downloadWorkbook(sets, filename) {
+    const r = buildWorkbook(sets);
+    XLSX.writeFile(r.wb, filename);
+    // ★控えを取ったことも残す（いつの控えがあるか、あとから分かるように）。待たない
+    logEdit({
+      quizSetId: sets.length === 1 ? sets[0].id : null,
+      title: sets.length === 1 ? sets[0].title : (sets.length + "回ぶん"),
+      action: "export",
+      summary: "Excelに書き出した（" + r.sheets + "回 / " + r.questions + "問）",
+      detail: { sheets: r.sheets, questions: r.questions, filename: filename },
+    });
+    return r;
   }
 
   return { probeColumns, resetProbeCache, probeQuizSetsSource, listSourceBooks, searchQuizSets,
            publishSet, setOpen, deleteSet, attemptCount, loadSetForEdit, updateSetQuestions,
-           authedGet, authedWrite };
+           buildWorkbook, downloadWorkbook, setToRows, safeSheetName,
+           logEdit, readEditLog, authedGet, authedWrite };
 })();

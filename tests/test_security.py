@@ -279,6 +279,77 @@ class TestSecurity(unittest.TestCase):
         self.check("★取り消したら、もう読めない", rows == [], str(rows)[:120])
 
 
+    def test_09_edit_log(self):
+        """変更の履歴（quiz_edit_log・2026-09-13）。
+
+        きあ依頼「だれがいつ変更したかの変更履歴は取りたい」で足した表。
+        ★履歴は **あとから書き換えられないこと** が値打ちなので、そこを機械で見る。
+          直せる履歴は、履歴ではない。
+        """
+        self._require_tokens()
+        print("\n=== 9. 変更の履歴（quiz_edit_log） ===")
+
+        # 学生は読めない（誰がどの回をいじったかは、学生には関係がない）
+        st, rows = req("/rest/v1/quiz_edit_log?select=id&limit=5", self.stok)
+        self.check("★学生は履歴を読めない", rows == [] or st in (401, 403), f"{st} {str(rows)[:100]}")
+
+        # 教師（マスターを含む）は読める
+        st, rows = req("/rest/v1/quiz_edit_log?select=id,at,actor_id,action&limit=5", self.ttok)
+        self.check("教師は履歴を読める", st == 200 and isinstance(rows, list), f"{st} {str(rows)[:100]}")
+
+        # 学生は書き込めない
+        st, _ = req("/rest/v1/quiz_edit_log", self.stok,
+                    {"quiz_set_title": "x", "action": "edit", "summary": "x"})
+        self.check("★学生は履歴を書き込めない", st in (401, 403), str(st))
+
+        # 教師は自分の名前でだけ書ける。他人の id では書けない
+        fake = "00000000-0000-4000-8000-000000000999"
+        st, _ = req("/rest/v1/quiz_edit_log", self.ttok,
+                    {"actor_id": fake, "quiz_set_title": "🧪検査", "action": "edit", "summary": "x"})
+        self.check("★他人の名前では履歴を残せない", st in (401, 403), str(st))
+
+        # 🔴 いちばん大事なところ: 誰も直せない・消せない
+        #    （update / delete のポリシーを1つも作っていない＝全員に閉じている）
+        st, rows = req("/rest/v1/quiz_edit_log?select=id&limit=1", self.ttok)
+        if st == 200 and rows:
+            rid = rows[0]["id"]
+            st_u, _ = req(f"/rest/v1/quiz_edit_log?id=eq.{rid}", self.ttok,
+                          {"summary": "書き換えてみる"}, method="PATCH")
+            st2, after = req(f"/rest/v1/quiz_edit_log?select=summary&id=eq.{rid}", self.ttok)
+            changed = bool(after) and after[0].get("summary") == "書き換えてみる"
+            self.check("🔴★教師でも履歴を書き換えられない", not changed, f"PATCH={st_u} 中身={str(after)[:80]}")
+
+            st_d, _ = req(f"/rest/v1/quiz_edit_log?id=eq.{rid}", self.ttok, method="DELETE")
+            st3, still = req(f"/rest/v1/quiz_edit_log?select=id&id=eq.{rid}", self.ttok)
+            self.check("🔴★教師でも履歴を消せない", bool(still), f"DELETE={st_d} 残り={str(still)[:60]}")
+        else:
+            self.check("（履歴がまだ1件も無いので、書き換え・削除は試していない）", True)
+
+        # 🔴 本文を入れていないこと（表がむやみに太らないように決めた）
+        st, rows = req("/rest/v1/quiz_edit_log?select=detail&detail=not.is.null&limit=20", self.ttok)
+        if st == 200 and rows:
+            keys = set()
+            for r in rows:
+                d = r.get("detail")
+                if isinstance(d, dict):
+                    keys |= set(d.keys())
+            bad = {k for k in keys if k in ("prompt", "choices", "label", "questions_text")}
+            self.check("★履歴に設問の本文っぽいキーが無い", not bad, str(sorted(bad)))
+            # ★キーの名前だけでは足りない。**長い文字列**が入っていたら本文が紛れた兆候
+            long_vals = []
+            for r in rows:
+                d = r.get("detail")
+                if not isinstance(d, dict):
+                    continue
+                for k, v in d.items():
+                    if isinstance(v, str) and len(v) > 80:
+                        long_vals.append(f"{k}({len(v)}文字)")
+                    if isinstance(v, list) and any(isinstance(x, str) and len(x) > 80 for x in v):
+                        long_vals.append(f"{k}[](長い文字列)")
+            self.check("★履歴に長い文字列が入っていない（本文が紛れた兆候）",
+                       not long_vals, str(long_vals[:5]))
+
+
 class TestNoLeakedCredentials(unittest.TestCase):
     """★(2026-09-12) 消したはずの平文パスワードが追跡ファイルに戻ってきていないかを機械で見る。
 

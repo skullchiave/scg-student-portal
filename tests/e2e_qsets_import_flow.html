@@ -224,11 +224,11 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
     step("★①②③④の段は出さない＝取り込みの途中と見分けがつく", $("qs-steps").hidden);
     step("見出しが「設問を直す」になる",
          $("qs-step3-h").textContent.includes("設問を直す"), $("qs-step3-h").textContent);
-    step("★誰も受けていないので「自由に直せます」と出る",
-         $("qs-edit-warn").textContent.includes("自由に直せます"),
+    step("★誰も受けていないことが画面に出る",
+         $("qs-edit-warn").textContent.includes("まだ誰も受けていません"),
          $("qs-edit-warn").textContent.replace(/\s+/g, " ").slice(0, 70));
-    step("★「設問そのものは足せない」と画面に書いてある",
-         $("qs-edit-warn").textContent.includes("足したり減らしたり"));
+    step("★設問の追加・削除ができると画面に書いてある",
+         $("qs-edit-warn").textContent.includes("設問そのものの追加と削除"));
 
     const before = await dbQ();
     step("読み込んだ設問数が、登録した数と同じ", before.length === 2, before.length + "問");
@@ -287,9 +287,144 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
          a2.length === 1 && a2[0].correct_idx >= 1 && a2[0].correct_idx <= 2,
          a2.length ? String(a2[0].correct_idx) : "無し");
 
-    // ---- ④ 受験ずみの回では選択肢の数を変えさせない（画面の作りだけ確認）----
-    step("★受験0件のいまは、選択肢を増減するボタンが押せる",
+    // ---- ④ 選択肢の増減はいつでも押せる（2026-09-13 にきあ判断で制限を外した）----
+    step("★選択肢を増減するボタンが押せる",
          await openEdit() && !$("qs-ef-addchoice").disabled && !$("qs-ef-delchoice").disabled);
+
+    // ---- ⑤ 設問を足す（末尾）----
+    const nBefore = (await dbQ()).length;
+    $("qs-btn-addq").click();
+    step("★足した設問は「まだ保存していません」と分かる",
+         await until(() => $("qs-edit-nav").textContent.includes("まだ保存していません"), 8000),
+         $("qs-edit-nav").textContent.replace(/\s+/g, " ").slice(0, 70));
+    const newChs = Array.from(d.querySelectorAll(".qs-ef-choice"));
+    step("足した設問は選択肢2つで始まる", newChs.length === 2, newChs.length);
+    $("qs-ef-prompt").value = "【編集e2e】足した設問";
+    newChs[0].value = "え1"; newChs[1].value = "え2";
+    const r1 = d.querySelector("input[name='qs-ef-correct'][value='1']");
+    if (r1) r1.checked = true;
+    $("qs-btn-save").click();
+    step("足した状態で保存できた",
+         await until(() => $("qs-edit-msg").textContent.includes("保存しました"), 20000),
+         $("qs-edit-msg").textContent);
+    await backToList();
+
+    const q3 = await dbQ();
+    step("★DBの設問が1問ふえている", q3.length === nBefore + 1, nBefore + " → " + q3.length);
+    const addedQ = q3[q3.length - 1];
+    const ac = await w.__e2e.get(
+      "/rest/v1/question_choices?select=idx&question_id=eq." + encodeURIComponent(addedQ.id));
+    const aa = await w.__e2e.get(
+      "/rest/v1/question_answers?select=correct_idx&question_id=eq." + encodeURIComponent(addedQ.id));
+    step("★足した設問に、選択肢2つと正解がそろって入っている",
+         ac.length === 2 && aa.length === 1, "選択肢" + ac.length + "／正解" + aa.length);
+
+    // ---- ⑥ 設問を消す（★押した時点では消さない・保存で消える）----
+    step("編集に入り直す（消す前）", await openEdit());
+    $("qs-ef-next").click(); $("qs-ef-next").click();
+    step("いちばん後ろの設問に移動できた",
+         $("qs-edit-nav").textContent.includes("3 / 3"),
+         $("qs-edit-nav").textContent.replace(/\s+/g, " ").slice(-28));
+    $("qs-btn-delq").click();
+    await pressOk("設問を消す");
+    step("★消しても、保存するまでは消えないと画面に出る",
+         await until(() => $("qs-edit-warn").textContent.includes("保存すると 1問 が消えます"), 8000),
+         $("qs-edit-warn").textContent.replace(/\s+/g, " ").slice(-70));
+    const stillThere = await dbQ();
+    step("★★保存を押す前は、DBはまだ減っていない",
+         stillThere.length === nBefore + 1, stillThere.length + "問");
+    $("qs-btn-save").click();
+    await pressOk("消しての保存");
+    step("消した状態で保存できた",
+         await until(() => $("qs-edit-msg").textContent.includes("保存しました"), 20000),
+         $("qs-edit-msg").textContent);
+    await backToList();
+    const q4 = await dbQ();
+    step("★DBの設問が元の数に戻った", q4.length === nBefore, q4.length + "問");
+    const goneC = await w.__e2e.get(
+      "/rest/v1/question_choices?select=idx&question_id=eq." + encodeURIComponent(addedQ.id));
+    step("★消した設問の選択肢も残っていない", goneC.length === 0, goneC.length + "件");
+
+    // ---- ⑦ Excel に書き出して、そのまま取り込み直せるか（2026-09-13 きあ依頼）----
+    // ★きあの言葉:「万が一正本がぶっ壊れても復帰できるようにしておきたい」
+    //   ＝ 書き出せることではなく、**書き出したものが戻せること** が要件。
+    //   落としたファイル自体はブラウザの外へ出てヘッドレスから触れないので、
+    //   **ブックを作るところまで**を取り出して、それを取り込み口に食わせ直して突き合わせる。
+    {
+      // ★まず一覧の「Excel」ボタンそのものを押す。履歴に残るのはこちらの道で、
+      //   下の往復（buildWb）はブックを作るだけ＝ボタンを通っていない。
+      //   2026-09-13 に、押していないのに「履歴に export がある」を確かめようとして落ちた。
+      rowOf().querySelector(".qs-xlsx").click();
+      step("★一覧の「Excel」を押すと書き出せる",
+           await until(() => $("qs-list-msg").textContent.includes("書き出しました"), 25000),
+           $("qs-list-msg").textContent.replace(/\s+/g, " ").slice(0, 70));
+
+      const src = await w.__e2e.loadSet(setId);
+      const r = w.__e2e.buildWb([src]);
+      step("★Excelのブックを作れた（1回＝1シート）", r.sheets === 1, r.sheets + "シート");
+      step("★設問の数がそろっている", r.questions === src.questions.length,
+           r.questions + " / " + src.questions.length);
+
+      const back = w.__e2e.reimport(r.wb);
+      const rs = (back.sets || [])[0];
+      step("★書き出したものを、そのまま取り込み口が読める", !!rs && !rs.error,
+           rs ? (rs.error || "読めた") : "1シートも読めない");
+      step("★不備0件で読める（＝そのまま戻せる）", !!rs && rs.dropped.length === 0,
+           rs ? rs.dropped.length + "件" : "-");
+      step("★往復しても設問の数が変わらない", !!rs && rs.questions.length === src.questions.length,
+           (rs ? rs.questions.length : "-") + " / " + src.questions.length);
+
+      // 1問ずつ中身を突き合わせる。★数が合うだけでは「中身が入れ替わっていない」と言えない
+      let same = true, why = "";
+      if (rs) {
+        for (let i = 0; i < src.questions.length; i++) {
+          const a = src.questions[i], b = rs.questions[i];
+          if (!b) { same = false; why = "問" + a.seq + " が無い"; break; }
+          if (a.seq !== b.seq) { same = false; why = "問題番号 " + a.seq + " → " + b.seq; break; }
+          if (String(a.prompt) !== String(b.prompt)) { same = false; why = "問" + a.seq + " の設問文が変わった"; break; }
+          if (a.choices.join("\u0001") !== b.choices.join("\u0001")) { same = false; why = "問" + a.seq + " の選択肢が変わった"; break; }
+          if (a.correctIdx !== b.correctIdx) { same = false; why = "問" + a.seq + " の正解が " + a.correctIdx + " → " + b.correctIdx; break; }
+        }
+      } else same = false;
+      step("🔴★往復しても中身が1問も変わらない（設問文・選択肢・正解）", same, why || "全部一致");
+    }
+
+    // ---- ⑧ 変更の履歴に載っているか（2026-09-13 きあ依頼）----
+    // ★きあの言葉:「だれがいつ変更したかの変更履歴は取りたい」
+    //   記録は **消せない**（DBに delete のポリシーを作っていない）ので、
+    //   このテストが残した行もそのまま残る。隠さずに画面へ出す方を選んだ。
+    {
+      const logs = await w.__e2e.get(
+        "/rest/v1/quiz_edit_log?select=action,quiz_set_title,summary,actor_id" +
+        "&quiz_set_id=eq." + encodeURIComponent(setId) + "&order=at.desc&limit=20");
+      const acts = logs.map(r => r.action);
+      step("★編集したことが履歴に残っている", acts.indexOf("edit") >= 0, JSON.stringify(acts));
+      step("★取り込んだことも履歴に残っている", acts.indexOf("import") >= 0, JSON.stringify(acts));
+      step("★公開・停止も履歴に残っている",
+           acts.indexOf("publish") >= 0 && acts.indexOf("unpublish") >= 0, JSON.stringify(acts));
+      step("★Excelに書き出したことも履歴に残っている", acts.indexOf("export") >= 0, JSON.stringify(acts));
+      step("★だれが変えたかが入っている（空でない）",
+           logs.length > 0 && logs.every(r => !!r.actor_id), logs.length + "件");
+      step("★何をしたかが1行で読める",
+           logs.length > 0 && logs.every(r => (r.summary || "").length > 0),
+           logs.length ? logs[0].summary : "-");
+
+      // 画面でも見られるか
+      d.querySelector('[data-view="editlog"]').click();
+      step("「変更の履歴」の画面に入る", await until(() => !d.getElementById("view-editlog").hidden, 8000));
+      step("★履歴の行が画面に出る",
+           await until(() => d.getElementById("log-body").querySelectorAll("tr").length > 0, 15000),
+           d.getElementById("log-note").textContent);
+      step("★この回の題名が履歴に見える",
+           d.getElementById("log-body").textContent.includes(TITLE_PREFIX),
+           d.getElementById("log-body").textContent.replace(/\s+/g, " ").slice(0, 80));
+      // 一覧へ戻す（このあとの片付けが一覧を使う）
+      d.querySelector('[data-view="qsets"]').click();
+      await until(() => !d.getElementById("view-qsets").hidden, 8000);
+      await backToList();
+    }
+
+    step("編集に入り直す（片付け前）", await openEdit());
     $("qs-btn-editcancel").click();
     step("「保存せずに一覧へ戻る」で一覧に戻れる",
          await until(() => !$("qs-pane-list").hidden, 10000));

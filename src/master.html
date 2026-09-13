@@ -193,6 +193,7 @@
         <button data-view="quiz"><span class="ico">📝</span>小テスト ライブ集計</button>
         <button data-view="survey"><span class="ico">📋</span>アンケート 回答一覧</button>
         <button data-view="qsets"><span class="ico">✏️</span>問題の登録・解放</button>
+        <button data-view="editlog"><span class="ico">🧾</span>変更の履歴</button>
         <button id="btn-qr"><span class="ico">📱</span>学生用QRを表示</button>
       </div>
       <div class="sechead">これから作る画面（イメージ）</div>
@@ -323,6 +324,11 @@
         <div id="qs-pane-list">
           <div class="dashhead"><span class="t">✏️ 問題の登録・解放</span>
             <button class="btn" id="qs-btn-new" type="button" style="width:auto;">＋ Excelから取り込む</button>
+            <!-- 正本が壊れたときに戻すための控え（2026-09-13 きあ依頼）。
+                 ★取り込みと同じ「課題登録FMT」の形で出すので、そのまま取り込み直せる。 -->
+            <button class="btn ghost" id="qs-btn-export" type="button" style="width:auto;"
+              title="いま一覧に出ている回を、課題登録FMT の形の Excel にして保存します（そのまま取り込み直せます）"
+              >⬇ 表示中をExcelに書き出す</button>
           </div>
           <div class="panel">
             <h2>小テスト一覧</h2>
@@ -353,7 +359,12 @@
               <b>消す</b>は<b>「受験」が 0 の回だけ</b>できます（取り込みを間違えたときの後始末用）。
               ★<b>1人でも受けた回は「消す」が押せません</b>（「受験ずみ」と出ます）。停止にしてください＝
               <u>受けた記録を消してしまう作りにはしない</u>という決めごとです。<br>
-              ⓘ「受験」が <b>—</b> のときは件数が取れなかったという意味です（0 ではありません）</div>
+              ⓘ「受験」が <b>—</b> のときは件数が取れなかったという意味です（0 ではありません）<br>
+              <b>編集</b>で設問を直せます（<u>設問の追加・削除もできます</u>）。
+              <b>Excel</b>はその回を<b>課題登録FMT の形</b>で保存します。
+              ★<u>出したファイルは、そのまま「Excelから取り込む」で戻せます</u>＝
+              <b>DBが壊れたときの戻し道</b>です。上の「⬇ 表示中をExcelに書き出す」で、
+              絞り込んだ分をまとめて1ファイルにできます</div>
             <div class="msg" id="qs-list-msg"></div>
           </div>
           <div class="note">Excelは「課題登録FMT」の形式だけ読めます（先生が問題を書く1枚もの）。
@@ -408,6 +419,11 @@
               <button class="btn ghost" id="qs-ef-prev" type="button">◀ 前の問題</button>
               <button class="btn ghost" id="qs-ef-next" type="button">次の問題 ▶</button>
             </div>
+            <!-- 設問そのものを増減する（登録ずみの回を直しているときだけ・2026-09-13） -->
+            <div class="btnrow" id="qs-edit-qactions" hidden>
+              <button class="btn ghost" id="qs-btn-addq" type="button">＋ 設問を足す（末尾）</button>
+              <button class="btn ghost" id="qs-btn-delq" type="button">この設問を消す</button>
+            </div>
             <div class="btnrow" style="margin-top:14px;" id="qs-import-actions">
               <button class="btn ghost" id="qs-btn-to2b" type="button">②プレビューへ戻る</button>
               <button class="btn" id="qs-btn-to4" type="button">④登録へ</button>
@@ -438,6 +454,29 @@
       </div>
 
       <!-- ══ イメージ: アンケートの作成 ══ -->
+      <!-- ══ 変更の履歴（2026-09-13 きあ依頼）══ -->
+      <div id="view-editlog" data-viewpane hidden>
+        <div class="panel">
+          <h2>🧾 変更の履歴</h2>
+          <div class="note">だれが・いつ・どの回を変えたかの記録です。
+            <b>取り込み／編集／公開・停止／回ごと削除／Excel書き出し</b>を残しています。<br>
+            🔴 <b>この記録は、あとから直せません・消せません</b>（DB側でそう決めてあります）。<br>
+            ⚠ <u>Supabase の画面から直接いじった分は残りません</u>。そこを触れるのは管理者だけです。
+            <b>中身の復元は「Excelに書き出す」</b>が受け持ちます（問題の登録・解放にあります）。<br>
+            ⓘ <b>🧪 で始まる回</b>は、動作確認の自動テストが作って消したものです。
+            <u>記録は消せない決まりなので、そのまま残ります</u>（隠していません）。</div>
+          <div class="qs-toolbar">
+            <input type="search" id="log-filter-q" placeholder="テスト名でしぼる" aria-label="テスト名でしぼる">
+            <button class="btn ghost" id="log-reload" type="button" style="width:auto;">読み直す</button>
+          </div>
+          <div class="tblwrap"><table class="tbl" id="log-tbl">
+            <thead><tr><th>いつ</th><th>だれが</th><th>何を</th><th>どの回</th><th>中身</th></tr></thead>
+            <tbody id="log-body"></tbody>
+          </table></div>
+          <div class="note" id="log-note">読み込み中…</div>
+        </div>
+      </div>
+
       <div id="view-svbuild" data-viewpane hidden>
         <div class="mockflag">🖼 画面イメージ（まだ動きません）— 一覧は本物の定義（assets/surveys.js）から出している。作成フォームはイメージ</div>
         <div class="panel">
@@ -874,12 +913,46 @@ $("btn-logout").onclick = ()=>{ clearInterval(timer); api.logout(); location.rel
 
 /* 左の一覧 → 右の中身。動く2つはタブ切替のたびに最新を取りにいく */
 document.querySelectorAll(".nav [data-view]").forEach(b=>{ b.onclick = ()=>setView(b.getAttribute("data-view")); });
+/* 変更の履歴（2026-09-13）。★新しい順に出す。名前は profiles から引いている */
+const LOG_LABEL = { import:"取り込み", edit:"編集", publish:"公開", unpublish:"公開をやめた",
+                    delete_set:"回ごと削除", export:"Excel書き出し" };
+let logRows = [];
+async function showEditLog(){
+  $("log-note").textContent = "読み込み中…";
+  try{
+    logRows = await FmtImport.db.readEditLog({ limit: 200 });
+    renderEditLog();
+  }catch(e){
+    $("log-body").innerHTML = "";
+    $("log-note").textContent = "読み込めませんでした（"+e.message+"）";
+  }
+}
+function renderEditLog(){
+  const q = ($("log-filter-q").value||"").trim();
+  const rows = q ? logRows.filter(r=>(r.quiz_set_title||"").includes(q)) : logRows;
+  $("log-body").innerHTML = rows.map(r=>{
+    const d = new Date(r.at);
+    const when = d.toLocaleDateString("ja-JP",{month:"2-digit",day:"2-digit"})+" "+
+                 d.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
+    return "<tr><td>"+esc(when)+"</td><td>"+esc(r.actor_name||"")+"</td>"+
+      "<td>"+esc(LOG_LABEL[r.action]||r.action)+"</td>"+
+      "<td>"+esc(r.quiz_set_title||"")+(r.quiz_set_id?"":"<span class='qs-why'>（消えた回）</span>")+"</td>"+
+      "<td>"+esc(r.summary||"")+"</td></tr>";
+  }).join("");
+  $("log-note").textContent = rows.length
+    ? (rows.length + "件を表示" + (q ? "（しぼり込み中）" : "（新しい順・最大200件）"))
+    : (q ? "その名前の回の記録はありません。" : "まだ記録がありません。");
+}
+$("log-filter-q").oninput = ()=>renderEditLog();
+$("log-reload").onclick = ()=>showEditLog();
+
 function setView(v){
   // 「いま はじめた回」の目印は、📅今日 を離れたら消す（次に戻ったとき古い印が残らないように）
   if(activeView==="today" && v!=="today") justStartedRunId = null;
   activeView=v;
   document.querySelectorAll(".nav [data-view]").forEach(b=>b.classList.toggle("on", b.getAttribute("data-view")===v));
   document.querySelectorAll("[data-viewpane]").forEach(p=>{ p.hidden = (p.id!=="view-"+v); });
+  if(v==="editlog") showEditLog();
   if(v==="quiz"||v==="survey"||v==="today") tick();
   if(v==="qsets"){
     // hashが変われば hashchange 経由で routeQsets() が呼ばれる。既に #qsets 系なら変わらないので直接呼ぶ
@@ -941,6 +1014,53 @@ $("qs-filter-q").oninput = ()=>{
 };
 $("qs-btn-more").onclick = ()=>{ qsListState.limit += 50; showQsList(false); };
 
+/* ファイル名。★日付を必ず入れる＝控えが何枚か溜まったとき、どれが新しいか分かるように */
+function xlsxName(label){
+  const d = new Date(), z = n=>String(n).padStart(2,"0");
+  const stamp = d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate());
+  const safe = String(label||"書き出し").replace(/[\\\/:*?"<>|]/g,"_").slice(0,40);
+  return "課題登録FMT_"+safe+"_"+stamp+".xlsx";
+}
+
+/* いま一覧に出ている回を、まとめて1つのブックにする（2026-09-13 きあ依頼）。
+   ★1回ずつ読む（loadSetForEdit）。まとめて引く書き方だと、設問1,686件ぶんの id を
+     URL に並べることになって長さの上限に当たる。控えを取るのは時々なので、遅くてよい。
+   ★途中経過を必ず出す。87回だと数十秒かかるので、無言だと固まったように見える。 */
+let qsExporting=false;
+$("qs-btn-export").onclick = async ()=>{
+  if(qsExporting) return;
+  const listed = $("qs-list-body").querySelectorAll("tr[data-qsid]");
+  const ids = [...listed].map(tr=>tr.getAttribute("data-qsid"));
+  const m = (text, ng)=>{ const el=$("qs-list-msg"); el.style.display="block";
+                          el.textContent=text; el.className="msg"+(ng?" err":" info"); };
+  if(!ids.length){ m("書き出す回がありません。", true); return; }
+  const label = qsListState.book || qsListState.q || "表示中";
+  const ok = await askDialog({
+    title: "Excelに書き出します",
+    body: ids.length+"回ぶんを1つのファイルにします。\n"
+        + "1シート＝1回で、取り込みと同じ「課題登録FMT」の形です。\n"
+        + "そのまま「Excelから取り込む」に入れれば戻せます。\n\n"
+        + (ids.length>20 ? "回の数が多いので、数十秒かかります。\n" : "")
+        + "※ サーバーには何も送りません。この端末の中だけで作ります。",
+    okText: "書き出す",
+  });
+  if(!ok) return;
+  qsExporting=true; $("qs-btn-export").disabled=true;
+  try{
+    const sets=[]; const failed=[];
+    for(let i=0;i<ids.length;i++){
+      m("読み込んでいます… "+(i+1)+" / "+ids.length);
+      try{ sets.push(await FmtImport.db.loadSetForEdit(ids[i])); }
+      catch(e){ failed.push(ids[i]); }   // ★設問0件の回などは飛ばす。黙って止めない
+    }
+    const r = FmtImport.db.downloadWorkbook(sets, xlsxName(label));
+    m("書き出しました：" + r.sheets + "回 / " + r.questions + "問"
+      + (failed.length ? "　⚠ " + failed.length + "回は設問が無いので入っていません" : "")
+      + (r.wideSets.length ? "　⚠ 選択肢が6個以上ある回が " + r.wideSets.length + " 件あり、列を右に伸ばしています" : ""));
+  }catch(e){ m("書き出せませんでした（"+e.message+"）", true); }
+  finally{ qsExporting=false; $("qs-btn-export").disabled=false; }
+};
+
 /* resetLimit: true のときだけ「もっと見る」で広げた件数を50へ戻す。
    引数なし（routeQsets からの遷移・公開/停止/削除のあとの読み直し）は現在の件数を保つ＝
    「もっと見る」を押した直後に他の操作をしても、また50件に戻って見えなくなることを避ける。 */
@@ -988,8 +1108,10 @@ async function showQsList(resetLimit){
             (s.is_open?"公開をやめる":"公開")+"</button>"+
           /* ★登録したあとに直す口（2026-09-13 きあ依頼）。
              これが無いと、誤字に気づいても**受験ずみの回は消せない**ので打つ手が無かった。 */
-          "<button class='btn ghost qs-edit' type='button' title='この回の設問を1問ずつ直します"+
-            (locked ? "（受験記録があるので、選択肢の数だけは変えられません）" : "")+"'>編集</button>"+
+          "<button class='btn ghost qs-edit' type='button' "+
+            "title='この回の設問を1問ずつ直します'>編集</button>"+
+          "<button class='btn ghost qs-xlsx' type='button' "+
+            "title='この回を、課題登録FMT の形の Excel にして保存します（そのまま取り込み直せます）'>Excel</button>"+
           "<button class='btn ghost qs-del' type='button'"+(locked?" disabled":"")+
             " title='"+(locked ? "受験記録が "+n+" 件あるので消せません。停止を使ってください"
                                : "受験記録が無いので消せます")+"'>消す</button>"+
@@ -1112,8 +1234,26 @@ function wireQsListActions(sets){
       if(!ok){ busy(false); return; }
       // ★知らせを出すのは**一覧を読み直したあと**。先に出すと、画面がまだ古いのに
       //   「公開しました」と言うことになる（押した先生はもう一度押す）。
-      try{ await FmtImport.db.setOpen(id, !open); await showQsList(); msg((open?"停止":"公開")+"しました：" + s.title); }
+      try{
+        const r = await FmtImport.db.setOpen(id, !open, { title: s.title });
+        await showQsList();
+        msg((open?"停止":"公開")+"しました：" + s.title
+            + (r && r.logged && !r.logged.ok ? "　⚠ 変更の履歴は残せませんでした" : ""));
+      }
       catch(e){ msg("できませんでした（"+e.message+"）", true); busy(false); }
+    };
+
+    // Excel 書き出し（2026-09-13）。★サーバーには何も送らない。ブラウザの中で作って落とすだけ
+    tr.querySelector(".qs-xlsx").onclick = async ()=>{
+      busy(true);
+      try{
+        msg("「"+s.title+"」を書き出しています…");
+        const set = await FmtImport.db.loadSetForEdit(id);
+        const r = FmtImport.db.downloadWorkbook([set], xlsxName(s.title));
+        msg("書き出しました："+s.title+"（"+r.questions+"問）"
+            + (r.wideSets.length ? "　⚠ 選択肢が6個以上ある回があるので、列を右に伸ばしています（そのままでは取り込めません）" : ""));
+      }catch(e){ msg("書き出せませんでした（"+e.message+"）", true); }
+      finally{ busy(false); }
     };
 
     // 編集（2026-09-13）。読み込みは routeQsets → showQsEdit がやる
@@ -1144,7 +1284,7 @@ function wireQsListActions(sets){
           okText: "消す", danger: true,
         });
         if(!ok){ busy(false); return; }
-        const r = await FmtImport.db.deleteSet(id);
+        const r = await FmtImport.db.deleteSet(id, { title: s.title });
         msg("消しました：" + s.title + "（設問 " + (r && r.questions!=null ? r.questions : "?") + "問）");
         await showQsList();
       }catch(e){ msg("消せませんでした（"+e.message+"）", true); busy(false); }
@@ -1287,12 +1427,11 @@ function renderQsEditAt(i){
   const set = wizard.sets[pos.si], q = set.questions[pos.qi];
   // ★登録ずみの回にはシート名が無いことがある（source_sheet 未設定）。空の丸かっこを出さない
   $("qs-edit-nav").innerHTML = esc(set.title)+(set.sheet ? "（"+esc(set.sheet)+"）" : "")+
-    " — 問"+q.seq+"　["+(i+1)+" / "+flat.length+"問目]";
-  /* ★受験ずみの回では選択肢の**個数**を変えさせない。
-     attempt_answers.chosen は「何番目を選んだか」の番号なので、増減すると
-     過去の記録が指す先がずれる（文言を変えるだけなら、ずれるのは見え方だけ）。 */
-  const lockN = (wizard.mode==="edit" && (wizard.editAttempts||0) > 0);
-  const lockAttr = lockN ? " disabled title='受験記録があるので、選択肢の数は変えられません'" : "";
+    " — 問"+q.seq+(q.id ? "" : "（新しい設問・まだ保存していません）")+
+    "　["+(i+1)+" / "+flat.length+"問目]";
+  /* ⓘ 2026-09-13 まで、受験ずみの回では選択肢の個数を変えさせなかった。
+     きあ判断で外した（→ renderQsEditWarn のコメント）。ここは誰でも押せる。 */
+  const lockAttr = "";
   $("qs-edit-form").innerHTML =
     "<div class='field'><label>設問文（改行そのまま。${漢字}(よみ) と書くとルビになります）</label>"+
     "<textarea id='qs-ef-prompt' rows='3'>"+escHtml(q.prompt)+"</textarea></div>"+
@@ -1368,6 +1507,7 @@ function applyQsMode(){
   $("qs-step3-h").textContent = edit ? "設問を直す" : "③1問ずつ修正";
   $("qs-import-actions").hidden = edit;
   $("qs-edit-actions").hidden = !edit;
+  $("qs-edit-qactions").hidden = !edit;      // 設問の増減は、登録ずみの回を直すときだけ
   $("qs-edit-warn").hidden = !edit;
   const m = $("qs-edit-msg"); if(m){ m.style.display="none"; m.textContent=""; }
 }
@@ -1377,21 +1517,27 @@ function applyQsMode(){
      「直してよい範囲」も画面に出しておかないと、押してから断られることになる。 */
 function renderQsEditWarn(){
   const n = wizard.editAttempts||0;
+  const set = (wizard.sets||[])[0];
+  const nDel = (set && set.removedIds && set.removedIds.length) || 0;
   const parts = [];
   if(wizard.editIsOpen){
     parts.push("🔴 <b>この回はいま学生に見えています。</b>直している途中の内容がそのまま出るので、"+
                "先に一覧で<b>「公開をやめる」</b>を押すことをすすめます。");
   }
   if(n>0){
-    parts.push("<b>"+n+"人が受けています。</b>直しても<b>過去の点数は変わりません</b>"+
-               "（提出したときに正誤が決まって、そのまま保存されています）。"+
-               "ただし選択肢の文言を変えると、結果の画面に出る「その学生が選んだ答え」の見え方が変わります。<br>"+
-               "★<b>選択肢の数は変えられません</b>（何番目を選んだか、という番号で記録しているため）。");
+    /* ★2026-09-13 に書き直した。それまでは「選択肢の数は変えられません」と止めていたが、
+       きあの前提（同じ学年が同じ日に全員受ける・再受験なし・過去との比較はほとんど不要）と、
+       実際に何が動くかを確かめた結果で判断が変わった＝**点数はどう直しても動かない**。 */
+    parts.push("<b>"+n+"人が受けています。</b>直しても<b>点数は変わりません</b>"+
+               "（正誤は提出した瞬間に決まって、その数字が保存されています）。<br>"+
+               "変わるのは<b>ライブ集計の「設問ごとの正答率」</b>だけです。"+
+               "選択肢を入れ替えると、結果の画面に出る「その学生が選んだ答え」の見え方もずれます。");
   }else{
-    parts.push("まだ誰も受けていないので、<b>自由に直せます</b>。");
+    parts.push("まだ誰も受けていません。");
   }
-  parts.push("⚠ ここで直せるのは<b>いまある設問の中身</b>だけです。"+
-             "<u>設問そのものを足したり減らしたりはできません</u>（そのときは取り込み直してください）。");
+  parts.push("設問文・選択肢（文言も数も）・正解・カテゴリ・配点・解説のほか、"+
+             "<b>設問そのものの追加と削除</b>もできます。");
+  if(nDel) parts.push("🗑 <b>保存すると "+nDel+"問 が消えます。</b>まだ消えていません。");
   $("qs-edit-warn").innerHTML = parts.join("<br>");
 }
 
@@ -1415,6 +1561,55 @@ async function showQsEdit(quizSetId){
   }
 }
 
+/* 設問を足す（末尾）。★問題番号は「いまの最大 + 1」。
+   questions(quiz_set_id, seq) が一意なので、間に割り込ませない。
+   間に入れると以降の番号が全部ずれて、受験記録の見え方まで変わる。 */
+$("qs-btn-addq").onclick = ()=>{
+  const set = (wizard.sets||[])[0]; if(!set) return;
+  if(wizard.editFlat && wizard.editFlat.length) saveQsEditForm();
+  const maxSeq = set.questions.reduce((a,q)=>Math.max(a, Number(q.seq)||0), 0);
+  set.questions.push({ id:null, seq:maxSeq+1, prompt:"", choices:["",""], choicesBefore:[],
+                       correctIdx:1, imageName:null, category:null, points:null, explanation:null });
+  wizard.editFlat = qsFlat();
+  wizard.editIdx = wizard.editFlat.length - 1;     // 足した問をそのまま開く
+  renderQsEditWarn();
+  renderQsEditAt(wizard.editIdx);
+};
+
+/* 設問を消す。★押した時点では消さない＝保存を押すまで DB には触らない。
+   「消すつもり」を set.removedIds に貯めて、注意書きに件数を出す。 */
+$("qs-btn-delq").onclick = async ()=>{
+  const set = (wizard.sets||[])[0]; if(!set) return;
+  if(!wizard.editFlat || !wizard.editFlat.length) return;
+  const m=$("qs-edit-msg");
+  if(set.questions.length<=1){
+    m.style.display="block"; m.className="msg err";
+    m.textContent="最後の1問は消せません。回そのものを消すなら、一覧の「消す」を使ってください。";
+    return;
+  }
+  saveQsEditForm();
+  const pos = wizard.editFlat[wizard.editIdx];
+  const q = set.questions[pos.qi];
+  const n = wizard.editAttempts||0;
+  const ok = await askDialog({
+    title: "問"+q.seq+" を消します",
+    body: q.id
+      ? ("この設問と、その選択肢・正解が消えます。\n"
+         + (n>0 ? n+"人ぶんの「この問で何を選んだか」の記録も一緒に消えます。\n"
+                + "★点数は変わりません。提出したときの数字がそのまま残ります。\n" : "")
+         + "\n保存を押すまで、DBには反映されません。")
+      : "まだ保存していない設問なので、消しても何も残りません。",
+    okText: "消す", danger: true,
+  });
+  if(!ok) return;
+  if(q.id) (set.removedIds = set.removedIds || []).push(q.id);
+  set.questions.splice(pos.qi, 1);
+  wizard.editFlat = qsFlat();
+  if(wizard.editIdx >= wizard.editFlat.length) wizard.editIdx = wizard.editFlat.length - 1;
+  renderQsEditWarn();
+  renderQsEditAt(wizard.editIdx);
+};
+
 $("qs-btn-editcancel").onclick = ()=>{ location.hash="#qsets"; };
 
 let qsSaving=false;
@@ -1427,21 +1622,28 @@ $("qs-btn-save").onclick = async ()=>{
   const show=(t,cls)=>{ m.style.display="block"; m.className="msg "+cls; m.textContent=t; };
   const n = wizard.editAttempts||0;
 
-  // ★危ないときだけ確認を出す（下書き・受験0件なら、いちいち止めない）
-  if(n>0 || wizard.editIsOpen){
+  const nDel = (set.removedIds && set.removedIds.length) || 0;
+  // ★危ないときだけ確認を出す（下書き・受験0件・消すものなしなら、いちいち止めない）
+  if(n>0 || wizard.editIsOpen || nDel){
     const body = (wizard.editIsOpen ? "この回はいま学生に見えています。\n" : "")
-      + (n>0 ? n+"人が受けています。過去の点数は変わりませんが、\n"
+      + (nDel ? "設問を "+nDel+"問 消します。元に戻せません。\n" : "")
+      + (n>0 ? n+"人が受けています。点数は変わりませんが、\n"
              + "結果の画面に出る「選んだ答え」の見え方が変わることがあります。\n" : "")
       + "保存すると、次にこの回を受ける学生からは直したあとの内容になります。";
-    const ok = await askDialog({ title:"「"+set.title+"」を保存します", body, okText:"保存する" });
+    const ok = await askDialog({ title:"「"+set.title+"」を保存します", body,
+                                 okText:"保存する", danger: nDel>0 });
     if(!ok) return;
   }
 
   qsSaving=true; $("qs-btn-save").disabled=true;
   show("保存しています…","info");
   try{
-    const r = await FmtImport.db.updateSetQuestions(set, { allowChoiceCountChange: n===0 });
-    show("保存しました（設問 "+r.questions+"問／選択肢 "+r.choices+"か所）。","info");
+    const r = await FmtImport.db.updateSetQuestions(set);
+    show("保存しました（直した "+r.questions+"問"
+       + (r.added ? "／足した "+r.added+"問" : "")
+       + (r.removed ? "／消した "+r.removed+"問" : "")
+       + "／選択肢 "+r.choices+"か所）。"
+       + (r.logged && !r.logged.ok ? "　⚠ 変更の履歴は残せませんでした。" : ""),"info");
     setTimeout(()=>{ location.hash="#qsets"; }, 900);
   }catch(e){
     show("保存できませんでした（"+e.message+"）","err");
@@ -1996,6 +2198,12 @@ window.__e2e = {
   // 🔴 後片付けは必ずこちらを使う。quiz_sets を直接 DELETE すると cascade で受験記録まで消える
   delSet:(id)=>FmtImport.db.deleteSet(id),
   attemptCount:(id)=>FmtImport.db.attemptCount(id),
+  /* Excel書き出しの検査用（2026-09-13）。★落としたファイルはブラウザの外に出るので
+     ヘッドレスからは確かめにくい。**ブックを作るところまで**をここで取り出して、
+     それを取り込み口に食わせ直す＝「出したものが戻せる」を1本で確かめる。 */
+  loadSet:(id)=>FmtImport.db.loadSetForEdit(id),
+  buildWb:(sets)=>FmtImport.db.buildWorkbook(sets),
+  reimport:(wb)=>FmtImport.build(wb, {}),
 };
 
 (async ()=>{
