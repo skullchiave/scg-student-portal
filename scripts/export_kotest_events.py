@@ -71,6 +71,19 @@ EVENT_SOURCE = "学生ポータル"
 NO_BOOK = "（教材なし）"
 OUT_NAME = "小テスト結果_台帳イベント_全期間.csv"
 
+
+def out_name(label: str | None = None) -> str:
+    """書き出すファイルの名前。★--label でPCごとに分けられる（2026-09-13）。
+
+    会社PCと家PCの2台が同じフォルダへ置くので、名前が同じだと
+    たまたま時間が重なった日に Drive がファイル競合のコピーを作る。
+    読む側（kotest.py）は複数枚を読んで「同じ（学生・教科書・回）は
+    先に読んだほうを残す」ので、2枚あって困らない。
+    """
+    if not label:
+        return OUT_NAME
+    return OUT_NAME.replace(".csv", f"_{label}.csv")
+
 # 台帳リポの置き場の候補（きあのPC）。見つからなければ tmp\ に落とす
 LEDGER_DIRS = ["scg-student-master-db"]
 LEDGER_SUB = Path("マスタDB用データ") / "小テスト"
@@ -250,6 +263,7 @@ def write_csv(path: Path, rows: list) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description="小テスト結果を学生マスタDBのイベント形式で書き出す")
     ap.add_argument("--out", help="書き出し先フォルダ（省略時は自動で決める）")
+    ap.add_argument("--label", help="ファイル名の末尾に付ける印（会社 / 家）。2台で置き場を共有するとき")
     ap.add_argument("--dry-run", action="store_true", help="件数を出すだけ。ファイルは書かない")
     a = ap.parse_args()
 
@@ -279,7 +293,7 @@ def main() -> int:
         return 0
 
     out_dir, why = pick_out_dir(a.out)
-    path = out_dir / OUT_NAME
+    path = out_dir / out_name(a.label)
     print(f"書き出し先: {path}\n  理由: {why}")
     if a.dry_run:
         print("--dry-run なので書いていません。")

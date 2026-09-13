@@ -26,27 +26,54 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import daily_kotest_update as du  # noqa: E402
 
 
-class HomePcGuard(unittest.TestCase):
-    """① 家PCでは走らない"""
+class SiteGuard(unittest.TestCase):
+    """① どのPCか決まっていなければ走らない"""
 
     def test_印が無ければ何もしない(self):
-        """🔴 実データに触るのは会社PCだけ、という決めごとの実装。
-
-        ★私（Claude）が家PCで誤って叩いても、ここで止まる。
+        """★走る時刻はPCごとに違う（会社＝朝夕／家＝深夜）ので、
+        どちらか決まっていないと動けない。印が無い＝まだ設定していないPC。
         """
         with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop(du.ENV_ALLOW, None)
+            os.environ.pop(du.ENV_SITE, None)
             with mock.patch.object(du, "ledger_home") as lh, \
                  mock.patch.object(du.subprocess, "run") as sub:
                 self.assertEqual(du.do_run(), 2)
                 lh.assert_not_called()      # 台帳の場所すら探しに行かない
                 sub.assert_not_called()     # 外のプログラムを1つも起動しない
 
-    def test_1以外は通さない(self):
-        with mock.patch.dict(os.environ, {du.ENV_ALLOW: "true"}):
+    def test_知らない値は通さない(self):
+        with mock.patch.dict(os.environ, {du.ENV_SITE: "yes"}):
             with mock.patch.object(du.subprocess, "run") as sub:
                 self.assertEqual(du.do_run(), 2)
                 sub.assert_not_called()
+
+    def test_大文字でも読む(self):
+        with mock.patch.dict(os.environ, {du.ENV_SITE: "Office"}):
+            self.assertEqual(du.site(), "office")
+
+
+class Schedule(unittest.TestCase):
+    """時間で分けて競合を避ける（きあ決定）"""
+
+    def test_時間帯が重ならない(self):
+        """🔴 これがこの仕組みの競合よけそのもの。
+
+        きあ「職場PCはPCがついてる前提だから朝〜夕方まで。
+              自宅PCは常につけてるから24時とかにすれば競合はまずまずしない」
+        ここが重なると、同じ xlsx を2台が書いて Drive がコピーを作る。
+        """
+        office = {int(t[:2]) for t in du.SITES["office"]["times"]}
+        home = {int(t[:2]) for t in du.SITES["home"]["times"]}
+        self.assertFalse(office & home)
+        # 家は深夜、会社は日中
+        self.assertTrue(all(h <= 5 or h >= 22 for h in home), home)
+        self.assertTrue(all(6 <= h <= 21 for h in office), office)
+
+    def test_会社だけログオン後を持つ(self):
+        """会社PCは消えている時間が長いので、時刻だけだと抜ける日がある。
+        家PCは常時ONなので要らない。"""
+        self.assertTrue(du.SITES["office"]["logon"])
+        self.assertIsNone(du.SITES["home"]["logon"])
 
 
 class MaskRequired(unittest.TestCase):
@@ -100,11 +127,17 @@ class TaskShape(unittest.TestCase):
     """③ タスクの中身"""
 
     def setUp(self):
-        self.xml = du.task_xml()
+        self.xml = du.task_xml("office")
 
     def test_きあが決めた時刻(self):
         self.assertIn("T09:00:00", self.xml)
         self.assertIn("T16:30:00", self.xml)
+
+    def test_家は深夜だけ(self):
+        h = du.task_xml("home")
+        self.assertIn("T00:00:00", h)
+        self.assertNotIn("T09:00:00", h)
+        self.assertNotIn("<LogonTrigger>", h)     # 常時ONなので要らない
 
     def test_ログオン後にも走る(self):
         """🔴 時刻トリガーだけだと、その時刻に会社PCが起きていない日が丸ごと抜ける。
@@ -113,7 +146,7 @@ class TaskShape(unittest.TestCase):
           全部止まっていた（エラーは1件も出なかった）。
         """
         self.assertIn("<LogonTrigger>", self.xml)
-        self.assertIn(du.LOGON_DELAY, self.xml)
+        self.assertIn(du.SITES["office"]["logon"], self.xml)
 
     def test_取りこぼしを取り戻す(self):
         self.assertIn("<StartWhenAvailable>true</StartWhenAvailable>", self.xml)

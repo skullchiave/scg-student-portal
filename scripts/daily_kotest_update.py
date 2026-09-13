@@ -17,11 +17,18 @@ r"""毎日の自動更新：小テストの点 → 学生マスタDB（2026-09-1
     py -X utf8 scripts\daily_kotest_update.py              # いま1回だけ走らせる
     py -X utf8 scripts\daily_kotest_update.py --uninstall  # 登録を消す
 
-■ 🔴 会社PCでしか走りません
-  `SCG_ALLOW_REAL=1` が無いと、何もせずに止まります。
-  実データ（学生マスタDB）に触るのは会社PCだけ、という決めごとのため。
-  家PCで誤って叩いても実データに届きません。
-    setx SCG_ALLOW_REAL 1      ← 会社PCで1回だけ
+■ 会社PCと家PCの2台で動きます（家は予備・2026-09-13 きあ決定）
+  `SCG_SITE` が無いと、何もせずに止まります。どちらのPCとして振る舞うかで時刻が変わります。
+    setx SCG_SITE office    ← 会社PC： 9:00 / 16:30 / ログオン9分後
+    setx SCG_SITE home      ← 家PC　： 0:00
+  🔴 同じ 学生マスタDB.xlsx を2台が書くので、**時間で分けて**競合を避けています。
+     会社PCには深夜のきっかけが1つも無いので、0:00に書くのは家PCだけになります。
+  ★CSVのファイル名もPCごとに分けます（…_全期間_会社.csv / …_全期間_家.csv）。
+
+■ 🔴 Claude はこのスクリプトを走らせません
+  `~/.claude/pii_guard.py`（関所）が、Claude の Bash ツール経由の実行だけを止めます。
+  中身を読む・直すのは止めていません。きあがタスクや手で叩く分には掛かりません。
+  ★環境変数の印は Claude にも見えるので、仕切りとしては関所の側に置いてあります。
 
 ■ 🔴 ログに素のまま書きません
   build_master.py の出力には氏名が混ざることがあるので、**必ず mask_log.py を通します**。
@@ -46,18 +53,38 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 
 # ── 置き場の決まり ────────────────────────────────────────────
-ENV_ALLOW = "SCG_ALLOW_REAL"          # 会社PCの印
+ENV_SITE = "SCG_SITE"                 # どのPCとして振る舞うか（office / home）。印も兼ねる
 ENV_LEDGER = "SCG_LEDGER_HOME"        # 台帳の実行フォルダを手で指すとき
 LEDGER_REL = Path("claude作業場") / "0.1 分析" / "学生マスタDB"
 KOTEST_SUB = Path("マスタDB用データ") / "小テスト"
 TASK_NAME = r"SCG\kotest-daily-update"
-RUN_TIMES = ["09:00", "16:30"]        # きあ指定（朝いちばん と 夕方）
-# ★ログオンしたあとにも1回走らせる。会社の既存3本が 3分/5分/7分 なので、ぶつからない9分。
-#   時刻トリガーだけだと「その時刻に会社PCが起きていない日」が丸ごと抜ける
-#   （2026-09-13 実例＝1週間出勤しなかったあいだ、会社PCの自動化3本が全部止まっていた）。
-LOGON_DELAY = "PT9M"
 LOG_KEEP = 200                        # ログはこの行数だけ残す
 ALERT_NAME = "⚠小テスト自動更新が止まっています.txt"
+
+# ── いつ走るか（2026-09-13 きあ決定）──────────────────────────────
+#
+# 🔴 同じ 学生マスタDB.xlsx を2台が書くので、**時間で分ける**のが競合よけ。
+#    きあ＝「職場PCの設定はPCがついてる前提だから、当然朝～夕方までのハズ。
+#            一方で自宅PCは常につけてるから、24時とかにすれば競合はまずまずしない」
+#    会社PCには深夜のきっかけが1つも無い（既存3本も 13:00〜18:00 とログオン後）。
+#    9時間離れていれば Drive の同期は完全に終わっているので、番敷やロックは要らない。
+#
+# ★会社だけ「ログオン後」を持つ理由: 会社PCは消えている時間が長く、
+#   時刻だけだと「その時刻に起きていない日」が丸ごと抜ける
+#   （2026-09-13 実例＝1週間出勤せず、会社PCの自動化3本が全部止まっていた）。
+#   既存3本が ログオン後 3分/5分/7分 なので、ぶつからない9分にしてある。
+#   家PCは常時ONなので、時刻だけで足りる。
+SITES = {
+    "office": dict(label="会社", times=["09:00", "16:30"], logon="PT9M",
+                   note="朝いちばんと夕方。PCが消えていた回は起動後に取り戻す"),
+    "home":   dict(label="家",   times=["00:00"],          logon=None,
+                   note="会社PCが消えている深夜。ここだけが書く時間帯"),
+}
+
+
+def site() -> str | None:
+    v = (os.environ.get(ENV_SITE) or "").strip().lower()
+    return v if v in SITES else None
 
 
 def log_path() -> Path:
@@ -145,10 +172,17 @@ def do_check(verbose: bool = True) -> int:
     ok = True
     say = print if verbose else (lambda *a, **k: None)
 
-    allowed = os.environ.get(ENV_ALLOW) == "1"
-    say(f"{'OK  ' if allowed else '🔴  '}{ENV_ALLOW}=1 になっている"
-        + ("" if allowed else f"　→ 会社PCで  setx {ENV_ALLOW} 1  を1回"))
-    ok &= allowed
+    s = site()
+    if s:
+        c = SITES[s]
+        say(f"OK  このPCは「{c['label']}」（{ENV_SITE}={s}）"
+            f"　走る時刻: {' と '.join(c['times'])}"
+            + ("　＋ログオン後" if c["logon"] else ""))
+    else:
+        say(f"🔴  {ENV_SITE} が設定されていません"
+            f"　→ 会社PCなら  setx {ENV_SITE} office"
+            f"　／家PCなら  setx {ENV_SITE} home")
+    ok &= bool(s)
 
     home, why = ledger_home()
     say(f"台帳の場所: {home}\n  理由: {why}")
@@ -202,11 +236,13 @@ def do_run() -> int:
     started = dt.datetime.now()
     stamp = started.strftime("%Y-%m-%d %H:%M")
 
-    if os.environ.get(ENV_ALLOW) != "1":
-        print(f"🔴 {ENV_ALLOW}=1 が無いので、何もせずに止まりました。")
-        print("   実データに触るのは会社PCだけ、という決めごとです。")
-        print(f"   会社PCなら:  setx {ENV_ALLOW} 1")
+    s = site()
+    if not s:
+        print(f"🔴 {ENV_SITE} が無いので、何もせずに止まりました。")
+        print("   このPCが「会社」なのか「家」なのかが決まっていないと、走る時間帯が決められません。")
+        print(f"   会社PCなら:  setx {ENV_SITE} office　／　家PCなら:  setx {ENV_SITE} home")
         return 2
+    label = SITES[s]["label"]
 
     home, why = ledger_home()
     if home is None or not (home / "scripts" / "build_master.py").exists():
@@ -237,8 +273,11 @@ def do_run() -> int:
         out_dir.mkdir(parents=True, exist_ok=True)
 
         # ① ポータル → CSV
+        # ★CSVのファイル名は**PCごとに分ける**。同じ名前だと、たまたま時間が重なった日に
+        #   Drive がファイル競合のコピーを作る。kotest.py は複数枚を読んで
+        #   「同じ（学生・教科書・回）は先に読んだほうを残す」ので、2枚あって困らない。
         code, note = run([sys.executable, "-X", "utf8", str(HERE / "export_kotest_events.py"),
-                          "--out", str(out_dir)], mask)
+                          "--out", str(out_dir), "--label", label], mask)
         lines.append(f"  ① 点の書き出し: {'OK' if code == 0 else '🔴 失敗'}（終了コード {code}）")
         lines += ["      " + x for x in note.splitlines() if x.strip()]
         if code != 0:
@@ -301,12 +340,13 @@ def clear_alert() -> None:
 
 
 # ── タスクスケジューラへの登録 ────────────────────────────────
-def task_xml() -> str:
-    r"""毎日 9:00 と 16:30。**PCが止まっていた回は、起動後に取り戻す**。
+def task_xml(s: str) -> str:
+    r"""そのPCの時刻でタスクの中身を組む。**止まっていた回は、起動後に取り戻す**。
 
     ★schtasks のコマンド引数だけでは「利用可能になったら実行」を付けられないので、
       XML を書いて渡す。XML は UTF-16 で保存しないと schtasks が読めない。
     """
+    c = SITES[s]
     exe = sys.executable
     script = HERE / "daily_kotest_update.py"
     triggers = "".join(
@@ -315,15 +355,17 @@ def task_xml() -> str:
       <StartBoundary>2026-01-01T{t}:00</StartBoundary>
       <Enabled>true</Enabled>
       <ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay>
-    </CalendarTrigger>""" for t in RUN_TIMES) + f"""
+    </CalendarTrigger>""" for t in c["times"])
+    if c["logon"]:
+        triggers += f"""
     <LogonTrigger>
       <Enabled>true</Enabled>
-      <Delay>{LOGON_DELAY}</Delay>
+      <Delay>{c['logon']}</Delay>
     </LogonTrigger>"""
     return f"""<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>学生ポータルの小テストの点を、学生マスタDBへ入れる（毎日）</Description>
+    <Description>学生ポータルの小テストの点を、学生マスタDBへ入れる（毎日・{c['label']}PC／{c['note']}）</Description>
   </RegistrationInfo>
   <Triggers>{triggers}
   </Triggers>
@@ -358,16 +400,22 @@ def do_install() -> int:
     if do_check(verbose=True) != 0:
         print("\n🔴 設定がそろっていないので、登録しませんでした。上の🔴を直してから、もう一度。")
         return 1
+    s = site()
+    c = SITES[s]
     xml = Path(tempfile.gettempdir()) / "scg_kotest_task.xml"
-    xml.write_text(task_xml(), encoding="utf-16")
+    xml.write_text(task_xml(s), encoding="utf-16")
     r = subprocess.run(["schtasks", "/Create", "/TN", TASK_NAME, "/XML", str(xml), "/F"],
                        capture_output=True, text=True, encoding="utf-8", errors="replace")
     xml.unlink(missing_ok=True)
     if r.returncode != 0:
         print("🔴 登録できませんでした:\n" + (r.stderr or r.stdout or "").strip()[:400])
         return 1
-    print(f"✅ 登録しました: {TASK_NAME}")
-    print(f"   毎日 {' と '.join(RUN_TIMES)}。PCが止まっていた回は、起動したあとに取り戻します。")
+    print(f"✅ 登録しました: {TASK_NAME}（このPCは「{c['label']}」）")
+    print(f"   毎日 {' と '.join(c['times'])}"
+          + ("　＋ログオンの9分後" if c["logon"] else "")
+          + f"　― {c['note']}")
+    if s == "home":
+        print("   ★会社PCは朝〜夕方しか動かないので、この時間に書くのは家PCだけです。")
     print("   確かめる: タスクスケジューラ →「タスク スケジューラ ライブラリ」→ SCG")
     print(f"   いますぐ試す: schtasks /Run /TN \"{TASK_NAME}\"")
     return 0

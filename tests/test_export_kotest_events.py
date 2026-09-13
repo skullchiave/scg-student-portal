@@ -206,6 +206,26 @@ class Overwrite(unittest.TestCase):
             self.assertIn(b"\r\n", raw)
 
 
+class OutName(unittest.TestCase):
+    """2台で同じフォルダへ置くので、名前を分ける（2026-09-13）"""
+
+    def test_印が無ければ今までどおり(self):
+        self.assertEqual(ex.out_name(), ex.OUT_NAME)
+        self.assertEqual(ex.out_name(None), ex.OUT_NAME)
+
+    def test_印が付くと名前が変わる(self):
+        self.assertEqual(ex.out_name("家"), "小テスト結果_台帳イベント_全期間_家.csv")
+        self.assertEqual(ex.out_name("会社"), "小テスト結果_台帳イベント_全期間_会社.csv")
+
+    def test_会社と家でぶつからない(self):
+        """🔴 同じ名前だと、時間が重なった日に Drive がファイル競合のコピーを作る。"""
+        self.assertNotEqual(ex.out_name("家"), ex.out_name("会社"))
+
+    def test_拡張子は保つ(self):
+        for label in [None, "家", "会社"]:
+            self.assertTrue(ex.out_name(label).endswith(".csv"))
+
+
 class OutDir(unittest.TestCase):
     """置き場を黙って変えない"""
 
