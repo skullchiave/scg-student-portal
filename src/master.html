@@ -142,6 +142,8 @@
   dialog.cfmdlg .btn.danger{background:var(--ng);border-color:var(--ng);color:#fff;}
   /* アンケートの回ダイアログはクラス選択（複数）が伸びるので、ダイアログ自体に上限をつけてスクロールさせる */
   #svround-dlg{max-height:88vh;overflow-y:auto;}
+  /* 教科書のチェックリストは行が横に長いので、少し広くする */
+  #xlsx-dlg{width:min(580px,94vw);max-height:88vh;overflow-y:auto;}
   #svround-classes{max-height:170px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:4px 10px;}
   #svround-classes .chk{margin-bottom:0;}
   @media (max-width:900px){
@@ -335,11 +337,11 @@
             <!-- 正本が壊れたときに戻すための控え（2026-09-13 きあ依頼）。
                  ★取り込みと同じ「課題登録FMT」の形で出すので、そのまま取り込み直せる。 -->
             <button class="btn ghost" id="qs-btn-export" type="button" style="width:auto;"
-              title="いま一覧に出ている回を、課題登録FMT の形の Excel にして保存します（そのまま取り込み直せます）"
-              >⬇ 表示中をExcelに書き出す</button>
+              title="教科書（教材）をえらんで、課題登録FMT の形の Excel にまとめます（そのまま取り込み直せます）"
+              >⬇ Excelに書き出す</button>
             <button class="btn ghost" id="qs-btn-delmany" type="button" style="width:auto;"
-              title="いま一覧に出ている回のうち、受験記録が0件のものをまとめて消します（しぼり込みが要ります）"
-              >🗑 表示中をまとめて消す</button>
+              title="いましぼり込んでいる条件に当てはまる回のうち、受験記録が0件のものをまとめて消します"
+              >🗑 しぼった分をまとめて消す</button>
           </div>
           <div class="panel">
             <h2>小テスト一覧</h2>
@@ -356,28 +358,33 @@
                  tbody ごとに効いて、**再描画のたびに古い行が1行ずつ生き残る**。
                  2026-09-11 に実際にそうなった（DOMは14行、DBは4件。しかも古い行が上に残るので、
                  「公開を押したのに下書きのまま」に見えた）。★行の入れ替えは tbody の innerHTML で行う。 -->
+            <!-- ★件数は表の**上**に出す（2026-09-13 きあ指摘）。
+                 下に置くと、50行スクロールしないと「全何件あるのか」が分からない。 -->
+            <div class="note" id="qs-list-note" style="margin:0 0 10px;">読み込み中…</div>
             <div class="tblwrap"><table class="tbl" id="qs-list-tbl">
               <thead><tr><th>テスト名</th><th>課</th><th class="num">受験</th><th>状態</th><th>操作</th></tr></thead>
               <tbody id="qs-list-body"></tbody>
             </table></div>
-            <div class="note" id="qs-list-note">読み込み中…</div>
             <div class="qs-more" id="qs-list-more" hidden>
               <button class="btn ghost" id="qs-btn-more" type="button">もっと見る</button>
             </div>
             <div class="note"><b>はじめる</b>はクラスと時間を指定して、その時間だけ学生の画面に出します
               （授業中の小テストはこちら推奨。「📅 今日」で残り時間・提出数が見られます）。<br>
               <b>公開</b>を押すと、その回が<u>クラスを問わず</u>ずっと学生の画面に出ます。<b>停止</b>で引っ込みます。<br>
-              <b>消す</b>と<b>Excel</b>は<b>上の帯にまとめてあります</b>（2026-09-13）＝
-              <u>1回ずつ落とした Excel は控えにならない</u>／<u>消すのは後始末なので、まとめてやることが多い</u>ため。
-              対象は<b>いま一覧に出ている回</b>なので、先に<b>教材でしぼる・名前で検索</b>してから押します。<br>
+              <b>編集</b>で設問を直せます（<u>設問の追加・削除もできます</u>）。<br>
+              ⓘ「受験」が <b>—</b> のときは件数が取れなかったという意味です（0 ではありません）<br>
+
+              <b>⬇ Excelに書き出す</b>は<b>教科書（教材）でえらびます</b>
+              （<u>1つも選ばなければ全部</u>）。えらんだ教科書を<b>課題登録FMT の形</b>で1ファイルにします。
+              ★<u>出したファイルは、そのまま「Excelから取り込む」で戻せます</u>＝
+              <b>DBが壊れたときの戻し道</b>です<br>
+
+              <b>🗑 しぼった分をまとめて消す</b>の対象は、
+              <b>いましぼり込んでいる条件に当てはまる全件</b>です
+              （★<u>表に見えている50件ではありません</u>）。先に<b>教材でしぼる・名前で検索</b>してから押します。<br>
               ★<b>消せるのは「受験」が 0 の回だけ</b>です。1人でも受けた回は残ります＝
               <u>受けた記録を消してしまう作りにはしない</u>という決めごとです。
-              消さずに引っ込めたいときは<b>公開をやめる</b>を使ってください。<br>
-              ⓘ「受験」が <b>—</b> のときは件数が取れなかったという意味です（0 ではありません）<br>
-              <b>編集</b>で設問を直せます（<u>設問の追加・削除もできます</u>）。<br>
-              <b>⬇ 表示中をExcelに書き出す</b>は、しぼった分を<b>課題登録FMT の形</b>で1ファイルにします。
-              ★<u>出したファイルは、そのまま「Excelから取り込む」で戻せます</u>＝
-              <b>DBが壊れたときの戻し道</b>です</div>
+              消さずに引っ込めたいときは<b>公開をやめる</b>を使ってください</div>
             <div class="msg" id="qs-list-msg"></div>
           </div>
           <div class="note">Excelは「課題登録FMT」の形式だけ読めます（先生が問題を書く1枚もの）。
@@ -631,6 +638,26 @@
 <!-- 実施回を「はじめる」ダイアログ（②2026-09-11）。askDialog とは別物＝入力（クラス・時間）を持つため。
      🔴 クラスは毎回選ばせる（前回の選択を既定にしない）。選ぶと対象人数がその場に出る＝
      「1B（28人）で はじめます」を押す前に見える形にしてある。 -->
+<!-- Excelに書き出す教科書をえらぶ（2026-09-13 きあ指摘）。
+     ★控えの単位は「表示中の50件」ではなく**教科書**。1つも選ばなければ全部。 -->
+<dialog class="cfmdlg" id="xlsx-dlg">
+  <form method="dialog" class="cfmform">
+    <h3>⬇ Excelに書き出す</h3>
+    <div class="cfm-body">えらんだ教科書を<b>1つのファイル</b>にまとめます。
+      1シート＝1回で、取り込みと同じ「課題登録FMT」の形です。
+      <b>そのまま「Excelから取り込む」に入れれば戻せます</b>。<br>
+      ★<b>1つも選ばなければ全部</b>です。
+      ⓘ サーバーには何も送りません。この端末の中だけで作ります。</div>
+    <div id="xlsx-books" style="margin:14px 0;max-height:42vh;overflow-y:auto;"></div>
+    <div class="note" id="xlsx-sum" style="margin:0 0 6px;"></div>
+    <div class="btnrow cfm-actions">
+      <button class="btn ghost" id="xlsx-cancel" type="button">やめる</button>
+      <button class="btn" id="xlsx-ok" type="button">全部を書き出す</button>
+    </div>
+    <div class="msg" id="xlsx-msg"></div>
+  </form>
+</dialog>
+
 <dialog class="cfmdlg" id="run-dlg">
   <h3 id="run-title"></h3>
   <div class="field">
@@ -1004,6 +1031,8 @@ const qsListState = { book:"", q:"", limit:50 };
 /* いま一覧に出ている回。★まとめて操作（Excel書き出し・まとめて消す）の対象はこれ。
    ＝ **画面に見えているものだけ**を触る。見えていないものが動くのがいちばん怖い。 */
 let qsLastSets = [];
+/* 教材ごとの件数（プルダウンと、書き出しの選択画面で使う）。ensureQsFilters が一度だけ引く */
+let qsBooks = [];
 let qsFiltersReady = false;
 
 /* 教材フィルタの初期化。★列が無い環境でも一覧そのものは動かす＝失敗を握りつぶして「出さない」側に倒す。
@@ -1014,10 +1043,14 @@ async function ensureQsFilters(){
   try{
     const has = await FmtImport.db.probeQuizSetsSource();
     if(!has) return;   // 列が無い＝絞り込みUIを出さずに従来どおり動く、が正しい壊れ方
-    const books = await FmtImport.db.listSourceBooks();
+    /* ★件数つきで出す（2026-09-13 きあ指摘）＝「つなぐ日本語Ⅱ って選んだら、全何個あるのかな？」。
+       **選ぶ前に**分かるのが大事なので、選択肢そのものに数を書く。value は教材名のまま。 */
+    qsBooks = await FmtImport.db.listBooksWithCounts();
+    const total = qsBooks.reduce((a,b)=>a+b.sets,0);
     const sel = $("qs-filter-book");
-    sel.innerHTML = "<option value=''>すべての教材</option>" +
-      books.map(b=>"<option value=\""+escHtml(b)+"\">"+escHtml(b)+"</option>").join("");
+    sel.innerHTML = "<option value=''>すべての教材（"+total+"）</option>" +
+      qsBooks.filter(b=>b.book)
+             .map(b=>"<option value=\""+escHtml(b.book)+"\">"+escHtml(b.book)+"（"+b.sets+"）</option>").join("");
     sel.hidden = false;
   }catch(e){ /* 教材の絞り込みだけ諦める。検索・件数・もっと見るは列に関係なく動く */ }
 }
@@ -1060,22 +1093,32 @@ $("qs-btn-delmany").onclick = async ()=>{
     m("まず教材か名前でしぼってください。しぼらずに、まとめて消すことはできません。", true);
     return;
   }
-  if(!qsLastSets.length){ m("消す回がありません。", true); return; }
+  m("数えています…");
+  /* 🔴 **表示中の50件ではなく、しぼり込みに当てはまる全件**を数える（2026-09-13 きあ指摘）。
+     50件は「もっと見る」を押す前の1ページ分。60件あるのに50件だけ消えて
+     「全部消した」ように見えるのが、いちばん気づけない壊れ方になる。 */
+  let all;
+  try{
+    const got = await FmtImport.db.searchQuizSets("id,title,attempts(count)",
+      { book: qsListState.book, q: qsListState.q, limit: 2000 });
+    all = got.rows;
+  }catch(e){ m("数えられませんでした（"+e.message+"）", true); return; }
+  if(!all.length){ m("消す回がありません。", true); return; }
   // ★件数が分からないもの（—）は「消せない側」に入れる。分からないまま消さない
-  const can  = qsLastSets.filter(s=>qsAttemptN(s)===0);
-  const cant = qsLastSets.filter(s=>qsAttemptN(s)!==0);
+  const can  = all.filter(s=>qsAttemptN(s)===0);
+  const cant = all.filter(s=>qsAttemptN(s)!==0);
   if(!can.length){
-    m("この "+qsLastSets.length+"件 はどれも消せません（受験記録があるか、件数が分かりません）。", true);
+    m("この "+all.length+"件 はどれも消せません（受験記録があるか、件数が分かりません）。", true);
     return;
   }
   const label = qsListState.book || ("「"+qsListState.q+"」");
   const ok = await askDialog({
     title: can.length+"件 を消します",
-    body: label+" でしぼった "+qsLastSets.length+"件 のうち、\n"
+    body: label+" でしぼった "+all.length+"件 のうち、\n"
         + "消せるのは "+can.length+"件 です（受験記録が0件のものだけ）。\n"
         + (cant.length ? cant.length+"件 は受験ずみか件数が分からないので、そのまま残ります。\n" : "")
         + "\n設問も一緒に消えます。元に戻せません。\n"
-        + "★控えが要るなら、先に「⬇ 表示中をExcelに書き出す」を押してください。",
+        + "★控えが要るなら、先に「⬇ Excelに書き出す」を押してください。",
     okText: can.length+"件を消す", danger: true,
   });
   if(!ok) return;
@@ -1095,38 +1138,74 @@ $("qs-btn-delmany").onclick = async ()=>{
   finally{ qsDeletingMany=false; $("qs-btn-delmany").disabled=false; }
 };
 
+/* ═══ Excelに書き出す — 教科書（教材）をえらぶ（2026-09-13 きあ指摘で作り直し）═══
+ * ★それまでの単位は「表示中の◯件」だった。50件は**「もっと見る」を押す前の1ページ分**で、
+ *   きあの言うとおり「何の50件？」になる。控えの単位は **教科書** が正しい。
+ * ★きあ追記「教科書を選ばない場合は、全件でOK」＝1つも選ばなければ全部を出す。
+ */
 let qsExporting=false;
+function qsExportSummary(){
+  const picked = [...document.querySelectorAll(".xlsx-book:checked")].map(c=>c.value);
+  const target = picked.length ? qsBooks.filter(b=>picked.indexOf(b.book)>=0) : qsBooks;
+  const nSet = target.reduce((a,b)=>a+b.sets,0), nQ = target.reduce((a,b)=>a+b.questions,0);
+  $("xlsx-sum").innerHTML = picked.length
+    ? "選んだ <b>"+picked.length+"教材</b>　→　"+nSet+"回 / "+nQ+"問"
+    : "何も選んでいないので <b>全部</b>　→　"+nSet+"回 / "+nQ+"問";
+  $("xlsx-ok").textContent = picked.length ? "選んだ分を書き出す" : "全部を書き出す";
+  $("xlsx-ok").disabled = nSet===0;
+  return { picked, target, nSet, nQ };
+}
+
 $("qs-btn-export").onclick = async ()=>{
   if(qsExporting) return;
-  const ids = qsLastSets.map(s=>s.id);
-  const m = (text, ng)=>{ const el=$("qs-list-msg"); el.style.display="block";
-                          el.textContent=text; el.className="msg"+(ng?" err":" info"); };
-  if(!ids.length){ m("書き出す回がありません。", true); return; }
-  const label = qsListState.book || qsListState.q || "表示中";
-  const ok = await askDialog({
-    title: "Excelに書き出します",
-    body: ids.length+"回ぶんを1つのファイルにします。\n"
-        + "1シート＝1回で、取り込みと同じ「課題登録FMT」の形です。\n"
-        + "そのまま「Excelから取り込む」に入れれば戻せます。\n\n"
-        + (ids.length>20 ? "回の数が多いので、数十秒かかります。\n" : "")
-        + "※ サーバーには何も送りません。この端末の中だけで作ります。",
-    okText: "書き出す",
-  });
-  if(!ok) return;
-  qsExporting=true; $("qs-btn-export").disabled=true;
+  const box=$("xlsx-books"), msg=$("xlsx-msg");
+  msg.style.display="none"; msg.textContent="";
+  box.innerHTML="<div class='note'>教材を読み込んでいます…</div>";
+  $("xlsx-sum").textContent=""; $("xlsx-ok").disabled=true;
+  $("xlsx-dlg").showModal();
   try{
-    const sets=[]; const failed=[];
-    for(let i=0;i<ids.length;i++){
-      m("読み込んでいます… "+(i+1)+" / "+ids.length);
-      try{ sets.push(await FmtImport.db.loadSetForEdit(ids[i])); }
-      catch(e){ failed.push(ids[i]); }   // ★設問0件の回などは飛ばす。黙って止めない
+    if(!qsBooks.length) qsBooks = await FmtImport.db.listBooksWithCounts();
+  }catch(e){
+    box.innerHTML="<div class='note'>教材の一覧を読めませんでした（"+escHtml(e.message)+"）</div>";
+    return;
+  }
+  box.innerHTML = qsBooks.map(b=>
+    "<label class='chk'><input type='checkbox' class='xlsx-book' value=\""+escHtml(b.book)+"\">"+
+    "<span><b>"+escHtml(b.book || "（教材が入っていない回）")+"</b>"+
+    "<span style='color:var(--sub);font-weight:400;'>　"+b.sets+"回 / "+b.questions+"問</span></span></label>").join("");
+  document.querySelectorAll(".xlsx-book").forEach(c=>c.onchange=qsExportSummary);
+  qsExportSummary();
+};
+
+$("xlsx-cancel").onclick = ()=>{ $("xlsx-dlg").close(""); };
+
+$("xlsx-ok").onclick = async ()=>{
+  if(qsExporting) return;
+  const { picked, target } = qsExportSummary();
+  const msg=$("xlsx-msg");
+  const m=(t,ng)=>{ msg.style.display="block"; msg.className="msg "+(ng?"err":"info"); msg.textContent=t; };
+  qsExporting=true; $("xlsx-ok").disabled=true; $("xlsx-cancel").disabled=true;
+  try{
+    // ★教材ごとに**全件**を引く（一覧に見えている50件ではない）
+    const rows=[];
+    for(const b of target){
+      const got = await FmtImport.db.listSetsOfBook(b.book);
+      got.forEach(r=>rows.push(r));
     }
-    const r = FmtImport.db.downloadWorkbook(sets, xlsxName(label));
-    m("書き出しました：" + r.sheets + "回 / " + r.questions + "問"
-      + (failed.length ? "　⚠ " + failed.length + "回は設問が無いので入っていません" : "")
-      + (r.wideSets.length ? "　⚠ 選択肢が6個以上ある回が " + r.wideSets.length + " 件あり、列を右に伸ばしています" : ""));
+    const loaded=[]; const skipped=[];
+    for(let i=0;i<rows.length;i++){
+      m("読み込んでいます… "+(i+1)+" / "+rows.length);
+      try{ loaded.push(await FmtImport.db.loadSetForEdit(rows[i].id)); }
+      catch(e){ skipped.push(rows[i].title); }   // ★設問0件の回など。黙って飛ばさず最後に言う
+    }
+    const label = picked.length===1 ? (picked[0]||"教材なし")
+                : picked.length ? (picked.length+"教材") : "全部";
+    const r = FmtImport.db.downloadWorkbook(loaded, xlsxName(label));
+    m("書き出しました："+r.sheets+"回 / "+r.questions+"問"
+      + (skipped.length ? "　⚠ "+skipped.length+"回は設問が無いので入っていません" : "")
+      + (r.wideSets.length ? "　⚠ 選択肢が6個以上ある回が "+r.wideSets.length+" 件あり、列を右に伸ばしています" : ""));
   }catch(e){ m("書き出せませんでした（"+e.message+"）", true); }
-  finally{ qsExporting=false; $("qs-btn-export").disabled=false; }
+  finally{ qsExporting=false; $("xlsx-ok").disabled=false; $("xlsx-cancel").disabled=false; }
 };
 
 /* resetLimit: true のときだけ「もっと見る」で広げた件数を50へ戻す。

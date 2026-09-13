@@ -378,6 +378,40 @@ FmtImport.db = (() => {
     return [...new Set(rows.map(r => r.source_book).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ja"));
   }
 
+  /* 教材（source_book）ごとの「回の数」と「設問の数」（2026-09-13 きあ指摘）。
+   *
+   * ★なぜ要るか: 控えの単位が「表示中の50件」になっていた。
+   *   50件は **「もっと見る」を押す前の1ページ分** でしかなく、
+   *   きあの言うとおり「何の50件？」になる。控えの単位は **教科書（教材）** が正しい。
+   *   同じ数字を、一覧の教材プルダウンにも出す（選ぶ前に全何件か分かるように）。
+   *
+   * 🔴 quiz_sets → questions は経路が2つあるので外部キーを名指しする（素の questions(count) は 300）。
+   */
+  async function listBooksWithCounts() {
+    const rows = await authedGet(
+      "/rest/v1/quiz_sets?select=source_book,questions!questions_quiz_set_id_fkey(count)&limit=2000");
+    const by = {};
+    rows.forEach(r => {
+      const k = r.source_book || "";                       // 空＝教材が入っていない回
+      const n = (Array.isArray(r.questions) && r.questions[0] &&
+                 typeof r.questions[0].count === "number") ? r.questions[0].count : 0;
+      if (!by[k]) by[k] = { book: k, sets: 0, questions: 0 };
+      by[k].sets++; by[k].questions += n;
+    });
+    // 教材名の順。★「教材なし」は最後に置く（ふだん使わないものを先頭に出さない）
+    return Object.values(by).sort((a, b) =>
+      (a.book || "\uffff\uffff").localeCompare(b.book || "\uffff\uffff", "ja"));
+  }
+
+  /* ある教材の回を **全部** 返す（一覧の50件ではなく）。
+     ★book が空文字のときは「教材が入っていない回」＝ source_book is null を引く
+       （eq. では null を拾えない）。 */
+  async function listSetsOfBook(book) {
+    const q = book ? "source_book=eq." + encodeURIComponent(book) : "source_book=is.null";
+    return await authedGet("/rest/v1/quiz_sets?select=id,title&" + q +
+                           "&order=sort_key.asc.nullsfirst,created_at.desc&limit=2000");
+  }
+
   /* 一覧（showQsList）と「はじめる」画面（quiz-pick）が共通で使う絞り込み検索（2026-09-11）。
      🔴 **PostgREST 側で絞る。**クライアントで全部取ってから絞る書き方をこのリポに増やさない
      （99回→437回になると全件取得そのものが遅くなる・無駄なため）。
@@ -870,5 +904,6 @@ FmtImport.db = (() => {
   return { probeColumns, resetProbeCache, probeQuizSetsSource, listSourceBooks, searchQuizSets,
            publishSet, setOpen, deleteSet, attemptCount, loadSetForEdit, updateSetQuestions,
            buildWorkbook, downloadWorkbook, setToRows, safeSheetName,
+           listBooksWithCounts, listSetsOfBook,
            logEdit, readEditLog, authedGet, authedWrite };
 })();

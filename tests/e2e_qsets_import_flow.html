@@ -393,15 +393,50 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
     {
       /* ★ボタンそのものを押す。下の往復（buildWb）はブックを作るだけ＝ボタンを通っていない。
          2026-09-13 に、押していないのに「履歴に export がある」を確かめようとして落ちた。
-         ★同じ日に、行から「Excel」を外して上の帯にまとめた（きあ判断）ので、
-           **しぼり込み → 表示中を書き出す** が唯一の道になっている。 */
-      await setFilter(TITLE_PREFIX);
+         ★同じ日にきあ指摘で単位を変えた＝「表示中の50件」ではなく **教科書（教材）** をえらぶ。
+           50件は「もっと見る」を押す前の1ページ分で、控えの単位にならないため。 */
       $("qs-btn-export").click();
-      await pressOk("まとめて書き出し");
-      step("★「表示中をExcelに書き出す」で書き出せる",
-           await until(() => $("qs-list-msg").textContent.includes("書き出しました"), 40000),
-           $("qs-list-msg").textContent.replace(/\s+/g, " ").slice(0, 70));
-      await setFilter("");
+      step("★Excelの書き出しで、教科書をえらぶ画面が出る",
+           await until(() => { const dl = $("xlsx-dlg");
+                               return dl && dl.open && d.querySelectorAll(".xlsx-book").length > 0; }, 25000),
+           d.querySelectorAll(".xlsx-book").length + "教材");
+      step("★教科書ごとに「◯回 / ◯問」が出る",
+           /\d+回\s*\/\s*\d+問/.test($("xlsx-books").textContent),
+           $("xlsx-books").textContent.replace(/\s+/g, " ").slice(0, 80));
+      step("🔴★何も選ばなければ「全部」になる（きあ指示）",
+           $("xlsx-sum").textContent.includes("全部") && $("xlsx-ok").textContent.includes("全部"),
+           $("xlsx-sum").textContent.replace(/\s+/g, " ").slice(0, 60) + " / ボタン=" + $("xlsx-ok").textContent);
+
+      // ダミーは source_book を持たないので「教材が入っていない回」に入る。そこだけ選ぶ
+      const noBook = [...d.querySelectorAll(".xlsx-book")].filter(c => c.value === "")[0];
+      step("「教材が入っていない回」の行がある", !!noBook);
+      if (noBook) {
+        noBook.checked = true;
+        noBook.dispatchEvent(new w.Event("change", { bubbles: true }));
+      }
+      step("★えらぶと「選んだ ◯教材」に変わる",
+           $("xlsx-sum").textContent.includes("選んだ") && $("xlsx-ok").textContent.includes("選んだ"),
+           $("xlsx-sum").textContent.replace(/\s+/g, " ").slice(0, 60));
+      /* ★履歴は「前後で増えたか」で見る。複数の教科書をまとめて出すと
+         quiz_set_id は null（どの回のものでもない）ので、回で引いても出てこない。
+         2026-09-13 に、回で引く古い前提のまま落ちた。 */
+      const expBefore = await w.__e2e.get(
+        "/rest/v1/quiz_edit_log?select=id&action=eq.export&order=id.desc&limit=1");
+      const expBeforeId = expBefore.length ? expBefore[0].id : 0;
+
+      $("xlsx-ok").click();
+      step("★えらんだ教科書を書き出せる",
+           await until(() => $("xlsx-msg").textContent.includes("書き出しました"), 90000),
+           $("xlsx-msg").textContent.replace(/\s+/g, " ").slice(0, 80));
+      const expAfter = await w.__e2e.get(
+        "/rest/v1/quiz_edit_log?select=id,summary&action=eq.export&order=id.desc&limit=1");
+      step("★Excelに書き出したことが履歴に増えている",
+           expAfter.length > 0 && expAfter[0].id > expBeforeId,
+           "前=" + expBeforeId + " 後=" + (expAfter.length ? expAfter[0].id : "無し") +
+           " / " + (expAfter.length ? expAfter[0].summary : ""));
+
+      $("xlsx-cancel").click();
+      await until(() => { const dl = $("xlsx-dlg"); return dl && !dl.open; }, 8000);
 
       const src = await w.__e2e.loadSet(setId);
       const r = w.__e2e.buildWb([src]);
@@ -446,7 +481,11 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
       step("★取り込んだことも履歴に残っている", acts.indexOf("import") >= 0, JSON.stringify(acts));
       step("★公開・停止も履歴に残っている",
            acts.indexOf("publish") >= 0 && acts.indexOf("unpublish") >= 0, JSON.stringify(acts));
-      step("★Excelに書き出したことも履歴に残っている", acts.indexOf("export") >= 0, JSON.stringify(acts));
+      /* ⓘ export はここに出なくてよい＝複数の教科書をまとめて出すと
+         「どの回のものでもない」ので quiz_set_id は null。増えたことは上で確かめている。 */
+      step("★この回の履歴に、取り込み・編集・公開・停止がそろっている",
+           ["import", "edit", "publish", "unpublish"].every(a => acts.indexOf(a) >= 0),
+           JSON.stringify(acts));
       step("★だれが変えたかが入っている（空でない）",
            logs.length > 0 && logs.every(r => !!r.actor_id), logs.length + "件");
       step("★何をしたかが1行で読める",
