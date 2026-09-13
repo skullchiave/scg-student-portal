@@ -394,19 +394,30 @@
             </div>
           </div>
 
-          <!-- ③ 1問ずつ修正 -->
+          <!-- ③ 1問ずつ修正
+               ★このパネルは2つの用途で使い回す（2026-09-13）:
+                 ・取り込みの途中（①→②→③→④の3段目）
+                 ・登録ずみの回を直す（一覧の「編集」から。#qsets/edit/<id>）
+               画面を2枚に増やさないのは、**同じ修正フォームが2つあると片方だけ直す事故が起きる**ため。 -->
           <div class="panel" id="qs-step-3" data-step-pane hidden>
-            <h2>③1問ずつ修正</h2>
+            <h2 id="qs-step3-h">③1問ずつ修正</h2>
+            <div class="note" id="qs-edit-warn" hidden></div>
             <div class="note" id="qs-edit-nav"></div>
             <div id="qs-edit-form"></div>
             <div class="btnrow">
               <button class="btn ghost" id="qs-ef-prev" type="button">◀ 前の問題</button>
               <button class="btn ghost" id="qs-ef-next" type="button">次の問題 ▶</button>
             </div>
-            <div class="btnrow" style="margin-top:14px;">
+            <div class="btnrow" style="margin-top:14px;" id="qs-import-actions">
               <button class="btn ghost" id="qs-btn-to2b" type="button">②プレビューへ戻る</button>
               <button class="btn" id="qs-btn-to4" type="button">④登録へ</button>
             </div>
+            <!-- 登録ずみの回を直しているときだけ出る -->
+            <div class="btnrow" style="margin-top:14px;" id="qs-edit-actions" hidden>
+              <button class="btn ghost" id="qs-btn-editcancel" type="button">保存せずに一覧へ戻る</button>
+              <button class="btn" id="qs-btn-save" type="button">この内容で保存する</button>
+            </div>
+            <div class="msg" id="qs-edit-msg"></div>
           </div>
 
           <!-- ④ 公開 -->
@@ -882,14 +893,21 @@ function setView(v){
    ヘッドレスChromeのe2eテストは loadWorkbook を直接呼んでファイル選択を飛ばす
    （<input type=file> へ合成のFileを注入することはできないため。手本: run_e2e_quiz.py）。
    ══════════════════════════════════════════════════════════════════ */
-const wizard = { wb:null, filename:"", sets:null, editFlat:null, editIdx:0 };
+/* mode: "import"（取り込みの途中）／"edit"（登録ずみの回を直している）。
+   editSetId/editAttempts/editIsOpen は edit のときだけ意味がある。
+   ★editAttempts が「直してよい範囲」を決める＝受験が1件でもあると選択肢の個数を変えさせない。 */
+const wizard = { wb:null, filename:"", sets:null, editFlat:null, editIdx:0,
+                 mode:"import", editSetId:null, editAttempts:0, editIsOpen:false };
 
 window.addEventListener("hashchange", ()=>{ if(activeView==="qsets") routeQsets(); });
 
 function routeQsets(){
-  const parts = location.hash.replace(/^#/,"").split("/");   // "qsets","import","2"
+  const parts = location.hash.replace(/^#/,"").split("/");   // "qsets","import","2" / "qsets","edit","<id>"
+  /* ★登録ずみの回を直す道（2026-09-13）。URLに id を持たせる＝
+     読み込み直しても同じ回の編集に戻れるし、取り込みの途中と道が混ざらない。 */
+  if(parts[1]==="edit" && parts[2]){ showQsEdit(decodeURIComponent(parts[2])); return; }
   const step = parts[1]==="import" ? (Number(parts[2])||1) : 0;
-  if(step){ showQsWizard(); showQsStep(step); }
+  if(step){ wizard.mode="import"; applyQsMode(); showQsWizard(); showQsStep(step); }
   else showQsList();
 }
 
@@ -968,6 +986,10 @@ async function showQsList(resetLimit){
             "title='"+(s.is_open ? "学生に見せるのをやめます（時間とは関係ありません）"
                                  : "時間を決めずに、ずっと学生に見せます。授業中は「はじめる」のほうが向いています")+"'>"+
             (s.is_open?"公開をやめる":"公開")+"</button>"+
+          /* ★登録したあとに直す口（2026-09-13 きあ依頼）。
+             これが無いと、誤字に気づいても**受験ずみの回は消せない**ので打つ手が無かった。 */
+          "<button class='btn ghost qs-edit' type='button' title='この回の設問を1問ずつ直します"+
+            (locked ? "（受験記録があるので、選択肢の数だけは変えられません）" : "")+"'>編集</button>"+
           "<button class='btn ghost qs-del' type='button'"+(locked?" disabled":"")+
             " title='"+(locked ? "受験記録が "+n+" 件あるので消せません。停止を使ってください"
                                : "受験記録が無いので消せます")+"'>消す</button>"+
@@ -1019,7 +1041,15 @@ async function markRunningRows(){
 /* 一覧の「公開/停止」と「消す」。★押した行だけを触り、終わったら一覧を読み直す。 */
 function wireQsListActions(sets){
   const byId = {}; sets.forEach(s=>byId[s.id]=s);
-  const msg = (text, ng)=>{ const m=$("qs-list-msg"); m.textContent=text; m.className = "msg"+(ng?" ng":" ok"); };
+  /* 🔴 2026-09-13 修正: ここは **一度も画面に出ていなかった**。
+     ・.msg は既定で display:none で、出すには .err か .info を付ける必要がある
+     ・付けていたのは .ok / .ng で、**どちらの CSS も存在しない**
+     ・他の6か所（todayRunsMsg / csvMsg / svRoundsMsg など）は
+       すべて style.display="block" ＋ err/info で書かれていた。ここだけ違った。
+     ★検査に出なかった理由＝e2e は「DBが変わったか」「行の表示が変わったか」を見ていて、
+       知らせの文言は見ていない。**画面に出ない**ことは、通る検査からは分からない。 */
+  const msg = (text, ng)=>{ const m=$("qs-list-msg"); m.style.display="block";
+                            m.textContent=text; m.className = "msg"+(ng?" err":" info"); };
 
   // 埋め込み集計 attempts(count) / questions(count) から件数を取り出す。取れなければ null
   const embedN = (arr)=> (Array.isArray(arr) && arr[0] && typeof arr[0].count==="number") ? arr[0].count : null;
@@ -1086,6 +1116,17 @@ function wireQsListActions(sets){
       catch(e){ msg("できませんでした（"+e.message+"）", true); busy(false); }
     };
 
+    // 編集（2026-09-13）。読み込みは routeQsets → showQsEdit がやる
+    tr.querySelector(".qs-edit").onclick = ()=>{
+      /* ★押した瞬間に「読み込み中」にする。hash を変えてから showQsEdit が動き出すまでの間、
+         **前に開いたときのフォームがそのまま残って見える**。
+         別の回を続けて編集すると、一瞬さっきの設問が出るし、その隙に触れてしまう。
+         2026-09-13 に e2e が拾った（押した直後は wizard.sets がまだ古い/空）。 */
+      $("qs-edit-form").innerHTML="";
+      $("qs-edit-nav").textContent="読み込み中…";
+      location.hash = "#qsets/edit/" + encodeURIComponent(id);
+    };
+
     tr.querySelector(".qs-del").onclick = async ()=>{
       busy(true);
       try{
@@ -1126,6 +1167,7 @@ function showQsStep(n){
 function goQsStep(n){ location.hash = "#qsets/import/"+n; }
 
 $("qs-btn-new").onclick = ()=>{
+  wizard.mode="import"; wizard.editSetId=null; wizard.editAttempts=0; wizard.editIsOpen=false;
   wizard.wb=null; wizard.filename=""; wizard.sets=null;
   $("qs-file").value=""; $("qs-sheetpick").innerHTML=""; $("qs-step1-msg").style.display="none";
   $("qs-btn-to2").disabled=true;
@@ -1243,7 +1285,14 @@ function renderQsEdit(){
 function renderQsEditAt(i){
   const flat = wizard.editFlat, pos = flat[i];
   const set = wizard.sets[pos.si], q = set.questions[pos.qi];
-  $("qs-edit-nav").innerHTML = esc(set.title)+"（"+esc(set.sheet)+"） — 問"+q.seq+"　["+(i+1)+" / "+flat.length+"問目]";
+  // ★登録ずみの回にはシート名が無いことがある（source_sheet 未設定）。空の丸かっこを出さない
+  $("qs-edit-nav").innerHTML = esc(set.title)+(set.sheet ? "（"+esc(set.sheet)+"）" : "")+
+    " — 問"+q.seq+"　["+(i+1)+" / "+flat.length+"問目]";
+  /* ★受験ずみの回では選択肢の**個数**を変えさせない。
+     attempt_answers.chosen は「何番目を選んだか」の番号なので、増減すると
+     過去の記録が指す先がずれる（文言を変えるだけなら、ずれるのは見え方だけ）。 */
+  const lockN = (wizard.mode==="edit" && (wizard.editAttempts||0) > 0);
+  const lockAttr = lockN ? " disabled title='受験記録があるので、選択肢の数は変えられません'" : "";
   $("qs-edit-form").innerHTML =
     "<div class='field'><label>設問文（改行そのまま。${漢字}(よみ) と書くとルビになります）</label>"+
     "<textarea id='qs-ef-prompt' rows='3'>"+escHtml(q.prompt)+"</textarea></div>"+
@@ -1253,8 +1302,8 @@ function renderQsEditAt(i){
       "<input type='text' class='qs-ef-choice' data-i='"+idx+"' value=\""+escHtml(c)+"\" style='flex:1;font-size:1rem;padding:10px 12px;border:1px solid var(--line);border-radius:10px;'>"+
       "</div>").join("")+"</div>"+
     "<div class='note' style='margin:4px 0 14px;'>ラジオボタンで正解を選びます。選択肢は2〜12個。</div>"+
-    "<div class='btnrow'><button class='btn ghost' type='button' id='qs-ef-addchoice'>＋選択肢を足す</button>"+
-    "<button class='btn ghost' type='button' id='qs-ef-delchoice'>－最後の選択肢を消す</button></div>"+
+    "<div class='btnrow'><button class='btn ghost' type='button' id='qs-ef-addchoice'"+lockAttr+">＋選択肢を足す</button>"+
+    "<button class='btn ghost' type='button' id='qs-ef-delchoice'"+lockAttr+">－最後の選択肢を消す</button></div>"+
     "<div class='form2'>"+
     "<div class='field'><label>カテゴリ</label><input type='text' id='qs-ef-cat' value=\""+escHtml(q.category||"")+"\"></div>"+
     "<div class='field'><label>配点</label><input type='text' id='qs-ef-pts' value=\""+(q.points==null?"":q.points)+"\"></div>"+
@@ -1304,6 +1353,99 @@ $("qs-ef-next").onclick = ()=>{
   saveQsEditForm();
   wizard.editIdx = (wizard.editIdx + 1) % wizard.editFlat.length;
   renderQsEditAt(wizard.editIdx);
+};
+
+/* ══ 登録ずみの回を直す（2026-09-13 きあ依頼）══════════════════════════════
+ * ★なぜ足したか: それまで「登録したあとに直す」手段が1つも無かった。
+ *   しかも「消す」は受験が1件でもあると押せないので、<誤字に気づいても打つ手が無い>状態だった。
+ *   ③の修正フォームは**登録する前**にしか出ない画面だった。
+ *   原因は判断の広げすぎ＝「作問はExcelでやるので、ゼロから作る画面は要らない」は今も正しいが、
+ *   そこから「**直す**画面も要らない」は出てこなかった。作ると直すを混ぜていた。
+ */
+function applyQsMode(){
+  const edit = wizard.mode==="edit";
+  $("qs-steps").hidden = edit;                      // ①②③④の段は取り込みのときだけ
+  $("qs-step3-h").textContent = edit ? "設問を直す" : "③1問ずつ修正";
+  $("qs-import-actions").hidden = edit;
+  $("qs-edit-actions").hidden = !edit;
+  $("qs-edit-warn").hidden = !edit;
+  const m = $("qs-edit-msg"); if(m){ m.style.display="none"; m.textContent=""; }
+}
+
+/* 直す前に「いま何ができて、何ができないか」を必ず出す。
+   ★きあ指摘の型＝**権限で画面を分けるなら、今の自分が何者かを必ず出す**のと同じ考え方で、
+     「直してよい範囲」も画面に出しておかないと、押してから断られることになる。 */
+function renderQsEditWarn(){
+  const n = wizard.editAttempts||0;
+  const parts = [];
+  if(wizard.editIsOpen){
+    parts.push("🔴 <b>この回はいま学生に見えています。</b>直している途中の内容がそのまま出るので、"+
+               "先に一覧で<b>「公開をやめる」</b>を押すことをすすめます。");
+  }
+  if(n>0){
+    parts.push("<b>"+n+"人が受けています。</b>直しても<b>過去の点数は変わりません</b>"+
+               "（提出したときに正誤が決まって、そのまま保存されています）。"+
+               "ただし選択肢の文言を変えると、結果の画面に出る「その学生が選んだ答え」の見え方が変わります。<br>"+
+               "★<b>選択肢の数は変えられません</b>（何番目を選んだか、という番号で記録しているため）。");
+  }else{
+    parts.push("まだ誰も受けていないので、<b>自由に直せます</b>。");
+  }
+  parts.push("⚠ ここで直せるのは<b>いまある設問の中身</b>だけです。"+
+             "<u>設問そのものを足したり減らしたりはできません</u>（そのときは取り込み直してください）。");
+  $("qs-edit-warn").innerHTML = parts.join("<br>");
+}
+
+async function showQsEdit(quizSetId){
+  wizard.mode="edit"; wizard.editSetId=quizSetId; wizard.editIdx=0;
+  wizard.sets=null; wizard.editFlat=null;
+  showQsWizard(); applyQsMode();
+  // ③のパネルだけ出す（showQsStep は①②④の段も動かすので、ここでは使わない）
+  document.querySelectorAll("[data-step-pane]").forEach(p=>{ p.hidden = (p.id!=="qs-step-3"); });
+  $("qs-edit-nav").textContent="読み込み中…"; $("qs-edit-form").innerHTML="";
+  $("qs-edit-warn").innerHTML="";
+  try{
+    // ★受験の件数を**先に**取る。これで直してよい範囲が決まる
+    const n = await FmtImport.db.attemptCount(quizSetId);
+    const set = await FmtImport.db.loadSetForEdit(quizSetId);
+    wizard.sets=[set]; wizard.editAttempts=n; wizard.editIsOpen=!!set.isOpen;
+    renderQsEditWarn();
+    renderQsEdit();
+  }catch(e){
+    $("qs-edit-nav").textContent="読み込めませんでした（"+e.message+"）";
+  }
+}
+
+$("qs-btn-editcancel").onclick = ()=>{ location.hash="#qsets"; };
+
+let qsSaving=false;
+$("qs-btn-save").onclick = async ()=>{
+  if(qsSaving) return;
+  const set = (wizard.sets||[])[0];
+  if(!set) return;
+  saveQsEditForm();                     // ★いま開いている問の入力を取りこぼさない
+  const m=$("qs-edit-msg");
+  const show=(t,cls)=>{ m.style.display="block"; m.className="msg "+cls; m.textContent=t; };
+  const n = wizard.editAttempts||0;
+
+  // ★危ないときだけ確認を出す（下書き・受験0件なら、いちいち止めない）
+  if(n>0 || wizard.editIsOpen){
+    const body = (wizard.editIsOpen ? "この回はいま学生に見えています。\n" : "")
+      + (n>0 ? n+"人が受けています。過去の点数は変わりませんが、\n"
+             + "結果の画面に出る「選んだ答え」の見え方が変わることがあります。\n" : "")
+      + "保存すると、次にこの回を受ける学生からは直したあとの内容になります。";
+    const ok = await askDialog({ title:"「"+set.title+"」を保存します", body, okText:"保存する" });
+    if(!ok) return;
+  }
+
+  qsSaving=true; $("qs-btn-save").disabled=true;
+  show("保存しています…","info");
+  try{
+    const r = await FmtImport.db.updateSetQuestions(set, { allowChoiceCountChange: n===0 });
+    show("保存しました（設問 "+r.questions+"問／選択肢 "+r.choices+"か所）。","info");
+    setTimeout(()=>{ location.hash="#qsets"; }, 900);
+  }catch(e){
+    show("保存できませんでした（"+e.message+"）","err");
+  }finally{ qsSaving=false; $("qs-btn-save").disabled=false; }
 };
 
 /* ---- ④公開 ---- */

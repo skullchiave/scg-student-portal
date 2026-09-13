@@ -199,6 +199,103 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
          " / DB=" + JSON.stringify(inDb2.map(r => r.is_open)));
   } finally { /* 差し替えは無いので戻すものも無い */ }
 
+  // ═══ 登録ずみの回を「編集」する（2026-09-13 追加）═══════════════════════════
+  // ★ここを通す検査が無いまま出すと、「作った機能の経路を1本も通していない」ことになる。
+  //   とくに 🔴 **選択肢を減らしたときに正解の行が道連れで消えないか** は要。
+  //   question_answers は (question_id, correct_idx) → question_choices(question_id, idx) の
+  //   外部キーを **ON DELETE CASCADE** で持っているので、消す順番を間違えると
+  //   **正解の行ごと黙って消える**（そうなった設問は受けた全員が不正解になる）。
+  {
+    const backToList = async () => {
+      await until(() => !$("qs-pane-list").hidden, 10000);
+      await until(() => $("qs-list-tbl").textContent.includes(TITLE_PREFIX), 10000);
+    };
+    const openEdit = async () => {
+      rowOf().querySelector(".qs-edit").click();
+      await until(() => !$("qs-step-3").hidden && !$("qs-edit-actions").hidden, 15000);
+      return await until(() => $("qs-edit-form").querySelector("#qs-ef-prompt"), 15000);
+    };
+    const setId = rowOf().getAttribute("data-qsid");
+    const dbQ = async () => await w.__e2e.get(
+      "/rest/v1/questions?select=id,seq,prompt&quiz_set_id=eq." + encodeURIComponent(setId) + "&order=seq.asc");
+
+    step("一覧の行に「編集」のボタンがある", !!rowOf().querySelector(".qs-edit"));
+    step("編集の画面に入れて、DBから設問を読み込めた", await openEdit());
+    step("★①②③④の段は出さない＝取り込みの途中と見分けがつく", $("qs-steps").hidden);
+    step("見出しが「設問を直す」になる",
+         $("qs-step3-h").textContent.includes("設問を直す"), $("qs-step3-h").textContent);
+    step("★誰も受けていないので「自由に直せます」と出る",
+         $("qs-edit-warn").textContent.includes("自由に直せます"),
+         $("qs-edit-warn").textContent.replace(/\s+/g, " ").slice(0, 70));
+    step("★「設問そのものは足せない」と画面に書いてある",
+         $("qs-edit-warn").textContent.includes("足したり減らしたり"));
+
+    const before = await dbQ();
+    step("読み込んだ設問数が、登録した数と同じ", before.length === 2, before.length + "問");
+
+    // ---- ① 設問文と正解を直して保存 → DBに入っているか ----
+    const NEWP = "【編集e2e】直した設問文";
+    $("qs-ef-prompt").value = NEWP;
+    const radios = Array.from(d.querySelectorAll("input[name='qs-ef-correct']"));
+    step("正解のラジオが選択肢の数だけ出る", radios.length === 3, radios.length);
+    radios[2].checked = true;                       // 3番目を正解にする
+    $("qs-btn-save").click();
+    step("保存できた（下書き・受験0件なので確認は出ない）",
+         await until(() => $("qs-edit-msg").textContent.includes("保存しました"), 20000),
+         $("qs-edit-msg").textContent);
+    await backToList();
+
+    const q1 = await dbQ();
+    step("★直した設問文が、DBに入っている",
+         q1.length === 2 && q1[0].prompt === NEWP, q1.length ? q1[0].prompt.slice(0, 30) : "無し");
+    const a1 = await w.__e2e.get(
+      "/rest/v1/question_answers?select=question_id,correct_idx&question_id=eq." + encodeURIComponent(q1[0].id));
+    step("★直した正解が、DBに入っている（3番）",
+         a1.length === 1 && a1[0].correct_idx === 3, JSON.stringify(a1.map(r => r.correct_idx)));
+
+    // ---- ② 空の選択肢では保存させない ----
+    step("もう一度 編集に入れる", await openEdit());
+    const chs = Array.from(d.querySelectorAll(".qs-ef-choice"));
+    const keep = chs[1].value;
+    chs[1].value = "   ";                            // 空白だけ＝空あつかい
+    $("qs-btn-save").click();
+    step("★空の選択肢があると保存を止める",
+         await until(() => $("qs-edit-msg").textContent.includes("空の選択肢"), 10000),
+         $("qs-edit-msg").textContent);
+    chs[1].value = keep;                             // 戻す
+
+    // ---- ③ 選択肢を3→2に減らす（★正解の行が道連れで消えないか）----
+    $("qs-ef-delchoice").click();                    // 3個 → 2個。正解は2へ寄せられる
+    step("選択肢が2個になった", d.querySelectorAll(".qs-ef-choice").length === 2,
+         d.querySelectorAll(".qs-ef-choice").length);
+    $("qs-btn-save").click();
+    step("減らした状態で保存できた",
+         await until(() => $("qs-edit-msg").textContent.includes("保存しました"), 20000),
+         $("qs-edit-msg").textContent);
+    await backToList();
+
+    const q2 = await dbQ();
+    const c2 = await w.__e2e.get(
+      "/rest/v1/question_choices?select=question_id,idx,label&question_id=eq." + encodeURIComponent(q2[0].id) + "&order=idx.asc");
+    step("★選択肢がDBでも2個になっている", c2.length === 2, JSON.stringify(c2.map(r => r.idx)));
+    const a2 = await w.__e2e.get(
+      "/rest/v1/question_answers?select=question_id,correct_idx&question_id=eq." + encodeURIComponent(q2[0].id));
+    // 🔴 ここが本命。消す順番を間違えると、この行が CASCADE で消えて 0 件になる
+    step("🔴★選択肢を減らしても『正解』の行が消えていない（ON DELETE CASCADE の罠）",
+         a2.length === 1, a2.length + "件");
+    step("★正解が、残っている選択肢の中を指している",
+         a2.length === 1 && a2[0].correct_idx >= 1 && a2[0].correct_idx <= 2,
+         a2.length ? String(a2[0].correct_idx) : "無し");
+
+    // ---- ④ 受験ずみの回では選択肢の数を変えさせない（画面の作りだけ確認）----
+    step("★受験0件のいまは、選択肢を増減するボタンが押せる",
+         await openEdit() && !$("qs-ef-addchoice").disabled && !$("qs-ef-delchoice").disabled);
+    $("qs-btn-editcancel").click();
+    step("「保存せずに一覧へ戻る」で一覧に戻れる",
+         await until(() => !$("qs-pane-list").hidden, 10000));
+    await backToList();
+  }
+
   // ---- 絞り込み・検索（2026-09-11・きあ決定「教材で絞る＋名前で検索」）----
   // ★件数を決め打ちしない。「絞る前 ≧ 絞った後」「絞った結果が全部その教材/検索語」の形で見る
   //   （このダミーの件数は前回の残骸の有無で毎回変わりうるため）。

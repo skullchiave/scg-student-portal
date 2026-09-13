@@ -492,6 +492,170 @@ FmtImport.db = (() => {
     return rows.length;
   }
 
+  /* ───────── 登録済みの回を「読み出して直す」（2026-09-13 きあ依頼）─────────
+   *
+   * ■ なぜ要るか
+   *   それまで **登録したあとに設問を直す手段が1つも無かった**。しかも「消す」は
+   *   受験記録が1件でもあると押せないので、誤字に気づいても打つ手が無い状態だった。
+   *   ③1問ずつ修正 は **登録する前** にしか出ない画面だった。
+   *   ★原因は判断の広げすぎ＝現場聞き取りの「誰もヨリソルの画面で問題を書いていない」から
+   *     「取り込みが主・編集が従」と決めたのは正しい。ただしそれは **ゼロから作る画面** の話で、
+   *     **直す画面** まで要らないことにはならなかった。
+   *
+   * ■ この版で直せるもの / 直せないもの
+   *   直せる   : 設問文・選択肢の文言・正解・カテゴリ・配点・解説
+   *   直せない : 設問そのものの追加・削除（seq の一意制約と受験記録の対応が絡むため）
+   *              → 受験0件なら「消す」→取り込み直し。受験があるなら停止して入れ直す
+   *   受験が1件でもある回は **選択肢の個数を変えられない**（呼ぶ側が allowChoiceCountChange で渡す）
+   */
+
+  /* 1回ぶんを、取り込みウィザードと **同じ形** に組み立てて返す。
+     ★埋め込み（questions?select=...,question_choices(...)）を使わず3回に分けて引く。
+       questions からの埋め込みは quiz_set_questions 経由の経路があって
+       PostgREST が「どちらか選べない」で 300 を返すことがある（一覧で踏んだ罠と同じ）。
+       ここは1回ぶん（多くても数十行）なので、確実に動くほうを取る。 */
+  async function loadSetForEdit(quizSetId) {
+    const cols = await probeColumns();
+    const enc = encodeURIComponent;
+
+    const sel = "id,title,lesson,is_open" + (cols.quizSetsSource ? ",source_book,source_sheet" : "");
+    const setRows = await authedGet("/rest/v1/quiz_sets?select=" + sel + "&id=eq." + enc(quizSetId));
+    if (!setRows.length) throw new Error("その回が見つかりません（消されたか、見る権限がありません）");
+    const s = setRows[0];
+
+    const qcols = "id,seq,prompt" + (cols.questionExtra ? ",image_name,category,points" : "");
+    const qrows = await authedGet("/rest/v1/questions?select=" + qcols +
+      "&quiz_set_id=eq." + enc(quizSetId) + "&order=seq.asc");
+    if (!qrows.length) throw new Error("この回には設問がありません（取り込み直してください）");
+
+    const ids = qrows.map(q => q.id);
+    const inList = "(" + ids.map(enc).join(",") + ")";
+    const crows = await authedGet(
+      "/rest/v1/question_choices?select=question_id,idx,label&question_id=in." + inList + "&order=idx.asc");
+    const acols = "question_id,correct_idx" + (cols.explanation ? ",explanation" : "");
+    const arows = await authedGet(
+      "/rest/v1/question_answers?select=" + acols + "&question_id=in." + inList);
+
+    const byQ = {}; ids.forEach(id => { byQ[id] = []; });
+    crows.forEach(c => { if (byQ[c.question_id]) byQ[c.question_id].push(c); });
+    const ansByQ = {}; arows.forEach(a => { ansByQ[a.question_id] = a; });
+
+    const questions = qrows.map(q => {
+      const cs = (byQ[q.id] || []).slice().sort((a, b) => a.idx - b.idx);
+      const a = ansByQ[q.id] || {};
+      return {
+        id: q.id, seq: q.seq, prompt: q.prompt || "",
+        choices: cs.map(c => c.label),
+        /* ★読み出した時点の並び。書き戻すときに「何個だったか」「どれが変わったか」を
+           これと比べて決める（変わっていない行に PATCH を投げない）。 */
+        choicesBefore: cs.map(c => c.label),
+        correctIdx: a.correct_idx || 1,
+        imageName: q.image_name || null,
+        category: q.category || null,
+        points: (q.points === undefined ? null : q.points),
+        explanation: a.explanation || null,
+      };
+    });
+
+    return {
+      id: s.id, title: s.title, lesson: s.lesson || "", isOpen: !!s.is_open,
+      sheet: s.source_sheet || "", sourceBook: s.source_book || "",
+      questions, dropped: [], unwritten: [], warn: [],
+    };
+  }
+
+  /* 直した内容を書き戻す。★1問ずつ、下の順番を必ず守る。
+   *
+   *   (1) questions を直す
+   *   (2) 選択肢を 1..N まで上書き／足りない分を足す
+   *   (3) 正解（と解説）を直す        ← ★消す前
+   *   (4) あふれた選択肢を消す        ← ★いちばん最後
+   *
+   * 🔴 (3) と (4) を入れ替えてはいけない。question_answers は
+   *    (question_id, correct_idx) → question_choices(question_id, idx) の外部キーを
+   *    **ON DELETE CASCADE** で持っている（db/2026-09-06_multi_choice.sql）。
+   *    正解が指している選択肢を先に消すと、**正解の行ごと黙って消える**。
+   *    そうなった設問は採点のときに正解が無く、受けた全員が不正解になる。
+   */
+  async function updateSetQuestions(set, opts) {
+    opts = opts || {};
+    const cols = await probeColumns();
+    const enc = encodeURIComponent;
+    const allowCount = !!opts.allowChoiceCountChange;
+
+    /* ---- 先に全部検査する。★途中まで書いてから落とすと、直した回が半分だけ変わる ---- */
+    for (const q of set.questions) {
+      const at = "問" + q.seq + "：";
+      if (!q.id) throw new Error(at + "この設問には id がありません（登録済みの回ではありません）");
+      const labels = (q.choices || []).map(c => (c == null ? "" : String(c).trim()));
+      if (!String(q.prompt || "").trim()) throw new Error(at + "設問文が空です");
+      if (labels.some(l => !l)) throw new Error(at + "空の選択肢があります（消すか、文字を入れてください）");
+      if (labels.length < 2) throw new Error(at + "選択肢は2個以上ないと出題できません");
+      // ★FmtImport.db は外側とは別の閉じた関数なので、上の MAX_CHOICES は見えない。
+      //   写して2か所に持たず、公開してある定数を参照する（2026-09-13 に e2e が拾った）。
+      if (labels.length > FmtImport.MAX_CHOICES) {
+        throw new Error(at + "選択肢が多すぎます（上限 " + FmtImport.MAX_CHOICES + " 個）");
+      }
+      if (!(q.correctIdx >= 1 && q.correctIdx <= labels.length)) {
+        throw new Error(at + "正解が選ばれていないか、選択肢の数と合っていません");
+      }
+      const before = q.choicesBefore || [];
+      if (!allowCount && before.length && labels.length !== before.length) {
+        throw new Error(at + "受験記録があるので、選択肢の数は変えられません（文言と正解は変えられます）");
+      }
+    }
+
+    let nQ = 0, nChoice = 0;
+    for (const q of set.questions) {
+      const labels = q.choices.map(c => String(c).trim());
+      const before = q.choicesBefore || [];
+
+      // (1) 設問。★0行でも PostgREST は 200 を返すので、変わったことを確かめる
+      const qbody = { prompt: q.prompt };
+      if (cols.questionExtra) {
+        qbody.image_name = q.imageName; qbody.category = q.category; qbody.points = q.points;
+      }
+      const qr = await authedWrite("PATCH", "/rest/v1/questions?id=eq." + enc(q.id) + "&select=id", qbody);
+      if (!qr || !qr.length) throw new Error("問" + q.seq + "：直せませんでした（1行も変わっていません）");
+
+      // (2) 選択肢（1..N）。変わっていない行は触らない
+      for (let i = 0; i < labels.length; i++) {
+        const idx = i + 1;
+        if (idx <= before.length) {
+          if (labels[i] === before[i]) continue;
+          const cr = await authedWrite("PATCH",
+            "/rest/v1/question_choices?question_id=eq." + enc(q.id) + "&idx=eq." + idx + "&select=idx",
+            { label: labels[i] });
+          if (!cr || !cr.length) throw new Error("問" + q.seq + "：選択肢" + idx + "を直せませんでした");
+        } else {
+          await authedWrite("POST", "/rest/v1/question_choices",
+            { question_id: q.id, idx: idx, label: labels[i] });
+        }
+        nChoice++;
+      }
+
+      // (3) 正解と解説（★(4) より先。理由は上の🔴）
+      const abody = { correct_idx: q.correctIdx };
+      if (cols.explanation) abody.explanation = q.explanation;
+      const ar = await authedWrite("PATCH",
+        "/rest/v1/question_answers?question_id=eq." + enc(q.id) + "&select=question_id", abody);
+      if (!ar || !ar.length) throw new Error("問" + q.seq + "：正解を直せませんでした（1行も変わっていません）");
+
+      // (4) あふれた選択肢を消す。ここまで来れば正解は必ず N 以下を指している
+      if (labels.length < before.length) {
+        await authedWrite("DELETE",
+          "/rest/v1/question_choices?question_id=eq." + enc(q.id) + "&idx=gt." + labels.length);
+        nChoice += (before.length - labels.length);
+      }
+
+      // 次に保存するときの比較元を、いま書いた内容に更新する（続けて直せるように）
+      q.choicesBefore = labels.slice();
+      nQ++;
+    }
+    return { questions: nQ, choices: nChoice };
+  }
+
   return { probeColumns, resetProbeCache, probeQuizSetsSource, listSourceBooks, searchQuizSets,
-           publishSet, setOpen, deleteSet, attemptCount, authedGet, authedWrite };
+           publishSet, setOpen, deleteSet, attemptCount, loadSetForEdit, updateSetQuestions,
+           authedGet, authedWrite };
 })();
