@@ -640,19 +640,75 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
     {
       const built = await w.__e2e.rxBuild("wide");
       const stu = await w.__e2e.get("/rest/v1/profiles?select=id&role=eq.student&limit=2000");
-      step("🔴★一覧の行数が、学生の数と同じ（受けていない人も行がある）",
-           !!built && built.rows.length - 1 === stu.length,
-           (built ? built.rows.length - 1 : "-") + " 行 / 学生 " + stu.length + " 人");
-      const head = built ? built.rows[0] : [];
-      step("★見出しの右端が「受けた数・合計点・合計満点」",
-           head.slice(-3).join(",") === "受けた数,合計点,合計満点", head.slice(-3).join(","));
+      /* ★一覧は Excel になった（2026-09-13）ので、行数はシートから数える。
+         学生の行 + 空行1 + クラス平均（クラスの数）+ 全体平均（クラスが2つ以上のとき1）。 */
+      const sh0 = built.wb.Sheets[built.wb.SheetNames[0]];
+      const ref0 = w.XLSX.utils.decode_range(sh0["!ref"]);
+      const totalRows = ref0.e.r;                       // 見出しを除いた行数
+      const cls = await w.__e2e.get("/rest/v1/profiles?select=class_name&role=eq.student&limit=2000");
+      const nCls = new Set(cls.map(x=>x.class_name).filter(Boolean)).size;
+      const want = stu.length + 1 + nCls + (nCls > 1 ? 1 : 0);
+      step("🔴★一覧の行数＝学生全員＋平均の行（受けていない人も行がある）",
+           totalRows === want,
+           totalRows + " 行 / 期待 " + want + "（学生" + stu.length + "＋空1＋クラス" + nCls + "）");
+      /* 🔴 大きい回（設問60超）が別タブに分かれること（2026-09-13 きあ判断）。
+         実データの「（問題集）全体」は440問。20問のまとめと混ぜると平均が壊れる。
+         ★誰も受けていないとタブ自体が出ないので、**分ける仕組みが生きているか**を
+           「タブ名に（大きい回）が付くものがあれば、その中身は全部60問超」で見る。 */
+      const names = built && built.wb ? built.wb.SheetNames : [];
+      step("★教科書ごとにタブが分かれている", names.length >= 1, JSON.stringify(names));
+      const bigTabs = names.filter(n=>n.indexOf("（大きい回）")>=0);
+      if(bigTabs.length){
+        const qc = await w.__e2e.get("/rest/v1/quiz_sets?select=id,title,source_book,"
+          + "questions!questions_quiz_set_id_fkey(count)&limit=2000");
+        const big = new Set(qc.filter(x=>(x.questions&&x.questions[0]&&x.questions[0].count>60))
+                              .map(x=>x.title));
+        const sh = built.wb.Sheets[bigTabs[0]];
+        const ref = w.XLSX.utils.decode_range(sh["!ref"]);
+        const heads = [];
+        for(let c=3; c<=ref.e.c-5; c++){
+          const cell = sh[w.XLSX.utils.encode_cell({r:0,c:c})];
+          if(cell) heads.push(String(cell.v));
+        }
+        step("🔴★「（大きい回）」タブに入るのは60問超のテストだけ",
+             heads.length>0 && heads.every(h=>big.has(h)), JSON.stringify(heads.slice(0,4)));
+      }else{
+        step("（大きい回のタブは出ていない＝その回を誰も受けていない。仕組みは単体で確認ずみ）", true);
+      }
+
+      const head = [];
+      {
+        const sh0 = built.wb.Sheets[built.wb.SheetNames[0]];
+        const ref = w.XLSX.utils.decode_range(sh0["!ref"]);
+        for(let c=ref.s.c; c<=ref.e.c; c++){
+          const cell = sh0[w.XLSX.utils.encode_cell({r:0,c:c})];
+          head.push(cell ? String(cell.v) : "");
+        }
+      }
+      step("★見出しの右端が「受けた数…達成率(%)」",
+           head.slice(-5).join(",") === "受けた数,合計点,合計満点,平均点,達成率(%)", head.slice(-5).join(","));
       step("★見出しの列はテスト名（「◯回目」ではない）",
            head.length > 6 && !/^\d+回目$/.test(String(head[3])), String(head[3]).slice(0,30));
-      // 1回も受けていない人の行は、セルが空・受けた数0
-      const zero = built.rows.slice(1).filter(r=>r[r.length-3] === 0);
-      step("★受けていない人の行は 受けた数0・セルは空",
-           zero.length === 0 || zero.every(r=>r.slice(3, r.length-3).every(c=>c==="")),
-           zero.length + "人ぶん");
+      /* 1回も受けていない人の行は、テストのセルが空・受けた数0。
+         ★Excel のシートから読む（空セルは undefined で返る）。 */
+      {
+        const enc = (rr,cc)=>w.XLSX.utils.encode_cell({r:rr,c:cc});
+        /* ★空のセルも aoa_to_sheet は v:"" の実体として書く。
+           「セルがあるか」で見ると空欄まで中身ありに数える（2026-09-13 に踏んだ）。 */
+        const val = (rr,cc)=>{ const c = sh0[enc(rr,cc)];
+                               return (c && c.v !== "" && c.v !== undefined) ? c.v : null; };
+        const nCol = ref0.e.c + 1;
+        const iTaken = nCol - 5;                 // 受けた数
+        let zero = 0, bad = 0;
+        for(let rr=1; rr<=ref0.e.r; rr++){
+          if(val(rr,0) === null) continue;       // 空行・平均行（学籍番号が空）は飛ばす
+          if(val(rr,iTaken) !== 0) continue;
+          zero++;
+          for(let cc=3; cc<iTaken; cc++) if(val(rr,cc) !== null) bad++;
+        }
+        step("🔴★受けていない人の行は 受けた数0・テストのセルは空",
+             zero > 0 && bad === 0, zero + "人ぶん / 空でないセル " + bad);
+      }
     }
 
     d.getElementById("rx-wide").click();
@@ -667,6 +723,9 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
     await until(() => !d.getElementById("view-qsets").hidden, 8000);
     await until(() => !$("qs-pane-list").hidden, 8000);
   } catch (e) { log.resultsError = (e && e.message) || String(e); }
+  /* ★落ちたことを**検査として出す**。catch に入れっぱなしだと、
+     検査の数が静かに減るだけで、通ったように見える（2026-09-13 に踏んだ）。 */
+  step("★結果のまとめ書き出しの途中で落ちていない", !log.resultsError, log.resultsError || "");
 
   /* ═══ 「🗑 表示中をまとめて消す」（2026-09-13 きあ判断で行から移した）═══
      ★行から外したので、消す道はここだけ。**しぼっていないと受け付けない**ところが要。

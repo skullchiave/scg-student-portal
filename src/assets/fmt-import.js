@@ -339,21 +339,64 @@ const FmtImport = (() => {
      students: [{student_no, name, class_name}]（並び順のまま出す）
      sets:     [{id, title}]（並び順のまま列になる）
      byPair:   { "<student_no>\u0001<set_id>": {score, total} } */
+  function round1(v) { return Math.round(v * 10) / 10; }
+
   function wideRows(students, sets, byPair) {
     const head = ["学籍番号", "氏名", "クラス"]
       .concat(sets.map(s => s.title))
-      .concat(["受けた数", "合計点", "合計満点"]);
+      .concat(["受けた数", "合計点", "合計満点", "平均点", "達成率(%)"]);
     const rows = [head];
+    /* 列ごとの合計（下のクラス平均・全体平均に使う）。
+       ★「受けた人だけ」で割る。欠席を0点として混ぜると平均が下がって嘘になる。 */
+    const colSum = {}, colN = {};
+    const put = (cls, i, v) => {
+      const k = cls + "\u0001" + i;
+      colSum[k] = (colSum[k] || 0) + v;
+      colN[k] = (colN[k] || 0) + 1;
+    };
+
     students.forEach(st => {
       let n = 0, sum = 0, full = 0;
-      const cells = sets.map(s => {
+      const cells = sets.map((s, i) => {
         const a = byPair[st.student_no + "\u0001" + s.id];
         if (!a) return RESULT_EMPTY;
         n++; sum += Number(a.score) || 0; full += Number(a.total) || 0;
+        put(st.class_name, i, Number(a.score) || 0);
+        put("", i, Number(a.score) || 0);           // 全体
         return a.score;
       });
-      rows.push([st.student_no, st.name, st.class_name].concat(cells).concat([n, sum, full]));
+      /* ★達成率は「受けたテストの満点」だけを分母にする＝欠席で不当に下がらない。
+         1回も受けていない人は**空欄**（0% ではない。0%だと「全部間違えた」に読める）。 */
+      const avg  = n ? round1(sum / n) : RESULT_EMPTY;
+      const rate = full ? Math.round(sum / full * 100) : RESULT_EMPTY;
+      rows.push([st.student_no, st.name, st.class_name]
+        .concat(cells).concat([n, sum, full, avg, rate]));
     });
+
+    /* ───── 下にクラス平均と全体平均を足す（2026-09-13 きあ依頼）─────
+       ★1行空けてから置く。詰めて置くと、学生の行と一緒に並べ替えられて混ざる。
+       ★学籍番号の欄は空にする＝台帳に貼るとき、学生の行と見分けがつく。 */
+    const classes = [...new Set(students.map(s => s.class_name))]
+      .filter(c => c !== "").sort((a, b) => a.localeCompare(b, "ja"));
+    const hasAny = Object.keys(colN).length > 0;
+    if (hasAny) {
+      rows.push(new Array(head.length).fill(""));
+      const avgRow = (label, cls) => {
+        const cells = sets.map((_, i) => {
+          const k = cls + "\u0001" + i;
+          return colN[k] ? round1(colSum[k] / colN[k]) : RESULT_EMPTY;
+        });
+        let s = 0, c = 0;
+        sets.forEach((_, i) => {
+          const k = cls + "\u0001" + i;
+          if (colN[k]) { s += colSum[k]; c += colN[k]; }
+        });
+        return ["", label, cls].concat(cells)
+          .concat([c, RESULT_EMPTY, RESULT_EMPTY, c ? round1(s / c) : RESULT_EMPTY, RESULT_EMPTY]);
+      };
+      classes.forEach(c => rows.push(avgRow("＝クラス平均", c)));
+      if (classes.length > 1) rows.push(avgRow("＝全体平均", ""));
+    }
     return rows;
   }
 
@@ -1090,6 +1133,34 @@ FmtImport.db = (() => {
     return { sheet: FmtImport.TEMPLATE_SHEET_NAME, samples: FmtImport.TEMPLATE_ROWS.length };
   }
 
+  /* ───────── 結果を「教科書ごとのタブ」で1つのExcelにする（2026-09-13 きあ指摘）─────────
+   *
+   * ★きあ：「ヨリソルで A5クラスをDL とかってやると、漢字テストとか他のテストもぜーんぶ出てきて…
+   *   たぶん教科書ごとにもたせた方がいい。こうすれば、平均などが意味を持つのではないだろうか。
+   *   漢字とつなぐのテスト平均が混ざったり、10点と20点のテストが混ざったら、あまり意味がなくなるだろう？」
+   *
+   * 🔴 **道具が違えば混ぜない。** 学生マスタDBも同じ形をしている
+   *   （模試推移 / JLPT推移 / JPT推移 を別シートに分けてある）。
+   *   混ぜた表は「行が多い」のではなく **平均が意味を失う** のが問題。
+   *
+   * sheets: [{ name, rows }] の配列。name はシート名（31文字・使えない字は safeSheetName が直す）。
+   */
+  function buildResultWorkbook(sheets) {
+    if (typeof XLSX === "undefined") throw new Error("Excelを作る部品（xlsx.js）が読み込まれていません");
+    const wb = XLSX.utils.book_new();
+    const used = {};
+    let n = 0;
+    for (const sh of sheets) {
+      if (!sh.rows || sh.rows.length < 2) continue;      // 見出しだけのシートは作らない
+      const ws = XLSX.utils.aoa_to_sheet(sh.rows);
+      ws["!freeze"] = { xSplit: 3, ySplit: 1 };          // 学籍番号・氏名・クラスと見出しを固定
+      XLSX.utils.book_append_sheet(wb, ws, safeSheetName(sh.name, used));
+      n++;
+    }
+    if (!n) throw new Error("書き出せる結果がありません");
+    return { wb, sheets: n };
+  }
+
   /* そのままダウンロードさせる。★サーバーには何も送らない（ブラウザの中だけで作る）。 */
   function downloadWorkbook(sets, filename) {
     const r = buildWorkbook(sets);
@@ -1106,6 +1177,7 @@ FmtImport.db = (() => {
   }
 
   return { probeColumns, resetProbeCache, probeQuizSetsSource, listSourceBooks, searchQuizSets,
+           buildResultWorkbook,
            publishSet, setOpen, deleteSet, attemptCount, loadSetForEdit, updateSetQuestions,
            buildWorkbook, downloadWorkbook, setToRows, safeSheetName,
            buildTemplateWorkbook, downloadTemplate,

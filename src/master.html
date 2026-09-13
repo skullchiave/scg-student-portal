@@ -507,21 +507,33 @@
               <input type="date" id="rx-to"></div>
           </div>
           <div class="btnrow">
+            <button class="btn ghost" id="rx-all" type="button" style="width:auto;"
+              title="いつから・いつまでを空にします（＝全期間）">📅 全期間にする</button>
             <button class="btn ghost" id="rx-count" type="button" style="width:auto;">何件あるか数える</button>
           </div>
           <div class="kpi" id="rx-kpi" hidden></div>
 
           <div class="btnrow" style="margin-top:14px;">
-            <button class="btn" id="rx-wide" type="button" style="width:auto;">一覧をCSVで書き出す</button>
+            <button class="btn" id="rx-wide" type="button" style="width:auto;">📗 教科書ごとのExcelで書き出す</button>
             <button class="btn ghost" id="rx-long" type="button" style="width:auto;">明細をCSVで書き出す</button>
           </div>
-          <div class="note"><b>一覧</b>＝1行が1人の学生で、<u>テストが横に並びます</u>（台帳に貼る用）。
+          <div class="note"><b>📗 教科書ごとのExcel</b>＝<b>教科書ごとに1つのタブ</b>にします。
+            1行が1人の学生で、<u>その教科書のテストだけが横に並びます</u>。<br>
+            🔴 <b>教科書を混ぜません。</b>
+            <u>漢字テストとつなぐのテストを混ぜたり、10点と20点のテストを混ぜたら、平均が意味を失う</u>ためです
+            （学生マスタDBも 模試 / JLPT / JPT を別シートに分けています）。<br>
             ★<b>しぼり込みに入る学生は全員出ます</b>（1回も受けていない人も行があります）＝
             <u>貼ったときに行がずれないように</u>。<br>
-            ★<b>列はテストを実施した順</b>に並びます。見出しはテスト名（<code>2-③</code> など）＝
+            ★<b>列はテストを実施した順</b>。見出しはテスト名（<code>2-③</code> など）＝
             <u>「2回目」だけだと、あとから何のテストか分からなくなる</u>ため。<br>
-            受けていないところは<b>空欄</b>です（★0点とは違うので、0を入れていません）。<br>
-            <b>明細</b>＝1行が1回の受験です（数え直す用）。<br>
+            受けていないところは<b>空欄</b>です（★0点とは違うので、0を入れていません）。
+            <b>平均点</b>＝合計点 ÷ 受けた数、<b>達成率</b>＝合計点 ÷ 合計満点。
+            どちらも<u>受けたテストだけ</u>を分母にします（欠席で不当に下がりません）。<br>
+            ★各タブの下に<b>クラス平均</b>と<b>全体平均</b>の行を置いてあります
+            （1行空けてあるので、並べ替えても学生の行と混ざりません）。<br>
+            ★<b>設問が60問を超える回は「（大きい回）」の別タブ</b>に分けます＝
+            <u>「（問題集）全体」は440問あり、20問のまとめテストと混ぜると平均が壊れる</u>ためです。<br>
+            <b>明細をCSV</b>＝1行が1回の受験です（数え直す用・全教科書まとめて1枚）。<br>
             🔴 <b>画面を離れた回数は、どちらにも出しません。</b>
             <u>小テストは成績に反映しない</u>という決めごとが崩れるためです。</div>
           <div class="msg" id="rx-msg" style="display:none;"></div>
@@ -1050,6 +1062,17 @@ async function rxCollect(onProgress){
   const sets = await api.get(q);
   const setById = {}; sets.forEach(s=>setById[s.id]=s);
 
+  /* 各回の設問数（＝満点）。★大きい回を別タブに分けるのに使う。
+     🔴 埋め込みは外部キーを名指しする（素の questions(count) は経路が2つあって 300）。 */
+  let qcount = [];
+  try{
+    const rows = await api.get("/rest/v1/quiz_sets?select=id,questions!questions_quiz_set_id_fkey(count)"
+      + (book ? "&source_book=eq."+encodeURIComponent(book) : "") + "&limit=2000");
+    qcount = rows.map(x=>({ id:x.id,
+      n:(Array.isArray(x.questions)&&x.questions[0]&&typeof x.questions[0].count==="number")
+        ? x.questions[0].count : 0 }));
+  }catch(e){ /* 取れなければ分けないだけ。書き出しは止めない */ }
+
   // ② 学生（クラスでしぼる）
   let pq = "/rest/v1/profiles?select=id,student_no,display_name,class_name&role=eq.student"
          + "&order=class_name.asc.nullsfirst,student_no.asc&limit=2000";
@@ -1075,8 +1098,16 @@ async function rxCollect(onProgress){
     if(page.length < 1000) break;
     offset += 1000;
   }
-  return { sets, profs, attempts, setById, profById };
+  return { sets, profs, attempts, setById, profById, qcount };
 }
+
+/* 「全期間」＝日付の欄を空にする（2026-09-13 きあ依頼）。
+   ★空 = 全期間、という決まりは画面に書いてあるが、**空にする操作**が要る。
+     一度日付を入れると、手で消すのが地味に面倒だった。 */
+$("rx-all").onclick = ()=>{
+  $("rx-from").value = ""; $("rx-to").value = "";
+  rxMsg("全期間にしました（いつから・いつまでを空にしました）。");
+};
 
 /* 数えるだけ（押す前に大きさが分かるように） */
 $("rx-count").onclick = async ()=>{
@@ -1118,6 +1149,60 @@ async function rxBuild(kind, onProgress){
   {
     let rows, n;
     if(kind==="wide"){
+      /* 🔴 **教科書ごとにタブを分ける**（2026-09-13 きあ指摘）。
+         混ぜると「行が多い」のではなく **平均が意味を失う**（10点と20点のテストが混ざる）。 */
+      const first = FmtImport.firstOfEach(
+        r.attempts, a => r.profById[a.student_id].student_no + "\u0001" + a.quiz_set_id);
+      const students = r.profs
+        .map(p=>({student_no:p.student_no, name:p.display_name, class_name:p.class_name||""}));
+
+      // その回の最初の提出（＝実施した順に並べるため）
+      const firstAt = {};
+      r.attempts.forEach(a=>{
+        const t = a.submitted_at;
+        if(!firstAt[a.quiz_set_id] || t < firstAt[a.quiz_set_id]) firstAt[a.quiz_set_id] = t;
+      });
+
+      /* 教科書ごとに分ける。
+         🔴 **設問が多すぎる回は別タブへ**（2026-09-13 きあ判断）。
+            実データでは「（問題集）全体」が つなぐⅠ 440問・つなぐⅡ 299問 ある。
+            まとめテストが20問なので **22倍**。同じタブに置くと平均が完全に壊れる。
+            ★捨てずに、混ぜない。目安は取り込み口と同じ 60問（1回のテストとしては大きい、の線）。 */
+      const BIG = 60;
+      const nQ = {};
+      (r.qcount||[]).forEach(x=>{ nQ[x.id] = x.n; });
+      const byBook = new Map();
+      r.sets.filter(x=>firstAt[x.id]).forEach(x=>{
+        let b = x.source_book || "（教材が入っていない回）";
+        if((nQ[x.id]||0) > BIG) b = b + "（大きい回）";
+        if(!byBook.has(b)) byBook.set(b, []);
+        byBook.get(b).push(x);
+      });
+      // タブの並び＝教科書名の順。「教材が入っていない回」は最後
+      const books = [...byBook.keys()].sort((a,b)=>{
+        const na = a==="（教材が入っていない回）", nb = b==="（教材が入っていない回）";
+        if(na!==nb) return na?1:-1;
+        return a.localeCompare(b,"ja");
+      });
+
+      const sheets = books.map(b=>{
+        const sets = byBook.get(b).slice()
+          .sort((x,y)=> firstAt[x.id] < firstAt[y.id] ? -1 : firstAt[x.id] > firstAt[y.id] ? 1 : 0);
+        const byPair = {};
+        Object.keys(first).forEach(k=>{
+          const a = first[k];
+          if(!sets.some(x=>x.id===a.quiz_set_id)) return;    // このタブのテストだけ
+          byPair[k] = { score:a.score, total:a.total };
+        });
+        return { name: b, rows: FmtImport.wideRows(students, sets, byPair), tests: sets.length };
+      });
+
+      const book = FmtImport.db.buildResultWorkbook(sheets);
+      return { wb: book.wb, filename: rxFilename("教科書ごと").replace(/\.csv$/, ".xlsx"),
+               msg: "書き出しました（"+book.sheets+"タブ／学生 "+students.length+"人）："
+                  + sheets.filter(x=>x.rows.length>1).map(x=>x.name+" "+x.tests+"テスト").join("、") };
+    }
+    if(false){
       /* ★列に出すのは「実際に受けられたテスト」だけ。
          しぼり込みに入っているだけで誰も受けていない回まで列にすると、
          87列のうち中身があるのが5列、という読みにくい表になる。
@@ -1148,10 +1233,7 @@ async function rxBuild(kind, onProgress){
          受けていない人の行は、セルが全部空・受けた数0 になる。 */
       const students = r.profs
         .map(p=>({student_no:p.student_no, name:p.display_name, class_name:p.class_name||""}));
-      rows = FmtImport.wideRows(students, sets, byPair);
-      n = students.length;
-      return { rows, filename: rxFilename("一覧"),
-               msg: "書き出しました（"+n+"人 × "+sets.length+"テスト）。ダウンロード先に保存されています。" };
+      return null;   // ★ここは通らない（上の教科書ごとに置き換えた）
     }else{
       const list = r.attempts.map(a=>{
         const p = r.profById[a.student_id], s = r.setById[a.quiz_set_id];
@@ -1172,7 +1254,8 @@ async function rxExport(kind){
   try{
     const built = await rxBuild(kind, n=>rxMsg("集めています… "+n+"件"));
     if(!built){ rxMsg("この範囲には受験記録がありません。", true); return; }
-    downloadCsv(built.filename, built.rows);
+    if(built.wb) XLSX.writeFile(built.wb, built.filename);   // 教科書ごと＝Excel（タブが要る）
+    else downloadCsv(built.filename, built.rows);            // 明細＝CSV
     rxMsg(built.msg);
   }catch(e){ rxMsg("書き出せませんでした（"+e.message+"）", true); }
   finally{ $("rx-wide").disabled=false; $("rx-long").disabled=false; }
