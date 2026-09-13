@@ -445,11 +445,56 @@ const FmtImport = (() => {
    *    ダミーで確かめた＝ハイフンの無い形（7桁）は 生ID と正規化IDが 60/60 一致、
    *    ハイフンのある形は 65/65 でハイフンを外したものが正規化IDだった。
    */
-  const EVENT_HEADERS = ["正規化ID", "氏名", "種別", "時点", "級", "回", "総合", "満点", "合否",
-                         "聴解", "読解", "言語知識", "出席率", "授業数", "出席数", "ソース", "備考"];
-  const EVENT_KIND = "小テスト";
-  const EVENT_SOURCE = "学生ポータル";
+  /* ───────── 学籍番号から学年を出す（2026-09-13 きあ依頼）─────────
+   *
+   * ★きあ「クラスソートはいらない。1年生 / 2年生 / 在学生(1年・2年同時) / 卒業生 でいい」
+   *
+   * 学籍番号の作り＝**先頭2桁が入学年・次2桁が入学月**
+   * （台帳の build_master.py の entry_from_id と同じ規則。260401999 → 2026-04）。
+   *   2604999    → 2026年4月 入学
+   *   26-0401999 → ハイフンを外して同じ
+   *
+   * 年度は4月はじまり。10月入学はその年度の学生として数える（1年半コース）。
+   *   入学年度と今の年度の差が 0 → 1年生 ／ 1 → 2年生 ／ 2以上 → 卒業生
+   *
+   * ⚠ **ポータルは在籍状態を持っていない。**
+   *   ここでいう「卒業生」は<u>入学から2年以上たっている人</u>であって、
+   *   本当に卒業したかは分からない（退学した人も入る）。在籍状態は台帳側が持っている。
+   * ⚠ 形が読めない学籍番号（デモの s001 など）は **"" を返す**。
+   *   どの学年にも入れず、画面に件数を出す＝**黙って消さない**。
+   */
+  const GRADE_1 = "1年生", GRADE_2 = "2年生", GRADE_ALUM = "卒業生";
 
+  function schoolYear(d) {
+    // 年度は4月はじまり。3月までは前の年度
+    return (d.getMonth() + 1) >= 4 ? d.getFullYear() : d.getFullYear() - 1;
+  }
+
+  function gradeOf(studentNo, today) {
+    const id = normalizeId(studentNo);
+    if (!/^\d{4}/.test(id)) return "";
+    const y = 2000 + Number(id.slice(0, 2));
+    const m = Number(id.slice(2, 4));
+    if (!(m >= 1 && m <= 12)) return "";
+    const entryYear = m >= 4 ? y : y - 1;        // 1〜3月入学は前の年度あつかい
+    const diff = schoolYear(today || new Date()) - entryYear;
+    if (diff < 0) return "";
+    if (diff === 0) return GRADE_1;
+    if (diff === 1) return GRADE_2;
+    return GRADE_ALUM;
+  }
+
+  /* 画面の選択肢 → その学年に当てはまるか。"" は「すべて」 */
+  function matchGrade(pick, studentNo, today) {
+    if (!pick) return true;
+    const g = gradeOf(studentNo, today);
+    if (pick === "在学生") return g === GRADE_1 || g === GRADE_2;
+    return g === pick;
+  }
+
+  /* 学籍番号からハイフンを外す。★学年の判定（gradeOf）が使うので、ここに置いてある。
+     まとめ書き出しの「イベント形式」は scripts/export_kotest_events.py に移した
+     （2026-09-13。画面から押せる人がいなくなったため。同じ形式の実装を2つ持たない）。 */
   function normalizeId(studentNo) {
     return String(studentNo || "").replace(/[-‐−–ー－]/g, "");
   }
@@ -458,26 +503,6 @@ const FmtImport = (() => {
     if (!iso) return "";
     const d = new Date(iso), z = n => String(n).padStart(2, "0");
     return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate());
-  }
-
-  /* list: [{student_no, name, book, title, round, score, total, at}]（round はその教科書の中の通し番号） */
-  function eventRows(list) {
-    const rows = [EVENT_HEADERS.slice()];
-    (list || []).forEach(a => {
-      const r = new Array(EVENT_HEADERS.length).fill("");
-      r[0] = normalizeId(a.student_no);
-      r[1] = a.name;
-      r[2] = EVENT_KIND;
-      r[3] = ymd(a.at);
-      r[4] = a.book || "";
-      r[5] = a.round;
-      r[6] = a.score;
-      r[7] = a.total;
-      r[15] = EVENT_SOURCE;
-      r[16] = a.title;
-      rows.push(r);
-    });
-    return rows;
   }
 
   /* 明細（1行＝1受験）。attempts は新しい順でも古い順でも、渡された順に出す。 */
@@ -588,7 +613,8 @@ const FmtImport = (() => {
     TEMPLATE_SHEET_NAME, TEMPLATE_HEADERS, TEMPLATE_ROWS,
     // 結果のまとめ書き出し（表の組み立てだけ。通信もDOMも触らない＝検査から直接確かめられる）
     wideRows, longRows, firstOfEach, fmtWhen, RESULT_EMPTY,
-    eventRows, normalizeId, ymd, EVENT_HEADERS, EVENT_KIND, EVENT_SOURCE,
+    normalizeId, ymd,
+    gradeOf, matchGrade, schoolYear, GRADE_1, GRADE_2, GRADE_ALUM,
   };
 })();
 

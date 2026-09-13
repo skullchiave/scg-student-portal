@@ -514,15 +514,9 @@ const R = {};
   ]);
   R.result_empty = FmtImport.RESULT_EMPTY;
 
-  /* 台帳（成績の台帳）の「イベント」形式（2026-09-13 きあ依頼）。
-     🔴 ダミーの学籍番号は 999 から降順の帯を使う（CLAUDE.md の決め）。 */
-  R.event_headers = FmtImport.EVENT_HEADERS;
-  R.event_rows = FmtImport.eventRows([
-    { student_no: "26-0401999", name: "テスト太郎", book: "つなぐ日本語Ⅰ", title: "1-①",
-      round: 1, score: 8, total: 10, at: "2026-04-10T09:05:00+09:00" },
-    { student_no: "2604999", name: "テスト花子", book: "つなぐ日本語Ⅱ", title: "16-①",
-      round: 1, score: 15, total: 20, at: "2026-09-01T13:30:00+09:00" },
-  ]);
+  /* ★台帳（きあ個人のDB）あての「イベント」形式は、2026-09-13 にブラウザから外した。
+     画面のボタンを消したら通れる人がいなくなり、同じ形式の実装を JS と Python で
+     2つ持つことになるため。検査ごと tests/test_export_kotest_events.py へ移した。 */
 
   /* 平均の行（2026-09-13 きあ依頼）。★欠席を0点として混ぜないこと。 */
   {
@@ -553,6 +547,42 @@ const R = {};
   const firsts = FmtImport.firstOfEach(tries, x => x.who + "\u0001" + x.set);
   R.first_scores = Object.keys(firsts).sort().map(k => k + "=" + firsts[k].score);
   R.first_count = Object.keys(firsts).length;
+}
+{
+  /* 🔴 学年の判定（2026-09-13）。★**今日**に頼らず、日付を渡して確かめる。
+     きあ「1年生 / 2年生 / 在学生(1年・2年同時) / 卒業生」
+     学籍番号＝先頭2桁が入学年・次2桁が入学月。年度は4月はじまり。
+     ダミーは 999 から降順の帯（CLAUDE.md の決め）。 */
+  const D = s => new Date(s + "T12:00:00+09:00");
+  const g = (no, on) => FmtImport.gradeOf(no, D(on));
+  R.grade = {
+    // 2026年4月入学の人を、年度をまたいで見る
+    april_in_1st:   g("2604999", "2026-06-01"),   // 2026年度 → 1年生
+    april_in_2nd:   g("2604999", "2027-06-01"),   // 2027年度 → 2年生
+    april_in_alum:  g("2604999", "2028-06-01"),   // 2028年度 → 卒業生
+    // 年度は4月はじまり＝3月はまだ前の年度
+    march_is_prev:  g("2604999", "2027-03-31"),   // まだ2026年度 → 1年生
+    april_flips:    g("2604999", "2027-04-01"),   // 2027年度 → 2年生
+    // 10月入学（1年半コース）も、その年度の学生として数える
+    oct_in_1st:     g("2610999", "2026-11-01"),
+    oct_in_2nd:     g("2610999", "2027-11-01"),
+    // ハイフンつきの形も同じに読める
+    hyphen_same:    g("26-0401999", "2026-06-01"),
+    // 1〜3月入学は前の年度あつかい
+    jan_is_prev:    g("2701999", "2027-06-01"),   // 2026年度入学 → 2年生
+    // 読めないもの（デモの s001 など）は空。★どの学年にも入れない
+    demo_id:        g("s001", "2026-06-01"),
+    empty:          g("", "2026-06-01"),
+    month13:        g("2613999", "2026-06-01"),
+    future:         g("2804999", "2026-06-01"),   // まだ入学していない
+  };
+  R.match = {
+    all_true:       FmtImport.matchGrade("", "s001", D("2026-06-01")),   // すべて＝素通し
+    zaigaku_1:      FmtImport.matchGrade("在学生", "2604999", D("2026-06-01")),
+    zaigaku_2:      FmtImport.matchGrade("在学生", "2604999", D("2027-06-01")),
+    zaigaku_alum:   FmtImport.matchGrade("在学生", "2604999", D("2028-06-01")),
+    unknown_out:    FmtImport.matchGrade("1年生", "s001", D("2026-06-01")),
+  };
 }
 {
   /* 🔴 配るテンプレートの見本（2026-09-13）。
@@ -819,30 +849,9 @@ class NodeParityTest(CheckMixin, unittest.TestCase):
         self.check("★提出日時が読める形（YYYY-MM-DD HH:MM）",
                    len(str(long[1][8])) == 16 and str(long[1][8])[4] == "-", str(long[1][8]))
 
-        # ── 台帳の「イベント」形式（2026-09-13 きあ依頼）──────────────
-        # 🔴 そのまま貼れることが値打ちなので、17列・同じ並びを固定する
-        EV = ["正規化ID", "氏名", "種別", "時点", "級", "回", "総合", "満点", "合否",
-              "聴解", "読解", "言語知識", "出席率", "授業数", "出席数", "ソース", "備考"]
-        self.check("🔴★列が台帳のイベントシートと同じ17列・同じ並び",
-                   r["event_headers"] == EV, str(r["event_headers"]))
-        er = r["event_rows"]
-        self.check("1行＝1受験", len(er) - 1 == 2, str(len(er) - 1))
-        a1 = er[1]
-        self.check("🔴★学籍番号はハイフンを外して正規化IDにする",
-                   a1[0] == "260401999", repr(a1[0]))
-        self.check("ハイフンが無ければそのまま（1年生の形）", er[2][0] == "2604999", repr(er[2][0]))
-        self.check("種別は「小テスト」", a1[2] == "小テスト", repr(a1[2]))
-        self.check("時点は年月日だけ（時刻は入れない）", a1[3] == "2026-04-10", repr(a1[3]))
-        self.check("★級に教科書名を入れる（つなぐⅠの1回目とⅡの1回目がぶつからないように）",
-                   a1[4] == "つなぐ日本語Ⅰ" and er[2][4] == "つなぐ日本語Ⅱ",
-                   str([a1[4], er[2][4]]))
-        self.check("回・総合・満点が入る", [a1[5], a1[6], a1[7]] == [1, 8, 10],
-                   str([a1[5], a1[6], a1[7]]))
-        self.check("ソースは「学生ポータル」", a1[15] == "学生ポータル", repr(a1[15]))
-        self.check("備考はテスト名", a1[16] == "1-①", repr(a1[16]))
-        self.check("★小テストに無い列は空（合否・聴解・読解・言語知識・出席率・授業数・出席数）",
-                   all(a1[i] == "" for i in [8, 9, 10, 11, 12, 13, 14]),
-                   str([a1[i] for i in [8, 9, 10, 11, 12, 13, 14]]))
+        # ★イベント形式（きあ個人の台帳あて）の確かめは、
+        #   tests/test_export_kotest_events.py に移した（2026-09-13）。
+        #   ブラウザから書き出す道を外し、scripts/export_kotest_events.py に一本化したため。
 
         # ── 平均の行（2026-09-13 きあ依頼）────────────────────────
         ar = r["avg_rows"]
@@ -857,6 +866,33 @@ class NodeParityTest(CheckMixin, unittest.TestCase):
                    ar[5][0] == "" and ar[6][0] == "" and ar[7][0] == "", str([ar[5][0], ar[6][0], ar[7][0]]))
         self.check("クラス平均の並びはクラス名の順",
                    [ar[5][2], ar[6][2]] == ["A", "B"], str([ar[5][2], ar[6][2]]))
+
+        # ── 学年の判定（2026-09-13 きあ指示）─────────────────────
+        # ★e2e の「学年でしぼると人数が合う」は、デモの学籍番号が s001 形式のため
+        #   0人 対 0人 で空振りしていた。判定そのものは**ここで**確かめる。
+        g = r["grade"]
+        self.check("★2026年4月入学は、2026年度に1年生", g["april_in_1st"] == "1年生", g["april_in_1st"])
+        self.check("★次の年度に2年生になる", g["april_in_2nd"] == "2年生", g["april_in_2nd"])
+        self.check("★2年たったら卒業生", g["april_in_alum"] == "卒業生", g["april_in_alum"])
+        self.check("🔴★年度は4月はじまり（3月はまだ前の年度）",
+                   g["march_is_prev"] == "1年生" and g["april_flips"] == "2年生",
+                   str([g["march_is_prev"], g["april_flips"]]))
+        self.check("★10月入学（1年半コース）もその年度の1年生",
+                   g["oct_in_1st"] == "1年生" and g["oct_in_2nd"] == "2年生",
+                   str([g["oct_in_1st"], g["oct_in_2nd"]]))
+        self.check("★ハイフンのある形も同じに読める",
+                   g["hyphen_same"] == "1年生", g["hyphen_same"])
+        self.check("★1〜3月入学は前の年度あつかい", g["jan_is_prev"] == "2年生", g["jan_is_prev"])
+        self.check("🔴★読めない学籍番号はどの学年にも入れない（空で返す）",
+                   [g["demo_id"], g["empty"], g["month13"], g["future"]] == ["", "", "", ""],
+                   str([g["demo_id"], g["empty"], g["month13"], g["future"]]))
+        m = r["match"]
+        self.check("「すべて」は素通し（読めない人も残る）", m["all_true"] is True, str(m["all_true"]))
+        self.check("★「在学生」は1年と2年だけ",
+                   [m["zaigaku_1"], m["zaigaku_2"], m["zaigaku_alum"]] == [True, True, False],
+                   str([m["zaigaku_1"], m["zaigaku_2"], m["zaigaku_alum"]]))
+        self.check("🔴★読めない人は学年でしぼると外れる（＝画面で件数を出す約束）",
+                   m["unknown_out"] is False, str(m["unknown_out"]))
         # A組: 1-① は 8 と 4 → 6.0 ／ 1-② は 6 だけ（花子は未受験）→ 6.0
         self.check("🔴★平均は「受けた人だけ」で割る（欠席を0点として混ぜない）",
                    ar[5][3] == 6 and ar[5][4] == 6, str([ar[5][3], ar[5][4]]))

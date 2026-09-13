@@ -499,8 +499,16 @@
           <div class="form2" style="max-width:760px;">
             <div class="field"><label for="rx-book">教科書</label>
               <select id="rx-book"><option value="">すべての教科書</option></select></div>
-            <div class="field"><label for="rx-class">クラス</label>
-              <select id="rx-class"><option value="">すべてのクラス</option></select></div>
+            <!-- ★クラスではなく学年で絞る（2026-09-13 きあ指示）。
+                 「クラスソートはいらない。1年生 / 2年生 / 在学生(1年・2年同時) / 卒業生 でいい」 -->
+            <div class="field"><label for="rx-grade">学年</label>
+              <select id="rx-grade">
+                <option value="">すべて</option>
+                <option value="1年生">1年生</option>
+                <option value="2年生">2年生</option>
+                <option value="在学生">在学生（1年・2年）</option>
+                <option value="卒業生">卒業生</option>
+              </select></div>
             <div class="field"><label for="rx-from">いつから</label>
               <input type="date" id="rx-from"></div>
             <div class="field"><label for="rx-to">いつまで</label>
@@ -511,14 +519,16 @@
               title="いつから・いつまでを空にします（＝全期間）">📅 全期間にする</button>
             <button class="btn ghost" id="rx-count" type="button" style="width:auto;">何件あるか数える</button>
           </div>
+          <div class="note" id="rx-cond" hidden style="margin:0 0 10px;"></div>
           <div class="kpi" id="rx-kpi" hidden></div>
 
           <div class="btnrow" style="margin-top:14px;">
             <button class="btn" id="rx-wide" type="button" style="width:auto;">📗 教科書ごとのExcelで書き出す</button>
             <button class="btn ghost" id="rx-long" type="button" style="width:auto;">明細をCSVで書き出す</button>
-            <button class="btn ghost" id="rx-event" type="button" style="width:auto;"
-              title="学生マスタDBの「イベント」シートに、そのまま貼れる形のCSVです"
-              >🗃 学生マスタDB用（イベント形式）</button>
+            <!-- ★「イベント形式」のボタンは画面から外した（2026-09-13 きあ指摘）。
+                 あちらの台帳は**きあ個人のもので、他の人は存在を知らない前提**。
+                 他のマスターの人には意味が分からないボタンだった。
+                 書き出しは scripts/export_kotest_events.py（きあだけが走らせる）に移した。 -->
           </div>
           <!-- ★短くした（2026-09-13 きあ指示）。
                「なぜそうしたか」はコードのコメントと作問シートの手順書に書いてある。
@@ -526,8 +536,7 @@
           <div class="note">
             <b>📗 教科書ごとのExcel</b>　教科書ごとに1タブ。1行＝1人、その教科書のテストが横に並びます。
             受けていないところは空欄です。<br>
-            <b>明細をCSV</b>　1行＝1回の受験（全教科書まとめて1枚）。<br>
-            <b>🗃 学生マスタDB用</b>　あちらの「イベント」シートにそのまま貼れる形。</div>
+            <b>明細をCSV</b>　1行＝1回の受験（全教科書まとめて1枚）。</div>
           <div class="msg" id="rx-msg" style="display:none;"></div>
         </div>
       </div>
@@ -589,7 +598,7 @@
 
       <!-- ══ イメージ: 学生アカウント ══ -->
       <div id="view-students" data-viewpane hidden>
-        <div class="mockflag">🖼 画面イメージ（まだ動きません）— 本番では学生マスタDBから氏名・クラスを取り込んで一括発行する。ここに出ている学生はすべて架空</div>
+        <div class="mockflag">🖼 画面イメージ（まだ動きません）— 本番では学生名簿から氏名・クラスを取り込んで一括発行する。ここに出ている学生はすべて架空</div>
         <div class="kpi">
           <div class="stat"><div class="v">40</div><div class="l">有効なアカウント</div><div class="s">A① 20・A② 20（ダミー）</div></div>
           <div class="stat"><div class="v">31</div><div class="l">初回ログイン済み</div><div class="s">未ログイン 9名に声かけ</div></div>
@@ -610,7 +619,7 @@
             <tr><td>s004</td><td>成基太郎4</td><td>A①</td><td><span class="pill on">変更済み</span></td><td>9/3 01:05</td><td><span class="pill on">有効</span></td></tr>
             <tr><td>s021</td><td>成基太郎21</td><td>A②</td><td><span class="pill on">変更済み</span></td><td>8/30 09:12</td><td><span class="pill off">停止（卒業）</span></td></tr>
           </table></div>
-          <div class="note">発行の流れ（本番案）: 学生マスタDBから対象を選ぶ → 初期パスワードつきのカードを印刷 → 学生が初回ログインで変更（強制）。同意書に外部サーバー利用を明記してから運用する。</div>
+          <div class="note">発行の流れ（本番案）: 学生名簿から対象を選ぶ → 初期パスワードつきのカードを印刷 → 学生が初回ログインで変更（強制）。同意書に外部サーバー利用を明記してから運用する。</div>
         </div>
       </div>
 
@@ -1034,16 +1043,11 @@ async function ensureResultFilters(){
     $("rx-book").innerHTML = "<option value=''>すべての教科書</option>" +
       qsBooks.filter(b=>b.book).map(b=>"<option value=\""+escHtml(b.book)+"\">"+escHtml(b.book)+"</option>").join("");
   }catch(e){ /* 教科書でしぼれないだけ。ほかは動く */ }
-  try{
-    const names = await fetchClassNames();
-    $("rx-class").innerHTML = "<option value=''>すべてのクラス</option>" +
-      names.map(c=>"<option value=\""+escHtml(c)+"\">"+escHtml(c)+"</option>").join("");
-  }catch(e){ /* 同上 */ }
 }
 
 /* しぼり込みに合う受験を全部集める。{sets, students, attempts} を返す。 */
 async function rxCollect(onProgress){
-  const book = $("rx-book").value, cls = $("rx-class").value;
+  const book = $("rx-book").value, grade = $("rx-grade").value;
   const from = $("rx-from").value, to = $("rx-to").value;
 
   // ① テスト（教科書でしぼる）。★教科書の順（sort_key）で列を並べる
@@ -1065,11 +1069,14 @@ async function rxCollect(onProgress){
         ? x.questions[0].count : 0 }));
   }catch(e){ /* 取れなければ分けないだけ。書き出しは止めない */ }
 
-  // ② 学生（クラスでしぼる）
-  let pq = "/rest/v1/profiles?select=id,student_no,display_name,class_name&role=eq.student"
-         + "&order=class_name.asc.nullsfirst,student_no.asc&limit=2000";
-  if(cls) pq += "&class_name=eq."+encodeURIComponent(cls);
-  const profs = await api.get(pq);
+  /* ② 学生。★学年は**学籍番号から出す**（DBに学年の列が無い）ので、
+     絞り込みはサーバーではなくこちらで行う。 */
+  const pq = "/rest/v1/profiles?select=id,student_no,display_name,class_name&role=eq.student"
+           + "&order=student_no.asc&limit=2000";
+  const allProfs = await api.get(pq);
+  // 🔴 学籍番号の形が読めない人は、どの学年にも入らない。**黙って消さず件数を出す**
+  const unknownGrade = allProfs.filter(p=>!FmtImport.gradeOf(p.student_no)).length;
+  const profs = grade ? allProfs.filter(p=>FmtImport.matchGrade(grade, p.student_no)) : allProfs;
   const profById = {}; profs.forEach(p=>profById[p.id]=p);
 
   // ③ 受験。★1000件ずつ。日付は「その日いっぱい」を含める
@@ -1090,16 +1097,28 @@ async function rxCollect(onProgress){
     if(page.length < 1000) break;
     offset += 1000;
   }
-  return { sets, profs, attempts, setById, profById, qcount };
+  return { sets, profs, attempts, setById, profById, qcount,
+           allProfs, unknownGrade, grade, book, from, to };
 }
 
 /* 「全期間」＝日付の欄を空にする（2026-09-13 きあ依頼）。
    ★空 = 全期間、という決まりは画面に書いてあるが、**空にする操作**が要る。
      一度日付を入れると、手で消すのが地味に面倒だった。 */
+/* ★押したら**数え直す**（2026-09-13 きあ指摘「押しても変わってない気がする」）。
+   日付を空にするだけだと、既に空のときは何も起きず、
+   日付を入れていたときも**古い数字が残る**ので「効いていない」ように見えた。 */
 $("rx-all").onclick = ()=>{
   $("rx-from").value = ""; $("rx-to").value = "";
-  rxMsg("全期間にしました（いつから・いつまでを空にしました）。");
+  $("rx-count").click();
 };
+
+/* しぼり込みを変えたら、古い数字を消す＝**変えたのに前の数のまま**にしない */
+["rx-book", "rx-grade", "rx-from", "rx-to"].forEach(id=>{
+  $(id).addEventListener("change", ()=>{
+    $("rx-kpi").hidden = true; $("rx-cond").hidden = true;
+    rxMsg("しぼり込みを変えました。「何件あるか数える」を押してください。");
+  });
+});
 
 /* 数えるだけ（押す前に大きさが分かるように） */
 $("rx-count").onclick = async ()=>{
@@ -1110,6 +1129,14 @@ $("rx-count").onclick = async ()=>{
     const usedSets = new Set(r.attempts.map(a=>a.quiz_set_id));
     const usedStu  = new Set(r.attempts.map(a=>a.student_id));
     // ★行になるのは**しぼり込みに入る学生ぜんぶ**（受けていない人も含む）
+    /* ★「いま何で数えたか」を必ず出す（2026-09-13 きあ指摘）。
+       これが無いと、しぼり込みを変えても**数字が動いたのか分からない**。 */
+    const cond = [r.book || "すべての教科書", r.grade || "すべての学年",
+                  (r.from || r.to) ? ((r.from || "はじめ") + " 〜 " + (r.to || "いま")) : "全期間"];
+    $("rx-cond").hidden = false;
+    $("rx-cond").innerHTML = "いま数えた条件： <b>" + cond.map(escHtml).join("</b> ／ <b>") + "</b>"
+      + (r.unknownGrade ? "　⚠ 学籍番号から学年が読めない人が " + r.unknownGrade
+                          + "人います（学年でしぼると外れます）" : "");
     const rowStu = r.profs.length;
     $("rx-kpi").hidden = false;
     /* ★出す数字は「実際に書き出されるもの」に合わせる。
@@ -1127,7 +1154,7 @@ $("rx-count").onclick = async ()=>{
 };
 
 function rxFilename(kind){
-  const b=$("rx-book").value, c=$("rx-class").value;
+  const b=$("rx-book").value, c=$("rx-grade").value;
   const part=[b,c].filter(Boolean).join("_") || "すべて";
   return "小テスト結果_"+kind+"_"+part.replace(/[\\\/:*?\"<>|]/g,"_").slice(0,40)+"_"+todayCompact()+".csv";
 }
@@ -1138,152 +1165,74 @@ function rxFilename(kind){
 async function rxBuild(kind, onProgress){
   const r = await rxCollect(onProgress);
   if(!r.attempts.length) return null;
-  {
-    let rows, n;
-    if(kind==="wide"){
-      /* 🔴 **教科書ごとにタブを分ける**（2026-09-13 きあ指摘）。
-         混ぜると「行が多い」のではなく **平均が意味を失う**（10点と20点のテストが混ざる）。 */
-      const first = FmtImport.firstOfEach(
-        r.attempts, a => r.profById[a.student_id].student_no + "\u0001" + a.quiz_set_id);
-      const students = r.profs
-        .map(p=>({student_no:p.student_no, name:p.display_name, class_name:p.class_name||""}));
+  if(kind==="wide"){
+    /* 🔴 **教科書ごとにタブを分ける**（2026-09-13 きあ指摘）。
+       混ぜると「行が多い」のではなく **平均が意味を失う**（10点と20点のテストが混ざる）。 */
+    const first = FmtImport.firstOfEach(
+      r.attempts, a => r.profById[a.student_id].student_no + "\u0001" + a.quiz_set_id);
+    const students = r.profs
+      .map(p=>({student_no:p.student_no, name:p.display_name, class_name:p.class_name||""}));
 
-      // その回の最初の提出（＝実施した順に並べるため）
-      const firstAt = {};
-      r.attempts.forEach(a=>{
-        const t = a.submitted_at;
-        if(!firstAt[a.quiz_set_id] || t < firstAt[a.quiz_set_id]) firstAt[a.quiz_set_id] = t;
-      });
+    // その回の最初の提出（＝実施した順に並べるため）
+    const firstAt = {};
+    r.attempts.forEach(a=>{
+      const t = a.submitted_at;
+      if(!firstAt[a.quiz_set_id] || t < firstAt[a.quiz_set_id]) firstAt[a.quiz_set_id] = t;
+    });
 
-      /* 教科書ごとに分ける。
-         🔴 **設問が多すぎる回は別タブへ**（2026-09-13 きあ判断）。
-            実データでは「（問題集）全体」が つなぐⅠ 440問・つなぐⅡ 299問 ある。
-            まとめテストが20問なので **22倍**。同じタブに置くと平均が完全に壊れる。
-            ★捨てずに、混ぜない。目安は取り込み口と同じ 60問（1回のテストとしては大きい、の線）。 */
-      const BIG = 60;
-      const nQ = {};
-      (r.qcount||[]).forEach(x=>{ nQ[x.id] = x.n; });
-      const byBook = new Map();
-      r.sets.filter(x=>firstAt[x.id]).forEach(x=>{
-        let b = x.source_book || "（教材が入っていない回）";
-        if((nQ[x.id]||0) > BIG) b = b + "（大きい回）";
-        if(!byBook.has(b)) byBook.set(b, []);
-        byBook.get(b).push(x);
-      });
-      // タブの並び＝教科書名の順。「教材が入っていない回」は最後
-      const books = [...byBook.keys()].sort((a,b)=>{
-        const na = a==="（教材が入っていない回）", nb = b==="（教材が入っていない回）";
-        if(na!==nb) return na?1:-1;
-        return a.localeCompare(b,"ja");
-      });
+    /* 教科書ごとに分ける。
+       🔴 **設問が多すぎる回は別タブへ**（2026-09-13 きあ判断）。
+          実データでは「（問題集）全体」が つなぐⅠ 440問・つなぐⅡ 299問 ある。
+          まとめテストが20問なので **22倍**。同じタブに置くと平均が完全に壊れる。
+          ★捨てずに、混ぜない。目安は取り込み口と同じ 60問（1回のテストとしては大きい、の線）。 */
+    const BIG = 60;
+    const nQ = {};
+    (r.qcount||[]).forEach(x=>{ nQ[x.id] = x.n; });
+    const byBook = new Map();
+    r.sets.filter(x=>firstAt[x.id]).forEach(x=>{
+      let b = x.source_book || "（教材が入っていない回）";
+      if((nQ[x.id]||0) > BIG) b = b + "（大きい回）";
+      if(!byBook.has(b)) byBook.set(b, []);
+      byBook.get(b).push(x);
+    });
+    // タブの並び＝教科書名の順。「教材が入っていない回」は最後
+    const books = [...byBook.keys()].sort((a,b)=>{
+      const na = a==="（教材が入っていない回）", nb = b==="（教材が入っていない回）";
+      if(na!==nb) return na?1:-1;
+      return a.localeCompare(b,"ja");
+    });
 
-      const sheets = books.map(b=>{
-        const sets = byBook.get(b).slice()
-          .sort((x,y)=> firstAt[x.id] < firstAt[y.id] ? -1 : firstAt[x.id] > firstAt[y.id] ? 1 : 0);
-        const byPair = {};
-        Object.keys(first).forEach(k=>{
-          const a = first[k];
-          if(!sets.some(x=>x.id===a.quiz_set_id)) return;    // このタブのテストだけ
-          byPair[k] = { score:a.score, total:a.total };
-        });
-        return { name: b, rows: FmtImport.wideRows(students, sets, byPair), tests: sets.length };
-      });
-
-      const book = FmtImport.db.buildResultWorkbook(sheets);
-      return { wb: book.wb, filename: rxFilename("教科書ごと").replace(/\.csv$/, ".xlsx"),
-               msg: "書き出しました（"+book.sheets+"タブ／学生 "+students.length+"人）："
-                  + sheets.filter(x=>x.rows.length>1).map(x=>x.name+" "+x.tests+"テスト").join("、") };
-    }
-    if(false){
-      /* ★列に出すのは「実際に受けられたテスト」だけ。
-         しぼり込みに入っているだけで誰も受けていない回まで列にすると、
-         87列のうち中身があるのが5列、という読みにくい表になる。
-         🔴 並びは **実施した順**（その回の最初の提出が早い順）。2026-09-13 きあ指摘。
-            教科書の順ではなく、**実際にやった順** でないと台帳と行き違う。
-            ★見出しはテスト名（例 2-③）。きあ＝「テストの名前はわかるように」
-              ＝「2回目」だけだと、あとから何のテストか分からなくなるため。 */
-      const firstAt = {};
-      r.attempts.forEach(a=>{
-        const t = a.submitted_at;
-        if(!firstAt[a.quiz_set_id] || t < firstAt[a.quiz_set_id]) firstAt[a.quiz_set_id] = t;
-      });
-      const sets = r.sets.filter(s=>firstAt[s.id])
-                         .sort((x,y)=> firstAt[x.id] < firstAt[y.id] ? -1 : firstAt[x.id] > firstAt[y.id] ? 1 : 0);
-      /* 🔴 同じテストを2回受けていたら **1回目（いちばん古い提出）** を採る（2026-09-13 きあ決定）。
-         きあ＝「最初でいいかも？ 1回目のやつじゃないと、アンフェアになるよ」。
-         ★attempts は submitted_at の昇順で集めてあるので、**先に入ったほうを残す**だけでよい。
-         ⚠ それまでは後勝ちだった（意図して選んでいたわけではなく、上書きの結果そうなっていた）。 */
-      const first = FmtImport.firstOfEach(
-        r.attempts, a => r.profById[a.student_id].student_no + "\u0001" + a.quiz_set_id);
+    const sheets = books.map(b=>{
+      const sets = byBook.get(b).slice()
+        .sort((x,y)=> firstAt[x.id] < firstAt[y.id] ? -1 : firstAt[x.id] > firstAt[y.id] ? 1 : 0);
       const byPair = {};
       Object.keys(first).forEach(k=>{
-        byPair[k] = { score: first[k].score, total: first[k].total };
-      });
-      /* 🔴 **しぼり込みに入る学生は全員出す**（1件も受けていない人も行を作る）。
-         2026-09-13 きあ指摘。受けた人だけにすると、台帳に貼ったときに
-         **欠席者の行が抜けて、以降が全部ずれる**。
-         受けていない人の行は、セルが全部空・受けた数0 になる。 */
-      const students = r.profs
-        .map(p=>({student_no:p.student_no, name:p.display_name, class_name:p.class_name||""}));
-      return null;   // ★ここは通らない（上の教科書ごとに置き換えた）
-    }else if(kind==="event"){
-      /* 🔴 学生マスタDB の「イベント」シートに合わせる（2026-09-13 きあ依頼）。
-         あちらは**イベントが正本**で、推移シートはそこからの派生ビュー。
-         ＝イベントを足せば「小テスト推移」が自動で生える。 */
-      const first = FmtImport.firstOfEach(
-        r.attempts, a => r.profById[a.student_id].student_no + "\u0001" + a.quiz_set_id);
-
-      // その教科書の中で何回目か（実施の古い順）。★全学生で同じ番号になるようにする
-      const firstAt = {};
-      r.attempts.forEach(a=>{
-        const t = a.submitted_at;
-        if(!firstAt[a.quiz_set_id] || t < firstAt[a.quiz_set_id]) firstAt[a.quiz_set_id] = t;
-      });
-      const roundOf = {};
-      const byBook = {};
-      r.sets.filter(x=>firstAt[x.id]).forEach(x=>{
-        const b = x.source_book || "（教材なし）";
-        (byBook[b] = byBook[b] || []).push(x);
-      });
-      Object.keys(byBook).forEach(b=>{
-        byBook[b].sort((x,y)=> firstAt[x.id] < firstAt[y.id] ? -1 : firstAt[x.id] > firstAt[y.id] ? 1 : 0)
-                 .forEach((x,i)=>{ roundOf[x.id] = i + 1; });
-      });
-
-      const list = Object.keys(first).map(k=>{
         const a = first[k];
-        const pr = r.profById[a.student_id], st = r.setById[a.quiz_set_id];
-        return { student_no: pr.student_no, name: pr.display_name,
-                 book: st.source_book || "（教材なし）", title: st.title,
-                 round: roundOf[a.quiz_set_id], score: a.score, total: a.total, at: a.submitted_at };
-      }).sort((x,y)=> x.book !== y.book ? x.book.localeCompare(y.book,"ja")
-                    : x.round !== y.round ? x.round - y.round
-                    : String(x.student_no).localeCompare(String(y.student_no)));
-
-      rows = FmtImport.eventRows(list);
-      /* ★ファイル名に台帳の名前をそのまま入れない（2026-09-13）。
-         PII の関所（pii_guard.py）がその名前を**実データの住所録**として見張っているので、
-         付けると以後このファイルを扱うコマンドが全部止まる。
-         守るべき名前は守ったまま、こちらの名前をずらす。 */
-      return { rows, filename: rxFilename("台帳イベント"),
-               msg: "書き出しました（"+list.length+"件／種別「小テスト」）。"
-                  + "学生マスタDBの「イベント」シートにそのまま貼れます。" };
-    }else{
-      const list = r.attempts.map(a=>{
-        const p = r.profById[a.student_id], s = r.setById[a.quiz_set_id];
-        return { student_no:p.student_no, name:p.display_name, class_name:p.class_name||"",
-                 book:s.source_book||"", title:s.title, lesson:s.lesson||"",
-                 score:a.score, total:a.total, at:a.submitted_at, duration_ms:a.duration_ms };
+        if(!sets.some(x=>x.id===a.quiz_set_id)) return;    // このタブのテストだけ
+        byPair[k] = { score:a.score, total:a.total };
       });
-      rows = FmtImport.longRows(list);
-      return { rows, filename: rxFilename("明細"),
-               msg: "書き出しました（"+list.length+"件）。ダウンロード先に保存されています。" };
-    }
+      return { name: b, rows: FmtImport.wideRows(students, sets, byPair), tests: sets.length };
+    });
+
+    const book = FmtImport.db.buildResultWorkbook(sheets);
+    return { wb: book.wb, filename: rxFilename("教科書ごと").replace(/\.csv$/, ".xlsx"),
+             msg: "書き出しました（"+book.sheets+"タブ／学生 "+students.length+"人）："
+                + sheets.filter(x=>x.rows.length>1).map(x=>x.name+" "+x.tests+"テスト").join("、") };
+  }
+  {
+    const list = r.attempts.map(a=>{
+      const p = r.profById[a.student_id], s = r.setById[a.quiz_set_id];
+      return { student_no:p.student_no, name:p.display_name, class_name:p.class_name||"",
+               book:s.source_book||"", title:s.title, lesson:s.lesson||"",
+               score:a.score, total:a.total, at:a.submitted_at, duration_ms:a.duration_ms };
+    });
+    return { rows: FmtImport.longRows(list), filename: rxFilename("明細"),
+             msg: "書き出しました（"+list.length+"件）。ダウンロード先に保存されています。" };
   }
 }
 
 async function rxExport(kind){
-  $("rx-wide").disabled = true; $("rx-long").disabled = true; $("rx-event").disabled = true;
+  $("rx-wide").disabled = true; $("rx-long").disabled = true;
   rxMsg("集めています…");
   try{
     const built = await rxBuild(kind, n=>rxMsg("集めています… "+n+"件"));
@@ -1292,11 +1241,10 @@ async function rxExport(kind){
     else downloadCsv(built.filename, built.rows);            // 明細＝CSV
     rxMsg(built.msg);
   }catch(e){ rxMsg("書き出せませんでした（"+e.message+"）", true); }
-  finally{ $("rx-wide").disabled=false; $("rx-long").disabled=false; $("rx-event").disabled=false; }
+  finally{ $("rx-wide").disabled=false; $("rx-long").disabled=false; }
 }
 $("rx-wide").onclick = ()=>rxExport("wide");
 $("rx-long").onclick = ()=>rxExport("long");
-$("rx-event").onclick = ()=>rxExport("event");
 
 /* 変更の履歴（2026-09-13）。★新しい順に出す。名前は profiles から引いている */
 const LOG_LABEL = { import:"取り込み", edit:"編集", publish:"公開", unpublish:"公開をやめた",
@@ -2674,6 +2622,8 @@ $("qrclose").onclick = ()=>$("qrov").classList.remove("on");
    ここに出したものだけがテストから呼べる。**画面の動作には使わない**（テスト専用）。 */
 window.__e2e = {
   get:(p)=>api.get(p),
+  // 学年の判定。★FmtImport は const なので、外からはこの窓口ごしにしか触れない
+  matchGrade:(g,no)=>FmtImport.matchGrade(g,no),
   del:(p)=>api._authed(p,{method:"DELETE"}),
   // 🔴 後片付けは必ずこちらを使う。quiz_sets を直接 DELETE すると cascade で受験記録まで消える
   delSet:(id)=>FmtImport.db.deleteSet(id),

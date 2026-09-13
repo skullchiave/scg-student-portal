@@ -625,8 +625,19 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
     step("「結果をまとめて書き出す」の画面に入る",
          await until(() => !d.getElementById("view-results").hidden, 8000));
     step("★教科書としぼり込みの欄がある",
-         !!d.getElementById("rx-book") && !!d.getElementById("rx-class")
+         !!d.getElementById("rx-book") && !!d.getElementById("rx-grade")
          && !!d.getElementById("rx-from") && !!d.getElementById("rx-to"));
+    /* ★しぼり込みは**クラスではなく学年**（2026-09-13 きあ指示）。
+       きあ「クラスソートはいらない。1年生 / 2年生 / 在学生(1年・2年) / 卒業生」 */
+    step("★学年でしぼれる（1年・2年・在学生・卒業生）",
+         (()=>{ const v=[...d.getElementById("rx-grade").options].map(o=>o.value);
+                return ["","1年生","2年生","在学生","卒業生"].every(x=>v.includes(x)); })(),
+         [...d.getElementById("rx-grade").options].map(o=>o.value).join("/"));
+    /* 🔴 台帳（きあ個人のDB）のボタンを**置かない**（2026-09-13 きあ指示）。
+       きあ「他人は存在を知らない前提で動いてほしい」＝押せる/押せない以前に、
+       ボタンがあること自体が漏らす。戻したらここで落ちる。 */
+    step("🔴★他人の画面に、きあ個人の台帳あての書き出しが無い",
+         !d.getElementById("rx-event"));
     d.getElementById("rx-count").click();
     step("★押す前に件数を数えられる",
          await until(() => !d.getElementById("rx-kpi").hidden, 60000),
@@ -634,6 +645,77 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
     const kpi = d.getElementById("rx-kpi").textContent.replace(/\s+/g," ");
     step("★★数字が「実際に書き出されるもの」になっている（行・列・件数）",
          kpi.includes("書き出される学生") && kpi.includes("書き出されるテスト") && kpi.includes("受験の件数"), kpi.slice(0,70));
+
+    /* ★学年のしぼり込みが**効いているか**を、DBから出した期待値と突き合わせる。
+       選択肢があるだけでは「押せるが何も起きない」を見逃す。
+       ⚠ デモの学生は学籍番号の形がまちまちなので、
+         「1年生が◯人いるはず」と決め打ちせず、**その場で数えて**比べる。 */
+    {
+      const all = await w.__e2e.get(
+        "/rest/v1/profiles?select=student_no&role=eq.student&limit=2000");
+      const want = g => all.filter(p=>w.__e2e.matchGrade(g, p.student_no)).length;
+      const seen = async g => {
+        const sel = d.getElementById("rx-grade");
+        sel.value = g;
+        sel.dispatchEvent(new w.Event("change"));
+        d.getElementById("rx-count").click();
+        await until(() => !d.getElementById("rx-kpi").hidden, 60000);
+        const m = d.getElementById("rx-kpi").textContent
+                   .replace(/\s+/g," ").match(/(\d+)\s*書き出される学生/);
+        return m ? Number(m[1]) : -1;
+      };
+      /* 🔴 学年が読める人が1人もいない環境では、突き合わせは**0対0で必ず一致する**。
+         それを緑で出すと「確かめた」と読めてしまうので、読める人がいるときだけ行う。
+         判定そのものは tests/test_qsets_import.py（Node・日付を固定）で見ている。 */
+      const readable = want("1年生") + want("2年生") + want("卒業生");
+      if (readable === 0) {
+        step("（この環境の学籍番号は学年を読めない形。人数の突き合わせは飛ばす＝空振りで緑にしない）",
+             true, "学生 " + all.length + "人すべて「読めない」");
+      } else {
+        const n1 = await seen("1年生"), n2 = await seen("2年生");
+        step("★学年でしぼると、人数がその学年のぶんになる（DBから数えた値と一致）",
+             n1 === want("1年生") && n2 === want("2年生"),
+             "1年 " + n1 + "/" + want("1年生") + "　2年 " + n2 + "/" + want("2年生"));
+        step("★「在学生」は 1年＋2年",
+             (await seen("在学生")) === want("在学生"), "期待 " + want("在学生"));
+      }
+      const nAll = await seen("");
+      step("★「すべて」に戻すと全員に戻る（読めない人も残る）",
+           nAll === all.length, nAll + " / " + all.length);
+      step("★いま何でしぼったかが画面に出る",
+           !d.getElementById("rx-cond").hidden
+           && d.getElementById("rx-cond").textContent.includes("いま数えた条件"),
+           d.getElementById("rx-cond").textContent.replace(/\s+/g," ").slice(0,60));
+      /* 🔴 ここでしか確かめられないこと＝**黙って消さない**。
+         学年が読めない人は、学年でしぼると結果から外れる。
+         外れることより、**外れたと画面に出ている**ことが大事。 */
+      const unknown = all.length - want("1年生") - want("2年生") - want("卒業生");
+      if (unknown > 0) {
+        step("🔴★学年が読めない人がいると、その件数が画面に出る（黙って消さない）",
+             d.getElementById("rx-cond").textContent.includes("学年が読めない人が " + unknown + "人"),
+             d.getElementById("rx-cond").textContent.replace(/\s+/g," ").slice(-60));
+      } else {
+        step("（学年が読めない人が0人なので、その知らせの検査は飛ばす）", true, "");
+      }
+    }
+
+    /* ★「全期間」を押したら**数字が出直す**（2026-09-13 きあ指摘
+       「全期間ボタンを押しても、変わってない気がする」）。
+       日付を空にするだけだと、古い数字が残って効いていないように見えた。 */
+    {
+      d.getElementById("rx-from").value = "2099-01-01";
+      d.getElementById("rx-from").dispatchEvent(new w.Event("change"));
+      d.getElementById("rx-count").click();
+      await until(() => !d.getElementById("rx-kpi").hidden, 60000);
+      const far = d.getElementById("rx-kpi").textContent.replace(/\s+/g," ");
+      d.getElementById("rx-kpi").hidden = true;            // 出直したことが分かるように伏せる
+      d.getElementById("rx-all").click();
+      const back = await until(() => !d.getElementById("rx-kpi").hidden, 60000);
+      step("🔴★「全期間」を押すと、日付が消えて数字が出直す",
+           back && !d.getElementById("rx-from").value && !d.getElementById("rx-to").value
+           && d.getElementById("rx-kpi").textContent.replace(/\s+/g," ") !== far,
+           "先の日付のとき: " + far.slice(0,40));
+    }
     /* 🔴 全学生が行になること（2026-09-13 きあ指摘）。
        受けた人だけにすると、台帳に貼ったときに**欠席者の行が抜けて以降が全部ずれる**。
        ★本物のDBに対して、行数が学生の数と合っているかを見る。 */
@@ -715,28 +797,6 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
     step("🔴★一覧を1ファイルで書き出せる（テストをまたいで）",
          await until(() => (d.getElementById("rx-msg").textContent||"").includes("書き出しました"), 90000),
          (d.getElementById("rx-msg").textContent||"").slice(0,60));
-    /* 台帳（成績の台帳）のイベント形式（2026-09-13 きあ依頼）。本物のDBで通す。 */
-    {
-      const ev = await w.__e2e.rxBuild("event");
-      step("★イベント形式で組み立てられる", !!ev && ev.rows.length > 1,
-           ev ? (ev.rows.length - 1) + "件" : "作れない");
-      const EV = ["正規化ID","氏名","種別","時点","級","回","総合","満点","合否",
-                  "聴解","読解","言語知識","出席率","授業数","出席数","ソース","備考"];
-      step("🔴★列が17列・同じ並び（そのまま貼れる）",
-           JSON.stringify(ev.rows[0]) === JSON.stringify(EV), JSON.stringify(ev.rows[0]).slice(0,80));
-      const body = ev.rows.slice(1);
-      step("★種別は全部「小テスト」", body.every(x=>x[2]==="小テスト"));
-      step("★ソースは全部「学生ポータル」", body.every(x=>x[15]==="学生ポータル"));
-      step("★正規化IDにハイフンが残っていない", body.every(x=>String(x[0]).indexOf("-")<0));
-      step("★時点は年月日だけ", body.every(x=>/^\d{4}-\d{2}-\d{2}$/.test(String(x[3]))));
-      step("★同じ教科書の中で回が1から振られている",
-           (()=>{ const by={}; body.forEach(x=>{ (by[x[4]]=by[x[4]]||new Set()).add(Number(x[5])); });
-                  return Object.keys(by).every(b=>Math.min(...by[b])===1); })());
-      step("★1人が同じ回を2つ持っていない（1回目だけを採っている）",
-           new Set(body.map(x=>x[0]+"|"+x[4]+"|"+x[5])).size === body.length,
-           body.length + "件");
-    }
-
     d.getElementById("rx-long").click();
     step("★明細も書き出せる",
          await until(() => (d.getElementById("rx-msg").textContent||"").includes("件）"), 90000),
