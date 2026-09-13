@@ -715,6 +715,28 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
     step("🔴★一覧を1ファイルで書き出せる（テストをまたいで）",
          await until(() => (d.getElementById("rx-msg").textContent||"").includes("書き出しました"), 90000),
          (d.getElementById("rx-msg").textContent||"").slice(0,60));
+    /* 台帳（成績の台帳）のイベント形式（2026-09-13 きあ依頼）。本物のDBで通す。 */
+    {
+      const ev = await w.__e2e.rxBuild("event");
+      step("★イベント形式で組み立てられる", !!ev && ev.rows.length > 1,
+           ev ? (ev.rows.length - 1) + "件" : "作れない");
+      const EV = ["正規化ID","氏名","種別","時点","級","回","総合","満点","合否",
+                  "聴解","読解","言語知識","出席率","授業数","出席数","ソース","備考"];
+      step("🔴★列が17列・同じ並び（そのまま貼れる）",
+           JSON.stringify(ev.rows[0]) === JSON.stringify(EV), JSON.stringify(ev.rows[0]).slice(0,80));
+      const body = ev.rows.slice(1);
+      step("★種別は全部「小テスト」", body.every(x=>x[2]==="小テスト"));
+      step("★ソースは全部「学生ポータル」", body.every(x=>x[15]==="学生ポータル"));
+      step("★正規化IDにハイフンが残っていない", body.every(x=>String(x[0]).indexOf("-")<0));
+      step("★時点は年月日だけ", body.every(x=>/^\d{4}-\d{2}-\d{2}$/.test(String(x[3]))));
+      step("★同じ教科書の中で回が1から振られている",
+           (()=>{ const by={}; body.forEach(x=>{ (by[x[4]]=by[x[4]]||new Set()).add(Number(x[5])); });
+                  return Object.keys(by).every(b=>Math.min(...by[b])===1); })());
+      step("★1人が同じ回を2つ持っていない（1回目だけを採っている）",
+           new Set(body.map(x=>x[0]+"|"+x[4]+"|"+x[5])).size === body.length,
+           body.length + "件");
+    }
+
     d.getElementById("rx-long").click();
     step("★明細も書き出せる",
          await until(() => (d.getElementById("rx-msg").textContent||"").includes("件）"), 90000),

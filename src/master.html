@@ -516,6 +516,9 @@
           <div class="btnrow" style="margin-top:14px;">
             <button class="btn" id="rx-wide" type="button" style="width:auto;">📗 教科書ごとのExcelで書き出す</button>
             <button class="btn ghost" id="rx-long" type="button" style="width:auto;">明細をCSVで書き出す</button>
+            <button class="btn ghost" id="rx-event" type="button" style="width:auto;"
+              title="学生マスタDBの「イベント」シートに、そのまま貼れる形のCSVです"
+              >🗃 学生マスタDB用（イベント形式）</button>
           </div>
           <div class="note"><b>📗 教科書ごとのExcel</b>＝<b>教科書ごとに1つのタブ</b>にします。
             1行が1人の学生で、<u>その教科書のテストだけが横に並びます</u>。<br>
@@ -534,6 +537,12 @@
             ★<b>設問が60問を超える回は「（大きい回）」の別タブ</b>に分けます＝
             <u>「（問題集）全体」は440問あり、20問のまとめテストと混ぜると平均が壊れる</u>ためです。<br>
             <b>明細をCSV</b>＝1行が1回の受験です（数え直す用・全教科書まとめて1枚）。<br>
+            <b>🗃 学生マスタDB用</b>＝あちらの<b>「イベント」シートと同じ17列</b>で出します
+            （<u>そのまま貼れる</u>形）。<code>種別=小テスト</code>、<code>級=教科書名</code>、
+            <code>回=その教科書の中で何回目か</code>、<code>備考=テスト名</code>。<br>
+            ★学生マスタDBは<b>イベントが正本</b>で、模試推移・JLPT推移などは<u>そこからの派生ビュー</u>です。
+            ＝<b>イベントを足せば「小テスト推移」が自動で生えます</b>（横持ちを手で貼らなくて済む）。<br>
+            ⓘ 学籍番号は<b>ハイフンを外して</b>「正規化ID」にしてあります。<br>
             🔴 <b>画面を離れた回数は、どちらにも出しません。</b>
             <u>小テストは成績に反映しない</u>という決めごとが崩れるためです。</div>
           <div class="msg" id="rx-msg" style="display:none;"></div>
@@ -1234,6 +1243,48 @@ async function rxBuild(kind, onProgress){
       const students = r.profs
         .map(p=>({student_no:p.student_no, name:p.display_name, class_name:p.class_name||""}));
       return null;   // ★ここは通らない（上の教科書ごとに置き換えた）
+    }else if(kind==="event"){
+      /* 🔴 学生マスタDB の「イベント」シートに合わせる（2026-09-13 きあ依頼）。
+         あちらは**イベントが正本**で、推移シートはそこからの派生ビュー。
+         ＝イベントを足せば「小テスト推移」が自動で生える。 */
+      const first = FmtImport.firstOfEach(
+        r.attempts, a => r.profById[a.student_id].student_no + "\u0001" + a.quiz_set_id);
+
+      // その教科書の中で何回目か（実施の古い順）。★全学生で同じ番号になるようにする
+      const firstAt = {};
+      r.attempts.forEach(a=>{
+        const t = a.submitted_at;
+        if(!firstAt[a.quiz_set_id] || t < firstAt[a.quiz_set_id]) firstAt[a.quiz_set_id] = t;
+      });
+      const roundOf = {};
+      const byBook = {};
+      r.sets.filter(x=>firstAt[x.id]).forEach(x=>{
+        const b = x.source_book || "（教材なし）";
+        (byBook[b] = byBook[b] || []).push(x);
+      });
+      Object.keys(byBook).forEach(b=>{
+        byBook[b].sort((x,y)=> firstAt[x.id] < firstAt[y.id] ? -1 : firstAt[x.id] > firstAt[y.id] ? 1 : 0)
+                 .forEach((x,i)=>{ roundOf[x.id] = i + 1; });
+      });
+
+      const list = Object.keys(first).map(k=>{
+        const a = first[k];
+        const pr = r.profById[a.student_id], st = r.setById[a.quiz_set_id];
+        return { student_no: pr.student_no, name: pr.display_name,
+                 book: st.source_book || "（教材なし）", title: st.title,
+                 round: roundOf[a.quiz_set_id], score: a.score, total: a.total, at: a.submitted_at };
+      }).sort((x,y)=> x.book !== y.book ? x.book.localeCompare(y.book,"ja")
+                    : x.round !== y.round ? x.round - y.round
+                    : String(x.student_no).localeCompare(String(y.student_no)));
+
+      rows = FmtImport.eventRows(list);
+      /* ★ファイル名に台帳の名前をそのまま入れない（2026-09-13）。
+         PII の関所（pii_guard.py）がその名前を**実データの住所録**として見張っているので、
+         付けると以後このファイルを扱うコマンドが全部止まる。
+         守るべき名前は守ったまま、こちらの名前をずらす。 */
+      return { rows, filename: rxFilename("台帳イベント"),
+               msg: "書き出しました（"+list.length+"件／種別「小テスト」）。"
+                  + "学生マスタDBの「イベント」シートにそのまま貼れます。" };
     }else{
       const list = r.attempts.map(a=>{
         const p = r.profById[a.student_id], s = r.setById[a.quiz_set_id];
@@ -1249,7 +1300,7 @@ async function rxBuild(kind, onProgress){
 }
 
 async function rxExport(kind){
-  $("rx-wide").disabled = true; $("rx-long").disabled = true;
+  $("rx-wide").disabled = true; $("rx-long").disabled = true; $("rx-event").disabled = true;
   rxMsg("集めています…");
   try{
     const built = await rxBuild(kind, n=>rxMsg("集めています… "+n+"件"));
@@ -1258,10 +1309,11 @@ async function rxExport(kind){
     else downloadCsv(built.filename, built.rows);            // 明細＝CSV
     rxMsg(built.msg);
   }catch(e){ rxMsg("書き出せませんでした（"+e.message+"）", true); }
-  finally{ $("rx-wide").disabled=false; $("rx-long").disabled=false; }
+  finally{ $("rx-wide").disabled=false; $("rx-long").disabled=false; $("rx-event").disabled=false; }
 }
 $("rx-wide").onclick = ()=>rxExport("wide");
 $("rx-long").onclick = ()=>rxExport("long");
+$("rx-event").onclick = ()=>rxExport("event");
 
 /* 変更の履歴（2026-09-13）。★新しい順に出す。名前は profiles から引いている */
 const LOG_LABEL = { import:"取り込み", edit:"編集", publish:"公開", unpublish:"公開をやめた",

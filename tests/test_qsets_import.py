@@ -514,6 +514,16 @@ const R = {};
   ]);
   R.result_empty = FmtImport.RESULT_EMPTY;
 
+  /* 台帳（成績の台帳）の「イベント」形式（2026-09-13 きあ依頼）。
+     🔴 ダミーの学籍番号は 999 から降順の帯を使う（CLAUDE.md の決め）。 */
+  R.event_headers = FmtImport.EVENT_HEADERS;
+  R.event_rows = FmtImport.eventRows([
+    { student_no: "26-0401999", name: "テスト太郎", book: "つなぐ日本語Ⅰ", title: "1-①",
+      round: 1, score: 8, total: 10, at: "2026-04-10T09:05:00+09:00" },
+    { student_no: "2604999", name: "テスト花子", book: "つなぐ日本語Ⅱ", title: "16-①",
+      round: 1, score: 15, total: 20, at: "2026-09-01T13:30:00+09:00" },
+  ]);
+
   /* 平均の行（2026-09-13 きあ依頼）。★欠席を0点として混ぜないこと。 */
   {
     const stu = [
@@ -808,6 +818,31 @@ class NodeParityTest(CheckMixin, unittest.TestCase):
         self.check("所要が無ければ空欄（0秒にしない）", long[2][-1] == "", repr(long[2][-1]))
         self.check("★提出日時が読める形（YYYY-MM-DD HH:MM）",
                    len(str(long[1][8])) == 16 and str(long[1][8])[4] == "-", str(long[1][8]))
+
+        # ── 台帳の「イベント」形式（2026-09-13 きあ依頼）──────────────
+        # 🔴 そのまま貼れることが値打ちなので、17列・同じ並びを固定する
+        EV = ["正規化ID", "氏名", "種別", "時点", "級", "回", "総合", "満点", "合否",
+              "聴解", "読解", "言語知識", "出席率", "授業数", "出席数", "ソース", "備考"]
+        self.check("🔴★列が台帳のイベントシートと同じ17列・同じ並び",
+                   r["event_headers"] == EV, str(r["event_headers"]))
+        er = r["event_rows"]
+        self.check("1行＝1受験", len(er) - 1 == 2, str(len(er) - 1))
+        a1 = er[1]
+        self.check("🔴★学籍番号はハイフンを外して正規化IDにする",
+                   a1[0] == "260401999", repr(a1[0]))
+        self.check("ハイフンが無ければそのまま（1年生の形）", er[2][0] == "2604999", repr(er[2][0]))
+        self.check("種別は「小テスト」", a1[2] == "小テスト", repr(a1[2]))
+        self.check("時点は年月日だけ（時刻は入れない）", a1[3] == "2026-04-10", repr(a1[3]))
+        self.check("★級に教科書名を入れる（つなぐⅠの1回目とⅡの1回目がぶつからないように）",
+                   a1[4] == "つなぐ日本語Ⅰ" and er[2][4] == "つなぐ日本語Ⅱ",
+                   str([a1[4], er[2][4]]))
+        self.check("回・総合・満点が入る", [a1[5], a1[6], a1[7]] == [1, 8, 10],
+                   str([a1[5], a1[6], a1[7]]))
+        self.check("ソースは「学生ポータル」", a1[15] == "学生ポータル", repr(a1[15]))
+        self.check("備考はテスト名", a1[16] == "1-①", repr(a1[16]))
+        self.check("★小テストに無い列は空（合否・聴解・読解・言語知識・出席率・授業数・出席数）",
+                   all(a1[i] == "" for i in [8, 9, 10, 11, 12, 13, 14]),
+                   str([a1[i] for i in [8, 9, 10, 11, 12, 13, 14]]))
 
         # ── 平均の行（2026-09-13 きあ依頼）────────────────────────
         ar = r["avg_rows"]

@@ -420,6 +420,66 @@ const FmtImport = (() => {
     return out;
   }
 
+  /* ───────── 学生マスタDB の「イベント」シートに合わせた形（2026-09-13 きあ依頼）─────────
+   *
+   * ★きあ：「私の学生マスターDBには自動更新されていくことを望みます」
+   *   学生マスタDB は **イベント（縦持ち・1行＝1学生×1出来事）** を正本にしていて、
+   *   模試推移 / JLPT推移 / JPT推移 は **そこからの派生ビュー** になっている
+   *   （ダミー data/sample の「読み方」シートにそう書いてある）。
+   *   ＝ 横持ちの表を手で貼るのではなく、**イベントを足せば推移シートが自動で生える**。
+   *
+   * 🔴 列は17列ぴったり・同じ並びにする。**そのまま貼れること**が値打ち。
+   *   正規化ID / 氏名 / 種別 / 時点 / 級 / 回 / 総合 / 満点 / 合否 /
+   *   聴解 / 読解 / 言語知識 / 出席率 / 授業数 / 出席数 / ソース / 備考
+   *
+   * ■ 小テストを、どの列に載せるか（2026-09-13 きあと決めた）
+   *   種別 = 「小テスト」（模試・JLPT・JPT・定期試験…と並ぶ1つの種別）
+   *   級   = **教科書名**（つなぐ日本語Ⅰ など）
+   *          ★ここが要る。種別だけだと「つなぐⅠの1回目」と「つなぐⅡの1回目」がぶつかる。
+   *            JLPT が 級（N4/N3）で分けているのと同じ使い方。
+   *   回   = その教科書の中で**何回目**か（実施の古い順の通し番号）
+   *   備考 = テスト名（1-① など）＝どの回か人が読んで分かるように
+   *   合否・聴解・読解・言語知識・出席率・授業数・出席数 は **空**（小テストには無い）
+   *
+   * 🔴 正規化ID は学籍番号から**ハイフンを外したもの**。
+   *    ダミーで確かめた＝ハイフンの無い形（7桁）は 生ID と正規化IDが 60/60 一致、
+   *    ハイフンのある形は 65/65 でハイフンを外したものが正規化IDだった。
+   */
+  const EVENT_HEADERS = ["正規化ID", "氏名", "種別", "時点", "級", "回", "総合", "満点", "合否",
+                         "聴解", "読解", "言語知識", "出席率", "授業数", "出席数", "ソース", "備考"];
+  const EVENT_KIND = "小テスト";
+  const EVENT_SOURCE = "学生ポータル";
+
+  function normalizeId(studentNo) {
+    return String(studentNo || "").replace(/[-‐−–ー－]/g, "");
+  }
+
+  function ymd(iso) {
+    if (!iso) return "";
+    const d = new Date(iso), z = n => String(n).padStart(2, "0");
+    return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate());
+  }
+
+  /* list: [{student_no, name, book, title, round, score, total, at}]（round はその教科書の中の通し番号） */
+  function eventRows(list) {
+    const rows = [EVENT_HEADERS.slice()];
+    (list || []).forEach(a => {
+      const r = new Array(EVENT_HEADERS.length).fill("");
+      r[0] = normalizeId(a.student_no);
+      r[1] = a.name;
+      r[2] = EVENT_KIND;
+      r[3] = ymd(a.at);
+      r[4] = a.book || "";
+      r[5] = a.round;
+      r[6] = a.score;
+      r[7] = a.total;
+      r[15] = EVENT_SOURCE;
+      r[16] = a.title;
+      rows.push(r);
+    });
+    return rows;
+  }
+
   /* 明細（1行＝1受験）。attempts は新しい順でも古い順でも、渡された順に出す。 */
   function longRows(attempts) {
     const rows = [["学籍番号", "氏名", "クラス", "教科書", "テスト名", "課",
@@ -528,6 +588,7 @@ const FmtImport = (() => {
     TEMPLATE_SHEET_NAME, TEMPLATE_HEADERS, TEMPLATE_ROWS,
     // 結果のまとめ書き出し（表の組み立てだけ。通信もDOMも触らない＝検査から直接確かめられる）
     wideRows, longRows, firstOfEach, fmtWhen, RESULT_EMPTY,
+    eventRows, normalizeId, ymd, EVENT_HEADERS, EVENT_KIND, EVENT_SOURCE,
   };
 })();
 
