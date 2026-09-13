@@ -203,6 +203,7 @@
         <button data-view="quiz"><span class="ico">📝</span>小テスト ライブ集計</button>
         <button data-view="survey"><span class="ico">📋</span>アンケート 回答一覧</button>
         <button data-view="qsets"><span class="ico">✏️</span>問題の登録・解放</button>
+        <button data-view="results"><span class="ico">📥</span>結果をまとめて書き出す</button>
         <button data-view="editlog"><span class="ico">🧾</span>変更の履歴</button>
         <button id="btn-qr"><span class="ico">📱</span>学生用QRを表示</button>
       </div>
@@ -483,6 +484,46 @@
       </div>
 
       <!-- ══ イメージ: アンケートの作成 ══ -->
+      <!-- ══ 結果をまとめて書き出す（2026-09-13 きあ依頼）══
+           ★きあ：「一括で落とせないと、今みたいにクラス毎に20個…みたいになって大変」
+             小テスト ライブ集計の中にある書き出しは **1テスト × クラス** が単位。
+             ここは **テストをまたいで1ファイル** にするための画面。 -->
+      <div id="view-results" data-viewpane hidden>
+        <div class="panel">
+          <h2>📥 結果をまとめて書き出す</h2>
+          <div class="note">しぼった範囲の受験結果を、<b>1つのCSV</b>にします。
+            ブラウザの中だけで作るので、<u>サーバーには何も送りません</u>。
+            Excel で開けるよう UTF-8（BOM付き）で保存します。<br>
+            ★<b>点数の正本は学生マスタDB</b>です。ここから書き出して、あちらへ取り込みます。</div>
+
+          <div class="form2" style="max-width:760px;">
+            <div class="field"><label for="rx-book">教科書</label>
+              <select id="rx-book"><option value="">すべての教科書</option></select></div>
+            <div class="field"><label for="rx-class">クラス</label>
+              <select id="rx-class"><option value="">すべてのクラス</option></select></div>
+            <div class="field"><label for="rx-from">いつから</label>
+              <input type="date" id="rx-from"></div>
+            <div class="field"><label for="rx-to">いつまで</label>
+              <input type="date" id="rx-to"></div>
+          </div>
+          <div class="btnrow">
+            <button class="btn ghost" id="rx-count" type="button" style="width:auto;">何件あるか数える</button>
+          </div>
+          <div class="kpi" id="rx-kpi" hidden></div>
+
+          <div class="btnrow" style="margin-top:14px;">
+            <button class="btn" id="rx-wide" type="button" style="width:auto;">一覧をCSVで書き出す</button>
+            <button class="btn ghost" id="rx-long" type="button" style="width:auto;">明細をCSVで書き出す</button>
+          </div>
+          <div class="note"><b>一覧</b>＝1行が1人の学生で、<u>テストが横に並びます</u>（台帳に貼る用）。
+            受けていないところは<b>空欄</b>です（★0点とは違うので、0を入れていません）。<br>
+            <b>明細</b>＝1行が1回の受験です（数え直す用）。<br>
+            🔴 <b>画面を離れた回数は、どちらにも出しません。</b>
+            <u>小テストは成績に反映しない</u>という決めごとが崩れるためです。</div>
+          <div class="msg" id="rx-msg" style="display:none;"></div>
+        </div>
+      </div>
+
       <!-- ══ 変更の履歴（2026-09-13 きあ依頼）══ -->
       <div id="view-editlog" data-viewpane hidden>
         <div class="panel">
@@ -962,6 +1003,148 @@ $("btn-logout").onclick = ()=>{ clearInterval(timer); api.logout(); location.rel
 
 /* 左の一覧 → 右の中身。動く2つはタブ切替のたびに最新を取りにいく */
 document.querySelectorAll(".nav [data-view]").forEach(b=>{ b.onclick = ()=>setView(b.getAttribute("data-view")); });
+/* ══ 結果をまとめて書き出す（2026-09-13 きあ依頼）════════════════════════════
+ * ★きあ：「一括で落とせないと、今みたいにクラス毎に20個…みたいになって大変」
+ *
+ * 🔴 引き方は**埋め込みを使わず3回に分ける**（quiz_sets / profiles / attempts）。
+ *    埋め込みは経路が2つあると 300 を返す（一覧で踏んだ罠）。ここは件数が多いので、
+ *    確実に動くほうを取る。
+ * 🔴 attempts は **1000件ずつ** 取る（PostgREST の既定の上限）。
+ *    本番は 500人 × 87回 ＝ 最大 43,500件 になりうるので、途中経過も出す。
+ */
+let rxFiltersReady = false;
+function rxMsg(text, ng){
+  const m=$("rx-msg"); m.style.display="block"; m.textContent=text;
+  m.className="msg"+(ng?" err":" info");
+}
+
+async function ensureResultFilters(){
+  if(rxFiltersReady) return;
+  rxFiltersReady = true;
+  try{
+    if(!qsBooks.length) qsBooks = await FmtImport.db.listBooksWithCounts();
+    $("rx-book").innerHTML = "<option value=''>すべての教科書</option>" +
+      qsBooks.filter(b=>b.book).map(b=>"<option value=\""+escHtml(b.book)+"\">"+escHtml(b.book)+"</option>").join("");
+  }catch(e){ /* 教科書でしぼれないだけ。ほかは動く */ }
+  try{
+    const names = await fetchClassNames();
+    $("rx-class").innerHTML = "<option value=''>すべてのクラス</option>" +
+      names.map(c=>"<option value=\""+escHtml(c)+"\">"+escHtml(c)+"</option>").join("");
+  }catch(e){ /* 同上 */ }
+}
+
+/* しぼり込みに合う受験を全部集める。{sets, students, attempts} を返す。 */
+async function rxCollect(onProgress){
+  const book = $("rx-book").value, cls = $("rx-class").value;
+  const from = $("rx-from").value, to = $("rx-to").value;
+
+  // ① テスト（教科書でしぼる）。★教科書の順（sort_key）で列を並べる
+  let q = "/rest/v1/quiz_sets?select=id,title,lesson,source_book&limit=2000";
+  if(book) q += "&source_book=eq."+encodeURIComponent(book);
+  const cols = await FmtImport.db.probeColumns();
+  q += cols.quizSetsSort ? "&order=sort_key.asc.nullsfirst,created_at.asc" : "&order=created_at.asc";
+  const sets = await api.get(q);
+  const setById = {}; sets.forEach(s=>setById[s.id]=s);
+
+  // ② 学生（クラスでしぼる）
+  let pq = "/rest/v1/profiles?select=id,student_no,display_name,class_name&role=eq.student"
+         + "&order=class_name.asc.nullsfirst,student_no.asc&limit=2000";
+  if(cls) pq += "&class_name=eq."+encodeURIComponent(cls);
+  const profs = await api.get(pq);
+  const profById = {}; profs.forEach(p=>profById[p.id]=p);
+
+  // ③ 受験。★1000件ずつ。日付は「その日いっぱい」を含める
+  const attempts = [];
+  let offset = 0;
+  for(;;){
+    let aq = "/rest/v1/attempts?select=student_id,quiz_set_id,score,total,submitted_at,duration_ms"
+           + "&order=submitted_at.asc&limit=1000&offset="+offset;
+    if(from) aq += "&submitted_at=gte."+encodeURIComponent(from+"T00:00:00");
+    if(to)   aq += "&submitted_at=lte."+encodeURIComponent(to+"T23:59:59");
+    const page = await api.get(aq);
+    page.forEach(a=>{
+      // しぼり込みの外（別の教科書・別のクラス）は落とす
+      if(!setById[a.quiz_set_id] || !profById[a.student_id]) return;
+      attempts.push(a);
+    });
+    if(onProgress) onProgress(offset + page.length);
+    if(page.length < 1000) break;
+    offset += 1000;
+  }
+  return { sets, profs, attempts, setById, profById };
+}
+
+/* 数えるだけ（押す前に大きさが分かるように） */
+$("rx-count").onclick = async ()=>{
+  $("rx-count").disabled = true;
+  rxMsg("数えています…");
+  try{
+    const r = await rxCollect(n=>rxMsg("数えています… "+n+"件"));
+    const usedSets = new Set(r.attempts.map(a=>a.quiz_set_id));
+    const usedStu  = new Set(r.attempts.map(a=>a.student_id));
+    $("rx-kpi").hidden = false;
+    /* ★出す数字は「実際に書き出されるもの」に合わせる。
+       いちど「一覧に並ぶ列＝92」と出していたが、列になるのは**受けられたテストだけ**（5）で、
+       画面の数字が嘘になっていた（2026-09-13 に撮って気づいた）。 */
+    $("rx-kpi").innerHTML =
+      "<div class='stat'><div class='v'>"+usedStu.size+"</div><div class='l'>書き出される学生（行）</div></div>"+
+      "<div class='stat'><div class='v'>"+usedSets.size+"</div><div class='l'>書き出されるテスト（列）</div></div>"+
+      "<div class='stat'><div class='v'>"+r.attempts.length+"</div><div class='l'>受験の件数（明細の行）</div></div>";
+    rxMsg(r.attempts.length ? "数えました。下のボタンで書き出せます。"
+                            : "この範囲には受験記録がありません。", !r.attempts.length);
+  }catch(e){ rxMsg("数えられませんでした（"+e.message+"）", true); }
+  finally{ $("rx-count").disabled = false; }
+};
+
+function rxFilename(kind){
+  const b=$("rx-book").value, c=$("rx-class").value;
+  const part=[b,c].filter(Boolean).join("_") || "すべて";
+  return "小テスト結果_"+kind+"_"+part.replace(/[\\\/:*?\"<>|]/g,"_").slice(0,40)+"_"+todayCompact()+".csv";
+}
+
+async function rxExport(kind){
+  $("rx-wide").disabled = true; $("rx-long").disabled = true;
+  rxMsg("集めています…");
+  try{
+    const r = await rxCollect(n=>rxMsg("集めています… "+n+"件"));
+    if(!r.attempts.length){ rxMsg("この範囲には受験記録がありません。", true); return; }
+    let rows, n;
+    if(kind==="wide"){
+      /* ★列に出すのは「実際に受けられたテスト」だけ。
+         しぼり込みに入っているだけで誰も受けていない回まで列にすると、
+         87列のうち中身があるのが5列、という読みにくい表になる。 */
+      const used = new Set(r.attempts.map(a=>a.quiz_set_id));
+      const sets = r.sets.filter(s=>used.has(s.id));
+      const byPair = {};
+      r.attempts.forEach(a=>{
+        const p = r.profById[a.student_id];
+        byPair[p.student_no+"\u0001"+a.quiz_set_id] = {score:a.score, total:a.total};
+      });
+      // 受けた学生だけ（1件も受けていない人の行は出さない）
+      const seen = new Set(r.attempts.map(a=>a.student_id));
+      const students = r.profs.filter(p=>seen.has(p.id))
+        .map(p=>({student_no:p.student_no, name:p.display_name, class_name:p.class_name||""}));
+      rows = FmtImport.wideRows(students, sets, byPair);
+      n = students.length;
+      downloadCsv(rxFilename("一覧"), rows);
+      rxMsg("書き出しました（"+n+"人 × "+sets.length+"テスト）。ダウンロード先に保存されています。");
+    }else{
+      const list = r.attempts.map(a=>{
+        const p = r.profById[a.student_id], s = r.setById[a.quiz_set_id];
+        return { student_no:p.student_no, name:p.display_name, class_name:p.class_name||"",
+                 book:s.source_book||"", title:s.title, lesson:s.lesson||"",
+                 score:a.score, total:a.total, at:a.submitted_at, duration_ms:a.duration_ms };
+      });
+      rows = FmtImport.longRows(list);
+      downloadCsv(rxFilename("明細"), rows);
+      rxMsg("書き出しました（"+list.length+"件）。ダウンロード先に保存されています。");
+    }
+  }catch(e){ rxMsg("書き出せませんでした（"+e.message+"）", true); }
+  finally{ $("rx-wide").disabled=false; $("rx-long").disabled=false; }
+}
+$("rx-wide").onclick = ()=>rxExport("wide");
+$("rx-long").onclick = ()=>rxExport("long");
+
 /* 変更の履歴（2026-09-13）。★新しい順に出す。名前は profiles から引いている */
 const LOG_LABEL = { import:"取り込み", edit:"編集", publish:"公開", unpublish:"公開をやめた",
                     delete_set:"回ごと削除", export:"Excel書き出し" };
@@ -1002,6 +1185,7 @@ function setView(v){
   document.querySelectorAll(".nav [data-view]").forEach(b=>b.classList.toggle("on", b.getAttribute("data-view")===v));
   document.querySelectorAll("[data-viewpane]").forEach(p=>{ p.hidden = (p.id!=="view-"+v); });
   if(v==="editlog") showEditLog();
+  if(v==="results") ensureResultFilters();
   if(v==="quiz"||v==="survey"||v==="today") tick();
   if(v==="qsets"){
     // hashが変われば hashchange 経由で routeQsets() が呼ばれる。既に #qsets 系なら変わらないので直接呼ぶ

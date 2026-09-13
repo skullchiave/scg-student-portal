@@ -616,6 +616,37 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
 
   // ---- 片付け（ダミーを消す。消せたことまで確認する）----
   // ★w.api は const 宣言なので iframe外から拾えない。master.html が窓口として出している __e2e を使う。
+  /* ═══ 結果をまとめて書き出す（2026-09-13 きあ依頼）═══
+     ★きあ：「一括で落とせないと、今みたいにクラス毎に20個…みたいになって大変」
+       本物のDBに対して、数える → 書き出す、を実際に通す。
+     🔴 学生の氏名は画面にしか出さない（検査の詳細に名前を書かない）。 */
+  try {
+    d.querySelector('[data-view="results"]').click();
+    step("「結果をまとめて書き出す」の画面に入る",
+         await until(() => !d.getElementById("view-results").hidden, 8000));
+    step("★教科書としぼり込みの欄がある",
+         !!d.getElementById("rx-book") && !!d.getElementById("rx-class")
+         && !!d.getElementById("rx-from") && !!d.getElementById("rx-to"));
+    d.getElementById("rx-count").click();
+    step("★押す前に件数を数えられる",
+         await until(() => !d.getElementById("rx-kpi").hidden, 60000),
+         (d.getElementById("rx-msg").textContent||"").slice(0,50));
+    const kpi = d.getElementById("rx-kpi").textContent.replace(/\s+/g," ");
+    step("★★数字が「実際に書き出されるもの」になっている（行・列・件数）",
+         kpi.includes("書き出される学生") && kpi.includes("書き出されるテスト") && kpi.includes("受験の件数"), kpi.slice(0,70));
+    d.getElementById("rx-wide").click();
+    step("🔴★一覧を1ファイルで書き出せる（テストをまたいで）",
+         await until(() => (d.getElementById("rx-msg").textContent||"").includes("書き出しました"), 90000),
+         (d.getElementById("rx-msg").textContent||"").slice(0,60));
+    d.getElementById("rx-long").click();
+    step("★明細も書き出せる",
+         await until(() => (d.getElementById("rx-msg").textContent||"").includes("件）"), 90000),
+         (d.getElementById("rx-msg").textContent||"").slice(0,60));
+    d.querySelector('[data-view="qsets"]').click();
+    await until(() => !d.getElementById("view-qsets").hidden, 8000);
+    await until(() => !$("qs-pane-list").hidden, 8000);
+  } catch (e) { log.resultsError = (e && e.message) || String(e); }
+
   /* ═══ 「🗑 表示中をまとめて消す」（2026-09-13 きあ判断で行から移した）═══
      ★行から外したので、消す道はここだけ。**しぼっていないと受け付けない**ところが要。
        しぼり込みを忘れたまま押せると、全87回が一度に消える口になる。 */

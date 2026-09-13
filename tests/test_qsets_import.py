@@ -491,6 +491,30 @@ const R = {};
   R.key_of_fixed = FmtImport.questionKey("昨日は", ["本"]);
 }
 {
+  /* 結果のまとめ書き出し（2026-09-13）。★ダミーの学生・テストで表の形だけ確かめる。
+     🔴 実在の学籍番号を書かない＝ダミーは 999 から降順の帯（CLAUDE.md の決め）。 */
+  const students = [
+    { student_no: "2604999", name: "テスト太郎", class_name: "A" },
+    { student_no: "2604998", name: "テスト花子", class_name: "A" },
+  ];
+  const sets = [{ id: "s1", title: "1-①" }, { id: "s2", title: "1-②" }, { id: "s3", title: "1-③" }];
+  const byPair = {
+    "2604999\u0001s1": { score: 8, total: 10 },
+    "2604999\u0001s3": { score: 5, total: 10 },
+    "2604998\u0001s2": { score: 0, total: 10 },   // ★0点。未受験と区別できるか
+  };
+  R.wide = FmtImport.wideRows(students, sets, byPair);
+  R.long = FmtImport.longRows([
+    { student_no: "2604999", name: "テスト太郎", class_name: "A", book: "つなぐ日本語Ⅰ",
+      title: "1-①", lesson: "1課", score: 8, total: 10,
+      at: "2026-04-10T09:05:00+09:00", duration_ms: 185000 },
+    { student_no: "2604998", name: "テスト花子", class_name: "A", book: "つなぐ日本語Ⅰ",
+      title: "1-②", lesson: "1課", score: 0, total: 10, at: "2026-04-10T13:30:00+09:00",
+      duration_ms: null },
+  ]);
+  R.result_empty = FmtImport.RESULT_EMPTY;
+}
+{
   /* 🔴 配るテンプレートの見本（2026-09-13）。
      ここが scripts/make_sakumon_template.py の SAMPLES とずれると、
      **見本が本物の問題として取り込まれる**。文字どおり1文字も違ってはいけない。 */
@@ -710,6 +734,53 @@ class NodeParityTest(CheckMixin, unittest.TestCase):
                         "行数が違う"))
         self.check("🔴★見本の3行は「見本」として登録ずみ（取り込まれない）",
                    r["template_rows_are_samples"] is True)
+
+    def test_10c_results(self):
+        """結果のまとめ書き出し — 表の形（2026-09-13 きあ依頼）。
+
+        きあ「一括で落とせないと、今みたいにクラス毎に20個…みたいになって大変」
+        ＝ 単位を「1テスト×クラス」から「テストをまたいで1ファイル」に変えた。
+        ★ここで固定したいのは **未受験と0点を混ぜないこと**。
+          混ぜると、受けていない人が「0点を取った」ことにされる。
+        """
+        print("\n=== Node: 結果のまとめ書き出し ===")
+        r = self.results
+        wide, long = r["wide"], r["long"]
+
+        self.check("一覧の見出しが「学籍番号・氏名・クラス」で始まる",
+                   wide[0][:3] == ["学籍番号", "氏名", "クラス"], str(wide[0][:3]))
+        self.check("★テストが横に並ぶ（列＝テスト名）",
+                   wide[0][3:6] == ["1-①", "1-②", "1-③"], str(wide[0][3:6]))
+        self.check("右端に「受けた数・合計点・合計満点」がある",
+                   wide[0][-3:] == ["受けた数", "合計点", "合計満点"], str(wide[0][-3:]))
+        self.check("1行＝1学生", len(wide) - 1 == 2, str(len(wide) - 1))
+
+        a, b = wide[1], wide[2]
+        self.check("受けたところに点数が入る", [a[3], a[5]] == [8, 5], str([a[3], a[5]]))
+        # 🔴 ここが本丸
+        self.check("🔴★受けていないところは空欄（0ではない）",
+                   a[4] == r["result_empty"] and a[4] != 0 and str(a[4]) == "",
+                   repr(a[4]))
+        self.check("🔴★0点は 0 のまま（空欄にしない）", b[4] == 0, repr(b[4]))
+        self.check("受けた数・合計が合っている", [a[-3], a[-2], a[-1]] == [2, 13, 20],
+                   str([a[-3], a[-2], a[-1]]))
+        self.check("1件も受けていない列でも合計は崩れない", [b[-3], b[-2], b[-1]] == [1, 0, 10],
+                   str([b[-3], b[-2], b[-1]]))
+
+        self.check("明細の見出しが1行1受験の形",
+                   long[0] == ["学籍番号", "氏名", "クラス", "教科書", "テスト名", "課",
+                               "点数", "満点", "提出日時", "所要(秒)"], str(long[0]))
+        self.check("明細の行数が受験の数と同じ", len(long) - 1 == 2, str(len(long) - 1))
+        self.check("所要は秒に直す（185000ms → 185）", long[1][-1] == 185, str(long[1][-1]))
+        self.check("所要が無ければ空欄（0秒にしない）", long[2][-1] == "", repr(long[2][-1]))
+        self.check("★提出日時が読める形（YYYY-MM-DD HH:MM）",
+                   len(str(long[1][8])) == 16 and str(long[1][8])[4] == "-", str(long[1][8]))
+
+        # 🔴 離席の記録を出していないこと（成績に反映しない方針）
+        joined = " ".join(map(str, wide[0])) + " " + " ".join(map(str, long[0]))
+        self.check("🔴★画面を離れた回数は、どちらの表にも出していない",
+                   ("離席" not in joined) and ("blur" not in joined) and ("focus" not in joined),
+                   joined[:80])
 
     def test_11_ruby(self):
         print("\n=== Node: ルビ ===")

@@ -36,6 +36,13 @@ async function until(fn, ms = 25000) {
     await until(() => d.querySelectorAll(".xlsx-book").length > 0, 25000);
     await sleep(500);
   }
+  if (mode === "results") {
+    d.querySelector('[data-view="results"]').click();
+    await until(() => !$("view-results").hidden, 10000);
+    $("rx-count").click();
+    await until(() => !$("rx-kpi").hidden, 60000);
+    await sleep(500);
+  }
   if (mode === "book") {
     // 教材でしぼった状態（件数の見え方を確かめる）
     const sel = $("qs-filter-book");

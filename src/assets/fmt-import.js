@@ -312,6 +312,63 @@ const FmtImport = (() => {
       "「きのう」は すぎた ことなので、「〜ました」を つかいます。", 1, "文法", 1],
   ];
 
+  /* ───────── 受験結果をまとめて書き出す（2026-09-13 きあ依頼）─────────
+   *
+   * ★きあ：「一括で落とせないと、今みたいにクラス毎に20個…みたいになって大変」
+   *   それまでの書き出しは **1テスト × クラス** が単位だった。87回あれば87個になる。
+   *   ここは **テストをまたいで1ファイル** にするための、表を組み立てるところ。
+   *
+   * 🔴 ここは**純粋な組み立てだけ**（通信もDOMも触らない）。
+   *    そうしておくと、Node の検査から「どんな表ができるか」を直接確かめられる。
+   *
+   * ■ 2つの形を出す（混ぜない。ヨリソルの失敗6番目「同じ表に混ぜない」と同じ考え方）
+   *   一覧 wideRows … 1行＝1学生。テストが横に並ぶ。**台帳に貼る用**
+   *   明細 longRows … 1行＝1受験。**数え直す用**
+   */
+  const RESULT_EMPTY = "";      // 受けていないセル。★0 と区別する（0点と未受験は違う）
+
+  function fmtWhen(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const z = n => String(n).padStart(2, "0");
+    return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()) +
+           " " + z(d.getHours()) + ":" + z(d.getMinutes());
+  }
+
+  /* 一覧（1行＝1学生・テストが横に並ぶ）。
+     students: [{student_no, name, class_name}]（並び順のまま出す）
+     sets:     [{id, title}]（並び順のまま列になる）
+     byPair:   { "<student_no>\u0001<set_id>": {score, total} } */
+  function wideRows(students, sets, byPair) {
+    const head = ["学籍番号", "氏名", "クラス"]
+      .concat(sets.map(s => s.title))
+      .concat(["受けた数", "合計点", "合計満点"]);
+    const rows = [head];
+    students.forEach(st => {
+      let n = 0, sum = 0, full = 0;
+      const cells = sets.map(s => {
+        const a = byPair[st.student_no + "\u0001" + s.id];
+        if (!a) return RESULT_EMPTY;
+        n++; sum += Number(a.score) || 0; full += Number(a.total) || 0;
+        return a.score;
+      });
+      rows.push([st.student_no, st.name, st.class_name].concat(cells).concat([n, sum, full]));
+    });
+    return rows;
+  }
+
+  /* 明細（1行＝1受験）。attempts は新しい順でも古い順でも、渡された順に出す。 */
+  function longRows(attempts) {
+    const rows = [["学籍番号", "氏名", "クラス", "教科書", "テスト名", "課",
+                   "点数", "満点", "提出日時", "所要(秒)"]];
+    attempts.forEach(a => {
+      rows.push([a.student_no, a.name, a.class_name, a.book, a.title, a.lesson,
+                 a.score, a.total, fmtWhen(a.at),
+                 a.duration_ms == null ? "" : Math.round(a.duration_ms / 1000)]);
+    });
+    return rows;
+  }
+
   /* 取り込み候補のシート。★白紙のテンプレートだけ出さない。
      名前がテンプレートっぽくても、**中身が見本と違えば出す**（書き込まれているため）。 */
   function listImportableSheets(workbook) {
@@ -406,6 +463,8 @@ const FmtImport = (() => {
     fnv1a, questionKey, looksLikeTemplate, sampleShare, TEMPLATE_SAMPLE_KEYS,
     // 配るテンプレートの中身（JS と Python で同じであることを検査で見ている）
     TEMPLATE_SHEET_NAME, TEMPLATE_HEADERS, TEMPLATE_ROWS,
+    // 結果のまとめ書き出し（表の組み立てだけ。通信もDOMも触らない＝検査から直接確かめられる）
+    wideRows, longRows, fmtWhen, RESULT_EMPTY,
   };
 })();
 
