@@ -206,6 +206,17 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
   //   外部キーを **ON DELETE CASCADE** で持っているので、消す順番を間違えると
   //   **正解の行ごと黙って消える**（そうなった設問は受けた全員が不正解になる）。
   {
+    /* 検索欄でしぼる。★入力は 300ms 待ってから効く作りなので、
+       「入れた直後」を見ると前の一覧のままで、まとめて操作の対象を取り違える。 */
+    const setFilter = async (q) => {
+      $("qs-filter-q").value = q;
+      $("qs-filter-q").dispatchEvent(new w.Event("input", { bubbles: true }));
+      await sleep(500);
+      await until(() => {
+        const note = $("qs-list-note").textContent || "";
+        return q ? note.includes("しぼり") : !note.includes("しぼり");
+      }, 15000);
+    };
     const backToList = async () => {
       await until(() => !$("qs-pane-list").hidden, 10000);
       await until(() => $("qs-list-tbl").textContent.includes(TITLE_PREFIX), 10000);
@@ -351,13 +362,17 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
     //   落としたファイル自体はブラウザの外へ出てヘッドレスから触れないので、
     //   **ブックを作るところまで**を取り出して、それを取り込み口に食わせ直して突き合わせる。
     {
-      // ★まず一覧の「Excel」ボタンそのものを押す。履歴に残るのはこちらの道で、
-      //   下の往復（buildWb）はブックを作るだけ＝ボタンを通っていない。
-      //   2026-09-13 に、押していないのに「履歴に export がある」を確かめようとして落ちた。
-      rowOf().querySelector(".qs-xlsx").click();
-      step("★一覧の「Excel」を押すと書き出せる",
-           await until(() => $("qs-list-msg").textContent.includes("書き出しました"), 25000),
+      /* ★ボタンそのものを押す。下の往復（buildWb）はブックを作るだけ＝ボタンを通っていない。
+         2026-09-13 に、押していないのに「履歴に export がある」を確かめようとして落ちた。
+         ★同じ日に、行から「Excel」を外して上の帯にまとめた（きあ判断）ので、
+           **しぼり込み → 表示中を書き出す** が唯一の道になっている。 */
+      await setFilter(TITLE_PREFIX);
+      $("qs-btn-export").click();
+      await pressOk("まとめて書き出し");
+      step("★「表示中をExcelに書き出す」で書き出せる",
+           await until(() => $("qs-list-msg").textContent.includes("書き出しました"), 40000),
            $("qs-list-msg").textContent.replace(/\s+/g, " ").slice(0, 70));
+      await setFilter("");
 
       const src = await w.__e2e.loadSet(setId);
       const r = w.__e2e.buildWb([src]);
@@ -517,6 +532,49 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
 
   // ---- 片付け（ダミーを消す。消せたことまで確認する）----
   // ★w.api は const 宣言なので iframe外から拾えない。master.html が窓口として出している __e2e を使う。
+  /* ═══ 「🗑 表示中をまとめて消す」（2026-09-13 きあ判断で行から移した）═══
+     ★行から外したので、消す道はここだけ。**しぼっていないと受け付けない**ところが要。
+       しぼり込みを忘れたまま押せると、全87回が一度に消える口になる。 */
+  try {
+    const $f = (id) => d.getElementById(id);
+    $f("qs-filter-q").value = "";
+    $f("qs-filter-q").dispatchEvent(new w.Event("input", { bubbles: true }));
+    await sleep(600);
+    await until(() => !( $f("qs-list-note").textContent || "" ).includes("しぼり"), 15000);
+    $f("qs-btn-delmany").click();
+    step("🔴★しぼっていないと、まとめて消せない",
+         await until(() => ($f("qs-list-msg").textContent || "").includes("しぼってください"), 10000),
+         ($f("qs-list-msg").textContent || "").slice(0, 60));
+
+    // しぼれば消せる
+    $f("qs-filter-q").value = TITLE_PREFIX;
+    $f("qs-filter-q").dispatchEvent(new w.Event("input", { bubbles: true }));
+    await sleep(600);
+    await until(() => ($f("qs-list-note").textContent || "").includes("しぼり"), 15000);
+    const before = await w.__e2e.get("/rest/v1/quiz_sets?select=id&title=like." +
+                                     encodeURIComponent(TITLE_PREFIX + "*"));
+    step("消す前にダミーが残っている", before.length > 0, before.length + "件");
+    $f("qs-btn-delmany").click();
+    const shown = await until(() => { const dl = $f("cfm-dlg"); return dl && dl.open; }, 10000);
+    step("★まとめて消す前に確認ダイアログが出る", shown,
+         shown ? $f("cfm-dlg").textContent.replace(/\s+/g, " ").slice(0, 80) : "出なかった");
+    if (shown) {
+      step("★確認に「消せるのは◯件」と出る",
+           /消せるのは\s*\d+件/.test($f("cfm-dlg").textContent),
+           $f("cfm-dlg").textContent.replace(/\s+/g, " ").slice(0, 90));
+      $f("cfm-ok").click();
+    }
+    step("★まとめて消せた",
+         await until(() => ($f("qs-list-msg").textContent || "").includes("消しました"), 30000),
+         ($f("qs-list-msg").textContent || "").slice(0, 60));
+    const after = await w.__e2e.get("/rest/v1/quiz_sets?select=id&title=like." +
+                                    encodeURIComponent(TITLE_PREFIX + "*"));
+    step("★DBからも消えている", after.length === 0, after.length + "件");
+    $f("qs-filter-q").value = "";
+    $f("qs-filter-q").dispatchEvent(new w.Event("input", { bubbles: true }));
+    await sleep(600);
+  } catch (e) { log.delManyError = (e && e.message) || String(e); }
+
   // 🔴 **見つかった全部を消して、残りが0件であることをタイトルで確かめる。**
   //   以前は rowsFound[0] の1件だけ消し、その1件のIDで確認していた。
   //   前の実行が残したダミーがあると「古いほうを消して、今回作ったぶんを残す」のに

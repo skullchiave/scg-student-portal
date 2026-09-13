@@ -329,6 +329,9 @@
             <button class="btn ghost" id="qs-btn-export" type="button" style="width:auto;"
               title="いま一覧に出ている回を、課題登録FMT の形の Excel にして保存します（そのまま取り込み直せます）"
               >⬇ 表示中をExcelに書き出す</button>
+            <button class="btn ghost" id="qs-btn-delmany" type="button" style="width:auto;"
+              title="いま一覧に出ている回のうち、受験記録が0件のものをまとめて消します（しぼり込みが要ります）"
+              >🗑 表示中をまとめて消す</button>
           </div>
           <div class="panel">
             <h2>小テスト一覧</h2>
@@ -356,15 +359,17 @@
             <div class="note"><b>はじめる</b>はクラスと時間を指定して、その時間だけ学生の画面に出します
               （授業中の小テストはこちら推奨。「📅 今日」で残り時間・提出数が見られます）。<br>
               <b>公開</b>を押すと、その回が<u>クラスを問わず</u>ずっと学生の画面に出ます。<b>停止</b>で引っ込みます。<br>
-              <b>消す</b>は<b>「受験」が 0 の回だけ</b>できます（取り込みを間違えたときの後始末用）。
-              ★<b>1人でも受けた回は「消す」が押せません</b>（「受験ずみ」と出ます）。停止にしてください＝
-              <u>受けた記録を消してしまう作りにはしない</u>という決めごとです。<br>
+              <b>消す</b>と<b>Excel</b>は<b>上の帯にまとめてあります</b>（2026-09-13）＝
+              <u>1回ずつ落とした Excel は控えにならない</u>／<u>消すのは後始末なので、まとめてやることが多い</u>ため。
+              対象は<b>いま一覧に出ている回</b>なので、先に<b>教材でしぼる・名前で検索</b>してから押します。<br>
+              ★<b>消せるのは「受験」が 0 の回だけ</b>です。1人でも受けた回は残ります＝
+              <u>受けた記録を消してしまう作りにはしない</u>という決めごとです。
+              消さずに引っ込めたいときは<b>公開をやめる</b>を使ってください。<br>
               ⓘ「受験」が <b>—</b> のときは件数が取れなかったという意味です（0 ではありません）<br>
-              <b>編集</b>で設問を直せます（<u>設問の追加・削除もできます</u>）。
-              <b>Excel</b>はその回を<b>課題登録FMT の形</b>で保存します。
+              <b>編集</b>で設問を直せます（<u>設問の追加・削除もできます</u>）。<br>
+              <b>⬇ 表示中をExcelに書き出す</b>は、しぼった分を<b>課題登録FMT の形</b>で1ファイルにします。
               ★<u>出したファイルは、そのまま「Excelから取り込む」で戻せます</u>＝
-              <b>DBが壊れたときの戻し道</b>です。上の「⬇ 表示中をExcelに書き出す」で、
-              絞り込んだ分をまとめて1ファイルにできます</div>
+              <b>DBが壊れたときの戻し道</b>です</div>
             <div class="msg" id="qs-list-msg"></div>
           </div>
           <div class="note">Excelは「課題登録FMT」の形式だけ読めます（先生が問題を書く1枚もの）。
@@ -988,6 +993,9 @@ function routeQsets(){
    ★filter/search が変わったときだけ limit を50へ戻す（「もっと見る」で広げた分を、
    公開/停止や削除のあとの読み直しでは保たない=保つ、を分けるため→showQsList(resetLimit) 参照）。 */
 const qsListState = { book:"", q:"", limit:50 };
+/* いま一覧に出ている回。★まとめて操作（Excel書き出し・まとめて消す）の対象はこれ。
+   ＝ **画面に見えているものだけ**を触る。見えていないものが動くのがいちばん怖い。 */
+let qsLastSets = [];
 let qsFiltersReady = false;
 
 /* 教材フィルタの初期化。★列が無い環境でも一覧そのものは動かす＝失敗を握りつぶして「出さない」側に倒す。
@@ -1026,11 +1034,63 @@ function xlsxName(label){
    ★1回ずつ読む（loadSetForEdit）。まとめて引く書き方だと、設問1,686件ぶんの id を
      URL に並べることになって長さの上限に当たる。控えを取るのは時々なので、遅くてよい。
    ★途中経過を必ず出す。87回だと数十秒かかるので、無言だと固まったように見える。 */
+/* 埋め込み集計から件数を取り出す。取れなければ null＝「分からない」（0 と混同しない） */
+function qsAttemptN(s){
+  return (Array.isArray(s.attempts) && s.attempts[0] && typeof s.attempts[0].count==="number")
+         ? s.attempts[0].count : null;
+}
+
+/* しぼった分をまとめて消す（2026-09-13 きあ判断で行から移した）。
+   🔴 しぼっていないときは受け付けない＝**全件を一度に消せる状態を作らない**。
+   🔴 消せるのは受験0件のものだけ（最終判断はサーバー側の delete_quiz_set）。 */
+let qsDeletingMany=false;
+$("qs-btn-delmany").onclick = async ()=>{
+  if(qsDeletingMany) return;
+  const m = (text, ng)=>{ const el=$("qs-list-msg"); el.style.display="block";
+                          el.textContent=text; el.className="msg"+(ng?" err":" info"); };
+  if(!qsListState.book && !qsListState.q){
+    m("まず教材か名前でしぼってください。しぼらずに、まとめて消すことはできません。", true);
+    return;
+  }
+  if(!qsLastSets.length){ m("消す回がありません。", true); return; }
+  // ★件数が分からないもの（—）は「消せない側」に入れる。分からないまま消さない
+  const can  = qsLastSets.filter(s=>qsAttemptN(s)===0);
+  const cant = qsLastSets.filter(s=>qsAttemptN(s)!==0);
+  if(!can.length){
+    m("この "+qsLastSets.length+"件 はどれも消せません（受験記録があるか、件数が分かりません）。", true);
+    return;
+  }
+  const label = qsListState.book || ("「"+qsListState.q+"」");
+  const ok = await askDialog({
+    title: can.length+"件 を消します",
+    body: label+" でしぼった "+qsLastSets.length+"件 のうち、\n"
+        + "消せるのは "+can.length+"件 です（受験記録が0件のものだけ）。\n"
+        + (cant.length ? cant.length+"件 は受験ずみか件数が分からないので、そのまま残ります。\n" : "")
+        + "\n設問も一緒に消えます。元に戻せません。\n"
+        + "★控えが要るなら、先に「⬇ 表示中をExcelに書き出す」を押してください。",
+    okText: can.length+"件を消す", danger: true,
+  });
+  if(!ok) return;
+  qsDeletingMany=true; $("qs-btn-delmany").disabled=true;
+  let done=0; const failed=[];
+  try{
+    for(const s of can){
+      m("消しています… "+(done+1)+" / "+can.length);
+      try{ await FmtImport.db.deleteSet(s.id, { title: s.title }); done++; }
+      catch(e){ failed.push(s.title); }      // ★1件こけても止めない。最後にまとめて言う
+    }
+    await showQsList();
+    m(done+"件 消しました。"
+      + (cant.length ? "（受験ずみなど "+cant.length+"件 は残しました）" : "")
+      + (failed.length ? "　⚠ "+failed.length+"件 は消せませんでした" : ""), failed.length>0);
+  }catch(e){ m("消せませんでした（"+e.message+"）", true); }
+  finally{ qsDeletingMany=false; $("qs-btn-delmany").disabled=false; }
+};
+
 let qsExporting=false;
 $("qs-btn-export").onclick = async ()=>{
   if(qsExporting) return;
-  const listed = $("qs-list-body").querySelectorAll("tr[data-qsid]");
-  const ids = [...listed].map(tr=>tr.getAttribute("data-qsid"));
+  const ids = qsLastSets.map(s=>s.id);
   const m = (text, ng)=>{ const el=$("qs-list-msg"); el.style.display="block";
                           el.textContent=text; el.className="msg"+(ng?" err":" info"); };
   if(!ids.length){ m("書き出す回がありません。", true); return; }
@@ -1083,6 +1143,7 @@ async function showQsList(resetLimit){
     const { rows: sets, total } = await FmtImport.db.searchQuizSets(
       "id,title,lesson,is_open,attempts(count),questions!questions_quiz_set_id_fkey(count)",
       { book: qsListState.book, q: qsListState.q, limit: qsListState.limit });
+    qsLastSets = sets;                               // ★まとめて操作（書き出し・削除）が使う
     if(window.__e2e) window.__e2e.lastSets = sets;   // ブラウザ実操作テストの覗き口（画面の動作には使わない）
     // ★毎回まるごと入れ替える。1行ずつ足す形だと、古い行が残っていないかを常に気にすることになる
     //   ・操作は「公開/停止」と「消す」の2つだけ。行に置くのは、一覧を見ながら押せるようにするため
@@ -1093,7 +1154,6 @@ async function showQsList(resetLimit){
                 ? s.attempts[0].count : null;
       // ★1件でもあれば消せない。**押す前に**ボタンを無効にして、理由をその場に出す
       //   （押してから下のほうに理由が出る形だと、押しても何も起きないように見える）
-      const locked = n !== null && n > 0;
       return "<tr data-qsid='"+esc(s.id)+"'><td>"+esc(s.title)+"</td><td>"+esc(s.lesson||"")+"</td>"+
         "<td class='num'>"+(n===null ? "—" : n)+"</td>"+
         "<td><span class='pill "+(s.is_open?"on":"off")+"'>"+(s.is_open?"公開中":"下書き")+"</span></td>"+
@@ -1110,13 +1170,14 @@ async function showQsList(resetLimit){
              これが無いと、誤字に気づいても**受験ずみの回は消せない**ので打つ手が無かった。 */
           "<button class='btn ghost qs-edit' type='button' "+
             "title='この回の設問を1問ずつ直します'>編集</button>"+
-          "<button class='btn ghost qs-xlsx' type='button' "+
-            "title='この回を、課題登録FMT の形の Excel にして保存します（そのまま取り込み直せます）'>Excel</button>"+
-          "<button class='btn ghost qs-del' type='button'"+(locked?" disabled":"")+
-            " title='"+(locked ? "受験記録が "+n+" 件あるので消せません。停止を使ってください"
-                               : "受験記録が無いので消せます")+"'>消す</button>"+
-          (locked ? "<span class='qs-why'>受験ずみ</span>" : "")+
         "</td></tr>";
+      /* ★行に置くのは3つだけにした（2026-09-13 きあ判断）。「消す」と「Excel」は上の帯へ。
+         ・Excel … 1回＝1ファイルが87個できても控えにならない。まとめてでないと意味がない
+         ・消す … 後始末なので、まとめてやることのほうが多い（9月に87回ぶん消した）。
+           そのうえ**消すだけが戻せない**ので、一覧から一発で押せるより、
+           「一度しぼって、何を消すのか目で確かめてから押す」ほうが安全
+         ★どれを選ぶかの仕組みは、もう画面にある＝**教材でしぼる／名前で検索**。
+           チェックボックスは足さない（選んだつもりが違う行だった、という事故を増やさない）。 */
     }).join("");
     const filtering = !!(qsListState.book || qsListState.q);
     if(!sets.length){
@@ -1243,19 +1304,6 @@ function wireQsListActions(sets){
       catch(e){ msg("できませんでした（"+e.message+"）", true); busy(false); }
     };
 
-    // Excel 書き出し（2026-09-13）。★サーバーには何も送らない。ブラウザの中で作って落とすだけ
-    tr.querySelector(".qs-xlsx").onclick = async ()=>{
-      busy(true);
-      try{
-        msg("「"+s.title+"」を書き出しています…");
-        const set = await FmtImport.db.loadSetForEdit(id);
-        const r = FmtImport.db.downloadWorkbook([set], xlsxName(s.title));
-        msg("書き出しました："+s.title+"（"+r.questions+"問）"
-            + (r.wideSets.length ? "　⚠ 選択肢が6個以上ある回があるので、列を右に伸ばしています（そのままでは取り込めません）" : ""));
-      }catch(e){ msg("書き出せませんでした（"+e.message+"）", true); }
-      finally{ busy(false); }
-    };
-
     // 編集（2026-09-13）。読み込みは routeQsets → showQsEdit がやる
     tr.querySelector(".qs-edit").onclick = ()=>{
       /* ★押した瞬間に「読み込み中」にする。hash を変えてから showQsEdit が動き出すまでの間、
@@ -1267,28 +1315,6 @@ function wireQsListActions(sets){
       location.hash = "#qsets/edit/" + encodeURIComponent(id);
     };
 
-    tr.querySelector(".qs-del").onclick = async ()=>{
-      busy(true);
-      try{
-        // ★押す前に受験記録を数える。0件でなければ、そもそも確認を出さずに断る
-        //   （最終判断はサーバー側の delete_quiz_set。ここは説明を出すための先読み）
-        const n = await FmtImport.db.attemptCount(id);
-        if(n > 0){
-          msg("「"+s.title+"」は受験記録が "+n+" 件あるので消せません。「停止」を使ってください。", true);
-          busy(false); return;
-        }
-        const qn = embedN(s.questions);
-        const ok = await askDialog({
-          title: "「"+s.title+"」を消します",
-          body: "設問"+(qn!=null ? " "+qn+"問" : "")+"も一緒に消えます。元に戻せません。",
-          okText: "消す", danger: true,
-        });
-        if(!ok){ busy(false); return; }
-        const r = await FmtImport.db.deleteSet(id, { title: s.title });
-        msg("消しました：" + s.title + "（設問 " + (r && r.questions!=null ? r.questions : "?") + "問）");
-        await showQsList();
-      }catch(e){ msg("消せませんでした（"+e.message+"）", true); busy(false); }
-    };
   });
 }
 
