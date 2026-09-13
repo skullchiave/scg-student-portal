@@ -1102,12 +1102,13 @@ function rxFilename(kind){
   return "小テスト結果_"+kind+"_"+part.replace(/[\\\/:*?\"<>|]/g,"_").slice(0,40)+"_"+todayCompact()+".csv";
 }
 
-async function rxExport(kind){
-  $("rx-wide").disabled = true; $("rx-long").disabled = true;
-  rxMsg("集めています…");
-  try{
-    const r = await rxCollect(n=>rxMsg("集めています… "+n+"件"));
-    if(!r.attempts.length){ rxMsg("この範囲には受験記録がありません。", true); return; }
+/* ★「表を組み立てる」と「ファイルに保存する」を分けてある。
+   分けておくと、検査や確認のときに **保存せずに中身だけ**見られる
+   （＝見せている表と、実際に落ちるファイルが同じだと言い切れる）。 */
+async function rxBuild(kind, onProgress){
+  const r = await rxCollect(onProgress);
+  if(!r.attempts.length) return null;
+  {
     let rows, n;
     if(kind==="wide"){
       /* ★列に出すのは「実際に受けられたテスト」だけ。
@@ -1115,10 +1116,15 @@ async function rxExport(kind){
          87列のうち中身があるのが5列、という読みにくい表になる。 */
       const used = new Set(r.attempts.map(a=>a.quiz_set_id));
       const sets = r.sets.filter(s=>used.has(s.id));
+      /* 🔴 同じテストを2回受けていたら **1回目（いちばん古い提出）** を採る（2026-09-13 きあ決定）。
+         きあ＝「最初でいいかも？ 1回目のやつじゃないと、アンフェアになるよ」。
+         ★attempts は submitted_at の昇順で集めてあるので、**先に入ったほうを残す**だけでよい。
+         ⚠ それまでは後勝ちだった（意図して選んでいたわけではなく、上書きの結果そうなっていた）。 */
+      const first = FmtImport.firstOfEach(
+        r.attempts, a => r.profById[a.student_id].student_no + "\u0001" + a.quiz_set_id);
       const byPair = {};
-      r.attempts.forEach(a=>{
-        const p = r.profById[a.student_id];
-        byPair[p.student_no+"\u0001"+a.quiz_set_id] = {score:a.score, total:a.total};
+      Object.keys(first).forEach(k=>{
+        byPair[k] = { score: first[k].score, total: first[k].total };
       });
       // 受けた学生だけ（1件も受けていない人の行は出さない）
       const seen = new Set(r.attempts.map(a=>a.student_id));
@@ -1126,8 +1132,8 @@ async function rxExport(kind){
         .map(p=>({student_no:p.student_no, name:p.display_name, class_name:p.class_name||""}));
       rows = FmtImport.wideRows(students, sets, byPair);
       n = students.length;
-      downloadCsv(rxFilename("一覧"), rows);
-      rxMsg("書き出しました（"+n+"人 × "+sets.length+"テスト）。ダウンロード先に保存されています。");
+      return { rows, filename: rxFilename("一覧"),
+               msg: "書き出しました（"+n+"人 × "+sets.length+"テスト）。ダウンロード先に保存されています。" };
     }else{
       const list = r.attempts.map(a=>{
         const p = r.profById[a.student_id], s = r.setById[a.quiz_set_id];
@@ -1136,9 +1142,20 @@ async function rxExport(kind){
                  score:a.score, total:a.total, at:a.submitted_at, duration_ms:a.duration_ms };
       });
       rows = FmtImport.longRows(list);
-      downloadCsv(rxFilename("明細"), rows);
-      rxMsg("書き出しました（"+list.length+"件）。ダウンロード先に保存されています。");
+      return { rows, filename: rxFilename("明細"),
+               msg: "書き出しました（"+list.length+"件）。ダウンロード先に保存されています。" };
     }
+  }
+}
+
+async function rxExport(kind){
+  $("rx-wide").disabled = true; $("rx-long").disabled = true;
+  rxMsg("集めています…");
+  try{
+    const built = await rxBuild(kind, n=>rxMsg("集めています… "+n+"件"));
+    if(!built){ rxMsg("この範囲には受験記録がありません。", true); return; }
+    downloadCsv(built.filename, built.rows);
+    rxMsg(built.msg);
   }catch(e){ rxMsg("書き出せませんでした（"+e.message+"）", true); }
   finally{ $("rx-wide").disabled=false; $("rx-long").disabled=false; }
 }
@@ -2319,6 +2336,12 @@ function csvCell(v){
 }
 /* 🔴 BOM付きUTF-8。付けないとExcelで日本語が化ける（既定の「UTF-8（BOM無し）」の罠）。
    改行はCRLF（Excelの既定に合わせる）。ダウンロードはブラウザの中だけ＝送信しない。 */
+/* ★CSVの本文を作るところ。downloadCsv はこれを呼んで保存するだけ。
+   分けてあるのは「画面で見せた中身」と「落ちたファイルの中身」が同じだと言い切るため。 */
+function csvText(rows){
+  return "\uFEFF" + rows.map(r=>r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+}
+
 function downloadCsv(filename, rows){
   const text = "\uFEFF" + rows.map(r=>r.map(csvCell).join(",")).join("\r\n") + "\r\n";
   const blob = new Blob([text], {type:"text/csv;charset=utf-8;"});
@@ -2526,6 +2549,10 @@ window.__e2e = {
   buildWb:(sets)=>FmtImport.db.buildWorkbook(sets),
   reimport:(wb)=>FmtImport.build(wb, {}),
   buildTpl:()=>FmtImport.db.buildTemplateWorkbook(),
+  /* 結果のまとめ書き出し（2026-09-13）。★保存せずに中身だけ返す＝
+     見せている表と、実際に落ちるファイルが同じだと言い切るため。 */
+  rxBuild:(kind)=>rxBuild(kind),
+  csvText:(rows)=>csvText(rows),
 };
 
 (async ()=>{

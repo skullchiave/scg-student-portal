@@ -513,6 +513,19 @@ const R = {};
       duration_ms: null },
   ]);
   R.result_empty = FmtImport.RESULT_EMPTY;
+
+  /* 🔴 同じテストを2回以上受けたら「1回目」を採る（2026-09-13 きあ決定）。
+     提出の古い順で渡す前提。3回受けた人をわざと混ぜる。 */
+  const tries = [
+    { who: "2604999", set: "s1", score: 6, at: "09-03 11:34" },   // ★1回目
+    { who: "2604998", set: "s1", score: 2, at: "09-03 12:00" },
+    { who: "2604999", set: "s1", score: 3, at: "09-04 14:28" },
+    { who: "2604999", set: "s1", score: 5, at: "09-04 17:23" },
+    { who: "2604999", set: "s2", score: 9, at: "09-05 09:00" },
+  ];
+  const firsts = FmtImport.firstOfEach(tries, x => x.who + "\u0001" + x.set);
+  R.first_scores = Object.keys(firsts).sort().map(k => k + "=" + firsts[k].score);
+  R.first_count = Object.keys(firsts).length;
 }
 {
   /* 🔴 配るテンプレートの見本（2026-09-13）。
@@ -775,6 +788,12 @@ class NodeParityTest(CheckMixin, unittest.TestCase):
         self.check("所要が無ければ空欄（0秒にしない）", long[2][-1] == "", repr(long[2][-1]))
         self.check("★提出日時が読める形（YYYY-MM-DD HH:MM）",
                    len(str(long[1][8])) == 16 and str(long[1][8])[4] == "-", str(long[1][8]))
+
+        # 🔴 同じテストを2回以上受けたときの決め（2026-09-13 きあ決定）
+        self.check("🔴★同じテストを何回受けても「1回目」を採る（あとの回ほど有利にしない）",
+                   r["first_scores"] == ["2604998\u0001s1=2", "2604999\u0001s1=6", "2604999\u0001s2=9"],
+                   str(r["first_scores"]))
+        self.check("★組は「学生 × テスト」で数える", r["first_count"] == 3, str(r["first_count"]))
 
         # 🔴 離席の記録を出していないこと（成績に反映しない方針）
         joined = " ".join(map(str, wide[0])) + " " + " ".join(map(str, long[0]))

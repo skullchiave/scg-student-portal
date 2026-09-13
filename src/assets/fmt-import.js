@@ -357,6 +357,26 @@ const FmtImport = (() => {
     return rows;
   }
 
+  /* 同じ学生・同じテストを2回以上受けていたら、**1回目（いちばん古い提出）** を採る。
+   *
+   * ★きあ決定（2026-09-13）＝「最初でいいかも？ 1回目のやつじゃないと、アンフェアになるよ」。
+   *   あとの回ほど問題を知っているので、2回目以降を採ると不公平になる。
+   * ⚠ それまでは後勝ちだった。**意図して選んでいたわけではなく、上書きの結果そうなっていた。**
+   *   「たまたまそうなっている」を「そう決めた」に変えるのが、この関数の役目。
+   *
+   * list は **提出の古い順** で渡すこと（呼ぶ側が submitted_at 昇順で集めている）。
+   * keyOf(item) が同じものを「同じ学生の同じテスト」とみなす。
+   */
+  function firstOfEach(list, keyOf) {
+    const out = {};
+    (list || []).forEach(x => {
+      const k = keyOf(x);
+      if (Object.prototype.hasOwnProperty.call(out, k)) return;   // すでに1回目が入っている
+      out[k] = x;
+    });
+    return out;
+  }
+
   /* 明細（1行＝1受験）。attempts は新しい順でも古い順でも、渡された順に出す。 */
   function longRows(attempts) {
     const rows = [["学籍番号", "氏名", "クラス", "教科書", "テスト名", "課",
@@ -464,7 +484,7 @@ const FmtImport = (() => {
     // 配るテンプレートの中身（JS と Python で同じであることを検査で見ている）
     TEMPLATE_SHEET_NAME, TEMPLATE_HEADERS, TEMPLATE_ROWS,
     // 結果のまとめ書き出し（表の組み立てだけ。通信もDOMも触らない＝検査から直接確かめられる）
-    wideRows, longRows, fmtWhen, RESULT_EMPTY,
+    wideRows, longRows, firstOfEach, fmtWhen, RESULT_EMPTY,
   };
 })();
 
