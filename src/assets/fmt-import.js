@@ -47,6 +47,9 @@ const FmtImport = (() => {
     "38fc6776", "420e2a0f", "513be979", "7f55aabb", "a67e5013", "aaa0d3ca",
     "b492fcfe", "c0315902", "ca0a73d7", "ddc14b7c", "ea10d188", "f9ce8ff7",
     "fd5f3472", "ff00d85c",
+    // 【作問シート】テンプレート（2026-09-13）の見本3行。scripts/make_sakumon_template.py が作る。
+    // ★見本の行を書き換えたら --keys で出し直して、ここと import_fmt_xlsx.py の両方に貼ること。
+    "d295f90a", "7ebfad72", "19258114",
   ]);
 
   function fnv1a(text) {
