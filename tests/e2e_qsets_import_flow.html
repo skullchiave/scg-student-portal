@@ -153,14 +153,43 @@ const TITLE_PREFIX = "🧪E2Eテストダミー（自動で消えます）";
        !!rowOf() && rowOf().textContent.includes("下書き"),
        rowOf() ? rowOf().textContent.slice(0, 80) : "行が無い");
 
+  /* 🔴 行の操作ボタンが**縦に積まれていない**こと（2026-09-13 に撮って気づいた）。
+     app.css の .btn はスマホ向けに display:block なので、表のセルの中では1つずつ改行される。
+     そうなると1行が3段になり、一覧に6行しか入らない（14行入るはずが）。
+     ★「押せるか」は通るのに「並びが壊れている」＝**検査からは見えない**類なので、位置を測る。 */
+  {
+    const acts = rowOf() && rowOf().querySelector(".qs-act");
+    const btns = acts ? [...acts.querySelectorAll(".btn")] : [];
+    const tops = new Set(btns.map(b => Math.round(b.getBoundingClientRect().top)));
+    step("🔴★行の操作ボタンが1行に並んでいる（縦に積まれていない）",
+         btns.length >= 2 && tops.size === 1,
+         btns.length + "個 / 段数 " + tops.size);
+    step("★行に置くのは3つだけ（はじめる・公開・編集）", btns.length === 3,
+         btns.map(b => b.textContent.trim()).join(" / "));
+  }
+
   // ---- 公開／停止のトグル ----
   // ★2026-09-11 から確認は自前の <dialog>（askDialog）。**window.confirm は使っていない**ので、
   //   差し替えでは通らない。実際に画面に出た OK ボタンを押す。
   //   ⚠ 押す前に「ダイアログが本当に出たか」も確かめる＝出ないまま次へ進むのを防ぐ。
+  let dlgPlaceChecked = false;
   const pressOk = async (what) => {
     const shown = await until(() => { const d0 = $("cfm-dlg"); return d0 && d0.open; }, 10000);
     step("★" + what + "の前に確認ダイアログが出る", shown,
          shown ? $("cfm-dlg").textContent.replace(/\s+/g, " ").slice(0, 70) : "出なかった");
+    /* 🔴 まん中に出ているか（2026-09-13 きあ報告）。
+       app.css の *{margin:0} が、ブラウザ標準の dialog:modal{margin:auto} を打ち消すと
+       **画面の左上に貼り付く**。見た目の戻りは静かに起きるので、位置そのものを測る。 */
+    if (shown && !dlgPlaceChecked) {
+      dlgPlaceChecked = true;
+      const r = $("cfm-dlg").getBoundingClientRect();
+      const vw = d.documentElement.clientWidth, vh = d.documentElement.clientHeight;
+      const dx = Math.abs((r.left + r.right) / 2 - vw / 2);
+      const dy = Math.abs((r.top + r.bottom) / 2 - vh / 2);
+      step("🔴★確認ダイアログが画面のまん中に出る（左上に貼り付いていない）",
+           r.width > 0 && dx < 40 && dy < 80,
+           "中心のズレ x=" + Math.round(dx) + "px y=" + Math.round(dy) + "px / 画面 " + vw + "x" + vh);
+    }
     if (shown) $("cfm-ok").click();
     return shown;
   };

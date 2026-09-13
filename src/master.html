@@ -13,8 +13,11 @@
        ここは登録・アンケート作成・お知らせ・点検＝**机の仕事**だけ。
      左=機能の一覧（いま動きます／これから作る画面）、右=その中身。学生画面と同じく本物とイメージを混ぜない */
   header{border-radius:0;}
-  .hin{max-width:1120px;}
-  main{max-width:1120px;padding:18px 16px 48px;}
+  /* ★1120px だと、左メニュー268pxを引いた本体が狭く、一覧の上のボタンが2列に折り返していた
+     （2026-09-13 きあ報告）。管理の画面はPCで開く前提なので、画面なりに広げる。
+     96vw を上限に入れてあるのは、幅の狭いノートPCで左右の余白が消えないようにするため。 */
+  .hin{max-width:min(1560px,96vw);}
+  main{max-width:min(1560px,96vw);padding:18px 16px 48px;}
   .adm{display:grid;grid-template-columns:268px minmax(0,1fr);gap:20px;align-items:start;}
   .side{background:var(--surface);border:1px solid var(--edge);border-radius:16px;padding:10px;position:sticky;top:12px;}
   .side .sechead{padding:10px 12px 6px;}
@@ -100,7 +103,12 @@
   .qs-warnbox{font-size:.8rem;color:var(--sub);margin-top:10px;line-height:1.6;}
   /* 一覧の行に置く操作ボタン。表の行が高くならないように小さくする */
   .qs-act{white-space:nowrap;}
-  .qs-act .btn{width:auto;padding:5px 12px;font-size:.8rem;margin:0 4px 0 0;}
+  /* 🔴 app.css の .btn は**スマホ向けに display:block; width:100%**。
+     width だけ上書きしても **display:block のままなので、表のセルの中で縦に積まれる**
+     （2026-09-13 に撮って気づいた。1行が3段になって、一覧に6行しか入らなかった）。
+     ★上の帯のボタンが平気だったのは .dashhead が display:flex で、
+       中の子が flex アイテムになるから＝display:block が効かないため。表では効く。 */
+  .qs-act .btn{display:inline-block;width:auto;padding:5px 12px;font-size:.8rem;margin:0 4px 0 0;}
   .qs-act .btn:disabled{opacity:.4;cursor:not-allowed;}
   .qs-why{font-size:.72rem;color:var(--sub);white-space:nowrap;}
   /* 一覧・「はじめる」の絞り込みバー（2026-09-11）。

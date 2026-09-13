@@ -9,6 +9,12 @@
   --ok:#2f9e44; --ng:#d64545;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
+/* 🔴 上の *{margin:0} が、ブラウザ標準の dialog:modal{margin:auto} を打ち消す。
+   打ち消されると <dialog> は **画面の左上に貼り付く**（2026-09-13 きあ報告）。
+   ★確認ダイアログは「下の画面を触らせないため」に出しているので、
+     視線の動かない**まん中**に出すのが正しい。ここで margin を戻す。
+   ⓘ 効くのは teacher.html と master.html。index.html（学生）に <dialog> は無い。 */
+dialog{margin:auto;}
 [hidden]{display:none!important;} /* displayを持つクラスがhidden属性を上書きする罠の対策 */
 html{-webkit-text-size-adjust:100%;}
 body{color:var(--ink);background:var(--bg);min-height:100dvh;
