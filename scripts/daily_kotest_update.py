@@ -345,6 +345,13 @@ def clear_alert() -> None:
 
 
 # ── タスクスケジューラへの登録 ────────────────────────────────
+def logon_user() -> str:
+    r"""ログオントリガーに書く「自分」（`ドメイン\ユーザー名`）。"""
+    dom = os.environ.get("USERDOMAIN", "")
+    user = os.environ.get("USERNAME", "")
+    return f"{dom}\\{user}" if dom else user
+
+
 def task_xml(s: str) -> str:
     r"""そのPCの時刻でタスクの中身を組む。**止まっていた回は、起動後に取り戻す**。
 
@@ -362,9 +369,13 @@ def task_xml(s: str) -> str:
       <ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay>
     </CalendarTrigger>""" for t in c["times"])
     if c["logon"]:
+        # ★<UserId> を書かないと「すべてのユーザーのログオン時」の意味になり、
+        #   管理者でないと登録できない（会社PCで「アクセスが拒否されました」）。
+        #   自分のログオン時に限れば、管理者でなくても登録できる。既存のSCGタスクも同じ形。
         triggers += f"""
     <LogonTrigger>
       <Enabled>true</Enabled>
+      <UserId>{logon_user()}</UserId>
       <Delay>{c['logon']}</Delay>
     </LogonTrigger>"""
     return f"""<?xml version="1.0" encoding="UTF-16"?>
