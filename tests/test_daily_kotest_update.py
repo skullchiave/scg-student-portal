@@ -272,6 +272,128 @@ class Alert(unittest.TestCase):
             du.clear_alert()                    # 例外が出なければよい
 
 
+class Phone(unittest.TestCase):
+    """☎ 電話番号の取得（2026-09-28 追加）
+
+    ★8/6 に1回手で回したきり、台帳は毎日作り直されていたのに番号だけ古かった。
+    """
+
+    # 取得スクリプトの出力の形（番号・氏名はダミー帯）
+    OUT = ("既存スナップショット: 464名\n"
+           "リンガル在学生: 465名\n"
+           "今回取得: 465名（携帯番号あり 460名）\n"
+           "  新規 1名 / 変更 2名 / 据え置き（今回リンガルに不在）0名\n"
+           "  --- 前回から変わった番号 ---\n"
+           "    2604999 テスト太郎 : 090-0000-0001 → 090-0000-0002\n"
+           "[OK] X:\\phone_ringual.csv を更新しました（計465名）\n")
+
+    def setUp(self):
+        self.home = Path(tempfile.mkdtemp())
+        (self.home / "scripts").mkdir()
+        (self.home / "scripts" / "fetch_phone_ringual.py").write_text("", encoding="utf-8")
+
+    def _fake(self, out, code=0):
+        class R:
+            returncode = code
+            stdout = out
+            stderr = ""
+        return R()
+
+    def test_番号と氏名はログに残さない(self):
+        """🔴 マスクを通しても、変わった番号の一覧は行ごと捨てる。"""
+        with mock.patch.object(du.subprocess, "run", return_value=self._fake(self.OUT)):
+            ok, lines = du.fetch_phone(self.home, lambda t: (t, {}))   # 何も伏せないマスク
+        text = "\n".join(lines)
+        self.assertTrue(ok)
+        self.assertNotIn("090-0000", text)
+        self.assertNotIn("テスト太郎", text)
+        self.assertNotIn("2604999", text)
+        self.assertIn("今回取得: 465名", text)          # 件数は残る
+        self.assertIn("変更 2名", text)
+
+    def test_失敗しても例外を投げない(self):
+        with mock.patch.object(du.subprocess, "run",
+                               return_value=self._fake("[エラー] ログインできません", 1)):
+            ok, lines = du.fetch_phone(self.home, lambda t: (t, {}))
+        self.assertIs(ok, False)
+        self.assertIn("前回のCSVのまま", lines[0])
+        self.assertTrue(any("ログインできません" in x for x in lines))
+
+    def test_マスクが無ければ失敗理由も捨てる(self):
+        with mock.patch.object(du.subprocess, "run",
+                               return_value=self._fake("[エラー] テスト太郎", 1)):
+            _ok, lines = du.fetch_phone(self.home, None)
+        self.assertNotIn("テスト太郎", "\n".join(lines))
+
+    def test_今日取れていれば見送る(self):
+        """1日1回。取るたびに履歴コピー（番号入り）が増えるのを抑える。"""
+        p = self.home / du.PHONE_CSV
+        p.parent.mkdir(parents=True)
+        p.write_text("x", encoding="utf-8")
+        with mock.patch.object(du.subprocess, "run") as sub:
+            ok, _ = du.fetch_phone(self.home, None)
+        self.assertIsNone(ok)
+        sub.assert_not_called()
+
+    def test_昨日のCSVなら取りに行く(self):
+        p = self.home / du.PHONE_CSV
+        p.parent.mkdir(parents=True)
+        p.write_text("x", encoding="utf-8")
+        y = (dt.datetime.now() - dt.timedelta(days=1)).timestamp()
+        os.utime(p, (y, y))
+        with mock.patch.object(du.subprocess, "run", return_value=self._fake(self.OUT)) as sub:
+            ok, _ = du.fetch_phone(self.home, None)
+        self.assertTrue(ok)
+        sub.assert_called_once()
+
+    def test_スクリプトが無ければ失敗扱い(self):
+        (self.home / "scripts" / "fetch_phone_ringual.py").unlink()
+        with mock.patch.object(du.subprocess, "run") as sub:
+            ok, lines = du.fetch_phone(self.home, None)
+        self.assertIs(ok, False)
+        sub.assert_not_called()
+
+    def test_電話番号が落ちても台帳は作り直す(self):
+        """🔴 小テストを道連れにしない。電話は目印だけ出して先へ進む。"""
+        (self.home / "scripts" / "build_master.py").write_text("", encoding="utf-8")
+        calls = []
+
+        def fake_run(cmd, **kw):
+            name = Path(cmd[3]).name          # [python, -X, utf8, <スクリプト>, ...]
+            calls.append(name)
+            return self._fake("[エラー] x", 1) if name == "fetch_phone_ringual.py" else self._fake("ok")
+
+        tmp = Path(tempfile.mkdtemp())
+        with mock.patch.dict(os.environ, {du.ENV_SITE: "office"}), \
+             mock.patch.object(du, "ledger_home", return_value=(self.home, "テスト")), \
+             mock.patch.object(du, "log_path", return_value=tmp / "k.log"), \
+             mock.patch.object(du, "alert_path", return_value=tmp / "a.txt"), \
+             mock.patch.object(du, "phone_alert_path", return_value=tmp / "p.txt"), \
+             mock.patch.object(du, "masker", return_value=None), \
+             mock.patch.object(du.subprocess, "run", side_effect=fake_run):
+            code = du.do_run()
+        self.assertEqual(code, 0)
+        self.assertTrue((tmp / "p.txt").exists())        # 電話の目印は出る
+        self.assertFalse((tmp / "a.txt").exists())       # 小テストの目印は出ない
+        self.assertIn("fetch_phone_ringual.py", calls)
+        self.assertIn("build_master.py", calls)
+        self.assertLess(calls.index("fetch_phone_ringual.py"), calls.index("build_master.py"))
+
+    def test_うまくいったら電話の目印を消す(self):
+        (self.home / "scripts" / "build_master.py").write_text("", encoding="utf-8")
+        tmp = Path(tempfile.mkdtemp())
+        (tmp / "p.txt").write_text("前の失敗", encoding="utf-8")
+        with mock.patch.dict(os.environ, {du.ENV_SITE: "office"}), \
+             mock.patch.object(du, "ledger_home", return_value=(self.home, "テスト")), \
+             mock.patch.object(du, "log_path", return_value=tmp / "k.log"), \
+             mock.patch.object(du, "alert_path", return_value=tmp / "a.txt"), \
+             mock.patch.object(du, "phone_alert_path", return_value=tmp / "p.txt"), \
+             mock.patch.object(du, "masker", return_value=None), \
+             mock.patch.object(du.subprocess, "run", return_value=self._fake(self.OUT)):
+            self.assertEqual(du.do_run(), 0)
+        self.assertFalse((tmp / "p.txt").exists())
+
+
 class LogTrim(unittest.TestCase):
     def test_古い行から捨てる(self):
         d = Path(tempfile.mkdtemp()) / "a.log"

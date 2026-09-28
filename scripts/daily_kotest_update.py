@@ -11,6 +11,17 @@ r"""毎日の自動更新：小テストの点 → 学生マスタDB（2026-09-1
      → 「小テスト_〈教科書名〉」シートが新しくなる
   ★①だけでは台帳の xlsx は変わりません。②まで走って初めて「自動更新」になります。
 
+■ ついでに電話番号もリンガルから取り直す（2026-09-28 追加）
+  電話連絡帳で「現在使われておりません」が続き、リンガルでは新しい番号になっていた。
+  電話番号の正はリンガル（2026-08-06 切替）だが、取得 fetch_phone_ringual.py は
+  **手で1回回したきり**で、8/6 のCSVのまま台帳が毎日作り直されていた。
+  ②で台帳を作り直すのはここだけなので、その直前に取得を差し込む。
+  ・1日1回だけ（CSVが今日すでに更新済みなら見送る）＝取るたびに増える履歴コピーを抑える
+  ・失敗しても小テストは止めない。前回のCSVのまま進み、デスクトップに別の目印を出す
+    （リンガル廃止＝ヨリソル移行の日には毎日これが出る＝取得元を差し替える合図）
+  ・ログには件数の行だけ残す（取得スクリプトは変わった番号と氏名を画面に出すため）
+  ★共有の電話連絡帳へ届くのは、出席率の日次（13:00 / 18:00）が台帳の変化を見て配ったとき。
+
 ■ 使い方
     py -X utf8 scripts\daily_kotest_update.py --check      # 設定を確かめるだけ（走らせない）
     py -X utf8 scripts\daily_kotest_update.py --install    # 毎日 9:00 と 16:30 に登録
@@ -60,6 +71,12 @@ KOTEST_SUB = Path("マスタDB用データ") / "小テスト"
 TASK_NAME = r"SCG\kotest-daily-update"
 LOG_KEEP = 200                        # ログはこの行数だけ残す
 ALERT_NAME = "⚠小テスト自動更新が止まっています.txt"
+PHONE_CSV = Path("マスタDB用データ") / "電話番号" / "phone_ringual.csv"
+PHONE_ALERT_NAME = "⚠電話番号の自動取得が止まっています.txt"
+# 取得スクリプトの出力のうち、ログに残してよい行（件数だけ）。これ以外は捨てる。
+# 🔴 「前回から変わった番号」の一覧には番号と表示名がそのまま出るので、
+#   マスクに頼らず**行ごと落とす**（2文字のカナ姓はマスクから漏れることがある）。
+PHONE_SAFE_PREFIXES = ("既存スナップショット:", "リンガル在学生:", "今回取得:", "新規 ")
 
 # ── いつ走るか（2026-09-13 きあ決定）──────────────────────────────
 #
@@ -154,21 +171,76 @@ def masker(home: Path):
     return None
 
 
-def run(cmd: list[str], mask) -> tuple[int, str]:
-    """外のプログラムを走らせ、**マスク済みの短い要約**だけ返す。"""
+def run_raw(cmd: list[str]) -> tuple[int, str | None, str]:
+    """外のプログラムを走らせ、(終了コード, 素の出力 or None, 起動できなかった理由) を返す。
+    🔴 素の出力は**ログに書かないこと**。呼んだ側でマスクか絞り込みをしてから使う。"""
     try:
         r = subprocess.run(cmd, capture_output=True, text=True,
                            encoding="utf-8", errors="replace", timeout=3600)
     except subprocess.TimeoutExpired:
-        return 124, "1時間たっても終わらないので打ち切りました"
+        return 124, None, "1時間たっても終わらないので打ち切りました"
     except Exception as e:
-        return 1, f"起動できませんでした（{type(e).__name__}）"
-    out = ((r.stdout or "") + "\n" + (r.stderr or "")).strip()
+        return 1, None, f"起動できませんでした（{type(e).__name__}）"
+    return r.returncode, ((r.stdout or "") + "\n" + (r.stderr or "")).strip(), ""
+
+
+def run(cmd: list[str], mask) -> tuple[int, str]:
+    """外のプログラムを走らせ、**マスク済みの短い要約**だけ返す。"""
+    code, out, why = run_raw(cmd)
+    if out is None:
+        return code, why
     tail = "\n".join(out.splitlines()[-12:])
     if mask is None:
-        return r.returncode, "（マスクの仕組みが無いので、出力はログに残していません）"
+        return code, "（マスクの仕組みが無いので、出力はログに残していません）"
     masked, _counts = mask(tail)
-    return r.returncode, masked
+    return code, masked
+
+
+# ── 電話番号（リンガル）──────────────────────────────────────
+def phone_updated_today(home: Path) -> bool:
+    """電話番号のCSVが今日すでに書かれているか。
+    ★取得スクリプトは番号に変化が無くても最終取得日を入れて書き直すので、
+      更新時刻＝最後に取得がうまくいった時刻、とみなせる。"""
+    p = home / PHONE_CSV
+    try:
+        return dt.date.fromtimestamp(p.stat().st_mtime) == dt.date.today()
+    except OSError:
+        return False
+
+
+def phone_summary(out: str) -> list[str]:
+    """取得スクリプトの出力から、件数の行だけを抜く（番号・氏名の行は捨てる）。"""
+    keep = []
+    for line in out.splitlines():
+        s = line.strip()
+        if s.startswith(PHONE_SAFE_PREFIXES):
+            keep.append(s)
+    return keep
+
+
+def fetch_phone(home: Path, mask) -> tuple[bool | None, list[str]]:
+    """リンガルから電話番号を取り直す。(うまくいったか, ログの行) を返す。
+    None＝今日はもう取ってあるので見送った。**失敗しても例外は投げない**
+    （小テストの更新を道連れにしない。台帳は前回のCSVで作られる）。"""
+    head = "  ☎ 電話番号の取得（リンガル）: "
+    script = home / "scripts" / "fetch_phone_ringual.py"
+    if not script.exists():
+        return False, [head + "🔴 fetch_phone_ringual.py が見つかりません"]
+    if phone_updated_today(home):
+        return None, [head + "今日はもう取得済みなので見送り"]
+    code, out, why = run_raw([sys.executable, "-X", "utf8", str(script)])
+    lines = [head + ("OK" if code == 0 else f"🔴 失敗（終了コード {code}）＝前回のCSVのまま進みます")]
+    if out is None:
+        lines.append("      " + why)
+    else:
+        lines += ["      " + x for x in phone_summary(out)]
+        if code != 0 and mask is not None:
+            # 失敗の理由（[エラー] の行）だけはマスクを通して残す。マスクが無ければ捨てる
+            err = [x.strip() for x in out.splitlines() if x.strip().startswith("[エラー]")]
+            if err:
+                masked, _ = mask("\n".join(err[-3:]))
+                lines += ["      " + x for x in masked.splitlines() if x.strip()]
+    return code == 0, lines
 
 
 # ── 本体 ──────────────────────────────────────────────────
@@ -208,6 +280,16 @@ def do_check(verbose: bool = True) -> int:
     ok &= exporter.exists()
 
     say(f"{'OK  ' if masker(home) else '🔴  '}mask_log.py（ログのマスク）")
+
+    # ☎ 電話番号。★見せるのは「いつ取れたか」だけ（中身は出さない）
+    phone_script = home / "scripts" / "fetch_phone_ringual.py"
+    say(f"{'OK  ' if phone_script.exists() else '🔴  '}fetch_phone_ringual.py（電話番号の取得）")
+    try:
+        got = dt.datetime.fromtimestamp((home / PHONE_CSV).stat().st_mtime)
+        age = (dt.datetime.now() - got).days
+        say(f"{'OK  ' if age <= 3 else '⚠  '}電話番号を最後に取れたのは {got:%Y-%m-%d %H:%M}（{age}日前）")
+    except OSError:
+        say("⚠  電話番号のCSVがまだありません（次に走ったときに作ります）")
 
     # ★「走らなかった日」は目印が出ない。だから**前回いつ成功したか**を必ず出す。
     #   失敗は気づけるが、そもそも走っていないことには気づけないため（2026-09-13）。
@@ -274,6 +356,15 @@ def do_run() -> int:
         lines.append(f"  ⚠ 前回うまくいったのは {gap}日前（{prev:%Y-%m-%d}）"
                      "＝そのあいだ台帳は古いままでした")
     try:
+        # ☎ 電話番号（②の台帳の作り直しより前に）。失敗しても止めない。
+        #   ★①より前に置く＝小テストの書き出しが落ちた日でも、CSVだけは新しくなる
+        ok, note = fetch_phone(home, mask)
+        lines += note
+        if ok is True:
+            clear_phone_alert()
+        elif ok is False:
+            raise_phone_alert(note[0].split(": ", 1)[-1])
+
         out_dir = home / KOTEST_SUB
         out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -340,6 +431,42 @@ def raise_alert(msg: str) -> None:
 def clear_alert() -> None:
     try:
         alert_path().unlink()
+    except OSError:
+        pass
+
+
+def phone_alert_path() -> Path:
+    return Path.home() / "Desktop" / PHONE_ALERT_NAME
+
+
+def raise_phone_alert(msg: str) -> None:
+    """電話番号だけ取れなかったときの目印。小テストの目印とは別にする
+    （こちらは止まっても台帳は作られる＝気づかないまま番号だけ古くなるので）。"""
+    try:
+        p = phone_alert_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(
+            "電話番号の自動取得（リンガル）が止まっています。\n"
+            "電話連絡帳の番号は、最後に取れた日のまま古くなっていきます。\n\n"
+            f"　最後に試したとき: {dt.datetime.now():%Y-%m-%d %H:%M}\n"
+            f"　うまくいかなかったところ: {msg}\n\n"
+            "よくある原因:\n"
+            "  ・リンガルにログインできなかった（パスワード変更・ネット不調）\n"
+            "  ・リンガルが廃止された（ヨリソル移行）→ fetch_phone_ringual.py の取得元を差し替える\n"
+            "  ・出席率チェックのフォルダを動かした（取得はそこのログイン部品を借りている）\n\n"
+            "手で走らせて確かめる（件数と変わった番号が出ます）:\n"
+            "  py -X utf8 scripts\\fetch_phone_ringual.py --dry-run\n"
+            "  （学生マスタDB のフォルダで）\n\n"
+            f"くわしい記録: {log_path()}\n"
+            "★次にうまくいったら、このファイルは自動で消えます。\n",
+            encoding="utf-8")
+    except OSError:
+        pass
+
+
+def clear_phone_alert() -> None:
+    try:
+        phone_alert_path().unlink()
     except OSError:
         pass
 
