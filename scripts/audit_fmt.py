@@ -44,7 +44,7 @@ import import_fmt_xlsx as fx  # noqa: E402
 
 # ---------------------------------------------------------------- 既定値
 DEFAULT_BASE = Path(
-    r"I:\マイドライブ\claude作業場\0.2 claude-work\【学生ポータル】 Student Portal\Googleドライブ教材フォルダ")
+    r"I:\マイドライブ\claude作業場\0.2_アプリ文書\【学生ポータル】 Student Portal\06_元データ\Googleドライブ教材フォルダ")
 DEFAULT_OUT = Path("tmp") / "教材の不備一覧.html"
 # きあ判断（2026-09-10）＝もう使わないテキスト。--include-skipped で解除できる
 SKIP_DIRS = ["009.JapanGo_語学留学生のための日本語"]

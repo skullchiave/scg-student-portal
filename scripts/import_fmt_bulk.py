@@ -34,8 +34,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 DEFAULT_BASE = Path(
-    r"I:\マイドライブ\claude作業場\0.2 claude-work\【学生ポータル】 Student Portal"
-    r"\Googleドライブ教材フォルダ"
+    r"I:\マイドライブ\claude作業場\0.2_アプリ文書\【学生ポータル】 Student Portal"
+    r"\06_元データ\Googleドライブ教材フォルダ"
 )
 DEFAULT_OUT = REPO / "tmp"
 

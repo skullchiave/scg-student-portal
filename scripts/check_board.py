@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 # 既定の置き場。★進捗ボードはリポではなくドライブ側（運用の書類）にある
-DEFAULT = Path(r"I:\マイドライブ\claude作業場\0.2 claude-work"
+DEFAULT = Path(r"I:\マイドライブ\claude作業場\0.2_アプリ文書"
                r"\【学生ポータル】 Student Portal\進捗ボード.html")
 
 
